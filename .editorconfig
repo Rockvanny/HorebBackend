@@ -1,0 +1,22 @@
+# Editor configuration, see https://editorconfig.org
+root = true
+
+[*]
+charset = utf-8
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.js]
+quote_type = single
+
+[*.md]
+max_line_length = off
+trim_trailing_whitespace = false
+
+
+# para generar migraciones
+# -> Para crear el archivo de migracion: npx sequelize-cli migration:generate --name create_new_table
+# -> Para aplicar la migracion: npx sequelize-cli db:migrate
+# -> Para revertir una migracion npx sequelize-cli db:migrate:undo
