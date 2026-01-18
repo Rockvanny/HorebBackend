@@ -73,7 +73,7 @@ class salesInvoiceService {
       const { count, rows } = await salesInvoice.findAndCountAll(options);
 
       return {
-        salesInvoice: rows,
+        records: rows,
         hasMore: (parsedOffset + rows.length) < count,
         total: count,
       };

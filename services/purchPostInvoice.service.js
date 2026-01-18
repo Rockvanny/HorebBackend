@@ -67,7 +67,7 @@ class purchPostInvoice {
       const { count, rows } = await purchpostInvoice.findAndCountAll(options);
 
       return {
-        purchpostInvoice: rows,
+        records: rows,
         hasMore: (parsedOffset + rows.length) < count,
         total: count,
       };

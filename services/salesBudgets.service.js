@@ -67,7 +67,7 @@ class salesBudgetService {
       const { count, rows } = await salesBudget.findAndCountAll(options);
 
       return {
-        salesBudget: rows,
+        records: rows,
         hasMore: (parsedOffset + rows.length) < count,
         total: count,
       };

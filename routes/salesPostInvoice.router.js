@@ -22,7 +22,7 @@ router.get('/data/:budgetCode', async (req, res, next) => {
     }
 });
 
-router.get('/salesPostInvoice-paginated', async(req, res, next) => {
+router.get('/salesPostInvoices-paginated', async(req, res, next) => {
   try {
     const { limit, offset, searchTerm } = req.query;
     const result = await service.findPaginated({ limit, offset, searchTerm });

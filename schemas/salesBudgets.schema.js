@@ -6,6 +6,7 @@ const postingDate = Joi.date();
 const dueDate = Joi.date();
 const customerCode = Joi.string();
 const name = Joi.string().min(3).max(50);
+const nif = Joi.string().min(9).max(15);
 const email = Joi.string().email();
 const phone = Joi.string();
 const address = Joi.string();
@@ -31,6 +32,7 @@ const createSalesBudgetSchema = Joi.object({
   dueDate: dueDate.required(),
   customerCode: customerCode.required(),
   name: name.required(),
+  nif: nif.required(),
   email: email.required(),
   phone: phone.required(),
   address: address.required(),
@@ -48,6 +50,7 @@ const updateSalesBudgetSchema = Joi.object({
   dueDate: dueDate.required(),
   customerCode: customerCode.required(),
   name: name.required(),
+  nif: nif.optional().allow(''),
   email: email.required(),
   phone: phone.required(),
   address: address.required(),

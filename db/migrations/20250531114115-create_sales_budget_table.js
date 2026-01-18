@@ -28,6 +28,10 @@ module.exports = {
         field: 'name',
         type: Sequelize.DataTypes.STRING,
       },
+      nif: {
+        field: 'nif',
+        type: Sequelize.DataTypes.STRING,
+      },
       email: {
         field: 'email',
         type: Sequelize.DataTypes.STRING,

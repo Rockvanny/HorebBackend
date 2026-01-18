@@ -24,9 +24,14 @@ const salesBudgetSchema = {
     field: 'customer_code',
     type: DataTypes.STRING,
   },
-  
+
   name: {
     field: 'name',
+    type: DataTypes.STRING,
+  },
+  
+  nif: {
+    field: 'nif',
     type: DataTypes.STRING,
   },
 
