@@ -3,7 +3,7 @@ const { Model, DataTypes, Sequelize } = require('sequelize');
 const PURCHINVOICE_TABLE = 'purch_invoices';
 
 const purchInvoiceSchema = {
-   code: {
+  code: {
     field: 'code',
     allowNull: false,
     primaryKey: true,
@@ -69,10 +69,29 @@ const purchInvoiceSchema = {
     field: 'payment_method',
     type: DataTypes.STRING,
   },
-  
+
   status: {
     field: 'status',
     type: DataTypes.STRING,
+  },
+
+  /**
+   * NUEVO CAMPO: CATEGORÍA
+   * Definido como ENUM para asegurar que los datos coincidan
+   * exactamente con las categorías globales de la empresa de reformas.
+   */
+  category: {
+    field: 'category',
+    type: DataTypes.ENUM(
+      'Materiales',
+      'Subcontratas',
+      'Personal y Nóminas',
+      'Herramientas y Alquileres',
+      'Vehículos y Movilidad',
+      'Gastos de Oficina y Varios'
+    ),
+    allowNull: true,
+    defaultValue: 'Gastos de Oficina y Varios'
   },
 
   amountWithoutVAT: {
@@ -98,29 +117,32 @@ const purchInvoiceSchema = {
   createdAt: {
     field: 'created_at',
     allowNull: false,
-    type: DataTypes.DATE
+    type: DataTypes.DATE,
+    defaultValue: Sequelize.NOW
   },
 
   updatedAt: {
     field: 'updated_at',
     allowNull: false,
-    type: DataTypes.DATE
+    type: DataTypes.DATE,
+    defaultValue: Sequelize.NOW
   }
 }
 
 class purchInvoice extends Model {
 
   static associate(models) {
-    // Una factura compra pertenece a un proveedir
+    // Una factura de compra pertenece a un proveedor
     this.belongsTo(models.Vendor, {
       as: 'Vendor',
       foreignKey: 'vendor_code'
     });
 
+    // Una factura puede tener varias líneas de detalle
     this.hasMany(models.purchInvoiceLine, {
       as: 'lines',
       foreignKey: 'codeInvoice'
-    })
+    });
   }
 
   static config(sequelize) {

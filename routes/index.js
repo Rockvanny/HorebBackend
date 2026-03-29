@@ -16,6 +16,7 @@ const purchInvoiceLinesRouter = require('./purchInvoiceLines.router');
 const purchPostInvoiceRouter = require('./purchPostInvoice.router');
 const seiresNumberRouter = require('./seriesNumber.router');
 const config = require('./config.router');
+const statsRouter = require('./stats.router');
 
 function routerApi(app) {
   const router = express.Router();
@@ -37,6 +38,7 @@ function routerApi(app) {
   router.use('/purchPostInvoices', purchPostInvoiceRouter);
   router.use('/seriesNumber', seiresNumberRouter);
   router.use('/config', config);
+  router.use('/stats', statsRouter);
 }
 
 module.exports = routerApi;

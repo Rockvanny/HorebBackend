@@ -74,6 +74,25 @@ const purchPostInvoiceSchema = {
     type: DataTypes.STRING,
   },
 
+  /**
+   * CATEGORÍA (HISTÓRICO)
+   * Mantenemos el mismo ENUM para que el Dashboard lea correctamente
+   * los gastos acumulados por categoría.
+   */
+  category: {
+    field: 'category',
+    type: DataTypes.ENUM(
+      'Materiales',
+      'Subcontratas',
+      'Personal y Nóminas',
+      'Herramientas y Alquileres',
+      'Vehículos y Movilidad',
+      'Gastos de Oficina y Varios'
+    ),
+    allowNull: true,
+    defaultValue: 'Gastos de Oficina y Varios'
+  },
+
   amountWithoutVAT: {
     field: 'amount_without_vat',
     type: DataTypes.DECIMAL(10, 2),
@@ -98,12 +117,14 @@ const purchPostInvoiceSchema = {
     field: 'created_at',
     allowNull: false,
     type: DataTypes.DATE,
+    defaultValue: Sequelize.NOW
   },
 
   updatedAt: {
     field: 'updated_at',
     allowNull: false,
-    type: DataTypes.DATE
+    type: DataTypes.DATE,
+    defaultValue: Sequelize.NOW
   }
 }
 
