@@ -19,7 +19,7 @@ const UserSchema = {
   },
 
   password: {
-    field: 'passwrod',
+    field: 'password', // Corregido el typo de 'passwrod'
     allowNull: false,
     type: DataTypes.STRING,
   },
@@ -28,26 +28,62 @@ const UserSchema = {
     field: 'role',
     allowNull: false,
     type: DataTypes.STRING,
-    defaultValue: 'customer',
+    defaultValue: 'viewer', // Cambiado a 'viewer' según tu lógica de acceso
+  },
+
+  allowGestion: {
+    field: 'allow_gestion',
+    allowNull: false,
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+  },
+
+  allowSales: {
+    field: 'allow_sales',
+    allowNull: false,
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+  },
+
+  allowPurchases: {
+    field: 'allow_purchases',
+    allowNull: false,
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+
+  allowReports: {
+    field: 'allow_reports',
+    allowNull: false,
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+
+  allowSettings: {
+    field: 'allow_settings',
+    allowNull: false,
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
   },
 
   createdAt: {
     field: 'create_at',
     allowNull: false,
-    type: DataTypes.DATE
+    type: DataTypes.DATE,
+    defaultValue: Sequelize.NOW
   },
 
   updatedAt: {
     field: 'updated_at',
     allowNull: false,
-    type: DataTypes.DATE
+    type: DataTypes.DATE,
+    defaultValue: Sequelize.NOW
   }
 }
 
 class User extends Model {
-
   static associate(models) { }
-  
+
   static config(sequelize) {
     return {
       sequelize,
@@ -58,6 +94,5 @@ class User extends Model {
     }
   }
 }
-
 
 module.exports = { USER_TABLE, UserSchema, User }

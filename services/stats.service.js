@@ -2,16 +2,37 @@ const { Op, fn, col, literal } = require('sequelize');
 const sequelize = require('../libs/sequelize');
 
 class StatsService {
+  /**
+   * 1. BÚSQUEDA POR DEFECTO (Global)
+   * Trae todos los movimientos del año actual sin filtrar por presupuesto.
+   */
   async getBarChartStats() {
+    return this._getGeneralStats(null);
+  }
+
+  /**
+   * 2. BÚSQUEDA CON FILTRO (Presupuesto específico)
+   * Trae todos los movimientos del año para un código de presupuesto concreto.
+   */
+  async getStatsByBudget(budgetCode) {
+    if (!budgetCode) return this.getBarChartStats();
+    return this._getGeneralStats(budgetCode);
+  }
+
+  /**
+   * Función maestra que centraliza la lógica de consulta.
+   * Maneja la ejecución en paralelo de todas las métricas necesarias.
+   */
+  async _getGeneralStats(budgetCode = null) {
     const { salesBudget, salesPostInvoice, purchpostInvoice } = sequelize.models;
     const year = new Date().getFullYear();
 
     try {
       const [budgets, sales, purchases, doughnutChart] = await Promise.all([
-        this._getStats(salesBudget, year),
-        this._getStats(salesPostInvoice, year),
-        this._getStats(purchpostInvoice, year),
-        this.getDoughnutStats(year) // Nuevo: Datos para la rosquilla
+        this._getStatsFiltered(salesBudget, year, budgetCode),
+        this._getStatsFiltered(salesPostInvoice, year, budgetCode),
+        this._getStatsFiltered(purchpostInvoice, year, budgetCode),
+        this._getDoughnutFiltered(year, budgetCode)
       ]);
 
       return {
@@ -19,7 +40,7 @@ class StatsService {
         doughnutChart: doughnutChart
       };
     } catch (error) {
-      console.error("Error crítico en StatsService:", error);
+      console.error(`Error crítico en StatsService (Filtro: ${budgetCode}):`, error);
       return {
         barChart: {
           budget: Array(12).fill(0),
@@ -32,67 +53,91 @@ class StatsService {
   }
 
   /**
-   * Obtiene los gastos agrupados por categoría para el gráfico de dona
+   * Lógica filtrada para gráficos de barras (Series temporales mensuales)
+   * Adaptado específicamente para la sintaxis de PostgreSQL.
    */
-  async getDoughnutStats(year) {
+  async _getStatsFiltered(model, year, budgetCode) {
+    if (!model) return Array(12).fill(0);
+
+    // Detección automática de la columna de fecha según el modelo
+    const attr = model.rawAttributes.postingDate ||
+                 model.rawAttributes.posting_date ||
+                 model.rawAttributes.post_date ||
+                 model.rawAttributes.createdAt;
+
+    const dateColumn = attr ? (attr.field || attr.fieldName) : 'created_at';
+
+    // AJUSTE DE CAMPOS: 'code' para la cabecera del presupuesto, 'budget_code' para las líneas/facturas
+    const codeColumn = (model.name === 'salesBudget') ? 'code' : 'budget_code';
+
+    const whereClause = {
+      [Op.and]: [
+        // Uso de comillas dobles en literal para asegurar compatibilidad con Postgres
+        literal(`EXTRACT(YEAR FROM "${dateColumn}") = ${year}`)
+      ]
+    };
+
+    // Si se recibe un código de presupuesto, se inyecta en el AND
+    if (budgetCode) {
+      whereClause[Op.and].push({ [codeColumn]: budgetCode });
+    }
+
+    const results = await model.findAll({
+      attributes: [
+        [fn('EXTRACT', literal(`MONTH FROM "${dateColumn}"`)), 'month'],
+        [fn('SUM', col('amount_with_vat')), 'total']
+      ],
+      where: whereClause,
+      group: [literal('month')],
+      raw: true
+    });
+
+    // Inicializamos array de 12 meses y rellenamos con resultados
+    const data = new Array(12).fill(0);
+    results.forEach(row => {
+      const m = parseInt(row.month, 10) - 1;
+      if (m >= 0 && m < 12) {
+        data[m] = parseFloat(row.total) || 0;
+      }
+    });
+    return data;
+  }
+
+  /**
+   * Lógica filtrada para el gráfico de dona (Categorías de gasto)
+   */
+  async _getDoughnutFiltered(year, budgetCode) {
     const { purchpostInvoice } = sequelize.models;
     if (!purchpostInvoice) return { labels: [], values: [] };
 
+    const whereClause = {
+      [Op.and]: [
+        literal(`EXTRACT(YEAR FROM "post_date") = ${year}`)
+      ]
+    };
+
+    if (budgetCode) {
+      whereClause[Op.and].push({ budget_code: budgetCode });
+    }
+
     try {
-      // Usamos el campo real 'post_date' que definimos en el esquema del histórico
       const results = await purchpostInvoice.findAll({
         attributes: [
           'category',
           [fn('SUM', col('amount_with_vat')), 'total']
         ],
-        where: literal(`EXTRACT(YEAR FROM "post_date") = ${year}`),
+        where: whereClause,
         group: ['category'],
         raw: true
       });
 
-      // Formateamos para que el Frontend lo reciba directamente
-      const labels = results.map(row => row.category || 'Sin categoría');
-      const values = results.map(row => parseFloat(row.total) || 0);
-
-      return { labels, values };
+      return {
+        labels: results.map(row => row.category || 'Sin categoría'),
+        values: results.map(row => parseFloat(row.total) || 0)
+      };
     } catch (error) {
-      console.error("Error en getDoughnutStats:", error);
+      console.error("Error en _getDoughnutFiltered:", error);
       return { labels: [], values: [] };
-    }
-  }
-
-  async _getStats(model, year) {
-    if (!model) return Array(12).fill(0);
-
-    const attr = model.rawAttributes.postingDate ||
-      model.rawAttributes.posting_date ||
-      model.rawAttributes.post_date ||
-      model.rawAttributes.createdAt;
-
-    const dateColumn = attr ? (attr.field || attr.fieldName) : 'created_at';
-
-    try {
-      const results = await model.findAll({
-        attributes: [
-          [fn('EXTRACT', literal(`MONTH FROM "${dateColumn}"`)), 'month'],
-          [fn('SUM', col('amount_with_vat')), 'total']
-        ],
-        where: literal(`EXTRACT(YEAR FROM "${dateColumn}") = ${year}`),
-        group: [literal('month')],
-        raw: true
-      });
-
-      const data = new Array(12).fill(0);
-      results.forEach(row => {
-        const m = parseInt(row.month, 10) - 1;
-        if (m >= 0 && m < 12) {
-          data[m] = parseFloat(row.total) || 0;
-        }
-      });
-      return data;
-    } catch (err) {
-      console.error(`Error en ${model.name}:`, err.message);
-      return Array(12).fill(0);
     }
   }
 }
