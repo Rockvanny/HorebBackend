@@ -74,12 +74,7 @@ const purchInvoiceSchema = {
     field: 'status',
     type: DataTypes.STRING,
   },
-
-  /**
-   * NUEVO CAMPO: CATEGORÍA
-   * Definido como ENUM para asegurar que los datos coincidan
-   * exactamente con las categorías globales de la empresa de reformas.
-   */
+  
   category: {
     field: 'category',
     type: DataTypes.ENUM(

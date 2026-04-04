@@ -44,6 +44,20 @@ const VendorSchema = {
     field: 'city',
     type: DataTypes.STRING,
   },
+  
+  category: {
+    field: 'category',
+    type: DataTypes.ENUM(
+      'Materiales',
+      'Subcontratas',
+      'Personal y Nóminas',
+      'Herramientas y Alquileres',
+      'Vehículos y Movilidad',
+      'Gastos de Oficina y Varios'
+    ),
+    allowNull: true,
+    defaultValue: 'Gastos de Oficina y Varios'
+  },
 
   username: {
     field: 'user_name',

@@ -10,6 +10,15 @@ const postCode = Joi.string();
 const city =  Joi.string();
 const username = Joi.string();
 
+const category = Joi.string().valid(
+  'Materiales',
+  'Subcontratas',
+  'Personal y Nóminas',
+  'Herramientas y Alquileres',
+  'Vehículos y Movilidad',
+  'Gastos de Oficina y Varios'
+);
+
 const limit = Joi.number().integer();
 const offset = Joi.number().integer();
 
@@ -26,6 +35,7 @@ const createVendorSchema = Joi.object({
   address: address.required(),
   postCode: postCode.required(),
   city: city.required(),
+  category: category.required(),
   username,
 });
 
@@ -37,6 +47,7 @@ const updateVendorSchema = Joi.object({
   address: address.required(),
   postCode: postCode.required(),
   city: city.required(),
+  category: category.optional(), 
   username,
 });
 

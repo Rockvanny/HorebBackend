@@ -2,7 +2,9 @@ const express = require('express');
 
 const UserService = require('./../services/user.service');
 const validatorHandler = require('./../middlewares/validator.handler');
-// Importamos el nuevo esquema de login
+// IMPORTAMOS EL MIDDLEWARE DE PERMISOS
+const { checkPermission } = require('./../middlewares/auth.handler');
+
 const {
   updateUserSchema,
   createUserSchema,
@@ -14,13 +16,17 @@ const router = express.Router();
 const service = new UserService();
 
 // 1. RUTAS FIJAS (Sin parámetros dinámicos)
-router.get('/', async (req, res, next) => {
-  try {
-    const users = await service.find();
-    res.json(users);
-  } catch (error) {
-    next(error);
-  }
+
+// Para listar usuarios, requerimos permiso de gestión o settings
+router.get('/',
+  checkPermission('allowSettings'),
+  async (req, res, next) => {
+    try {
+      const users = await service.find();
+      res.json(users);
+    } catch (error) {
+      next(error);
+    }
 });
 
 router.get('/roles/list', async (req, res, next) => {
@@ -32,8 +38,7 @@ router.get('/roles/list', async (req, res, next) => {
   }
 });
 
-// --- RUTA DE LOGIN ---
-// Se coloca aquí para que Express no la confunda con un ID de usuario
+// --- RUTA DE LOGIN (Sin protección, es la puerta de entrada) ---
 router.post('/login',
   validatorHandler(loginUserSchema, 'body'),
   async (req, res, next) => {
@@ -51,6 +56,7 @@ router.post('/login',
 );
 
 // 2. RUTAS DINÁMICAS (Con :id)
+
 router.get('/:id',
   validatorHandler(getUserSchema, 'params'),
   async (req, res, next) => {
@@ -64,7 +70,9 @@ router.get('/:id',
   }
 );
 
+// Solo usuarios con allowSettings = true pueden CREAR nuevos usuarios
 router.post('/',
+  checkPermission('allowSettings'),
   validatorHandler(createUserSchema, 'body'),
   async (req, res, next) => {
     try {
@@ -77,7 +85,9 @@ router.post('/',
   }
 );
 
+// Solo usuarios con allowSettings = true pueden EDITAR usuarios
 router.patch('/:id',
+  checkPermission('allowSettings'),
   validatorHandler(getUserSchema, 'params'),
   validatorHandler(updateUserSchema, 'body'),
   async (req, res, next) => {
@@ -92,7 +102,9 @@ router.patch('/:id',
   }
 );
 
+// Solo usuarios con allowSettings = true pueden ELIMINAR usuarios
 router.delete('/:id',
+  checkPermission('allowSettings'),
   validatorHandler(getUserSchema, 'params'),
   async (req, res, next) => {
     try {

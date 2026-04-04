@@ -59,7 +59,8 @@ class purchInvoiceService {
       if (searchTerm.includes('%')) {
         options.where[Op.or] = [
           { code: { [Op.iLike]: `%${searchTerm}%` } },
-          { name: { [Op.iLike]: `%${searchTerm}%` } }
+          { name: { [Op.iLike]: `%${searchTerm}%` } },
+          { category: { [Op.iLike]: `%${searchTerm}%` } }
         ];
       } else {
         options.where.code = {

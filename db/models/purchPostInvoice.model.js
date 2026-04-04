@@ -73,12 +73,7 @@ const purchPostInvoiceSchema = {
     field: 'status',
     type: DataTypes.STRING,
   },
-
-  /**
-   * CATEGORÍA (HISTÓRICO)
-   * Mantenemos el mismo ENUM para que el Dashboard lea correctamente
-   * los gastos acumulados por categoría.
-   */
+  
   category: {
     field: 'category',
     type: DataTypes.ENUM(

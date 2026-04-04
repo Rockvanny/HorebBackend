@@ -21,11 +21,6 @@ const amountVAT = Joi.number().precision(2);
 const amountWithVAT = Joi.number().precision(2);
 const username = Joi.string();
 
-/**
- * CATEGORÍAS GLOBALES (Histórico)
- * Mantenemos la misma validación para asegurar que los datos
- * en el histórico sean válidos para los gráficos del Dashboard.
- */
 const category = Joi.string().valid(
   'Materiales',
   'Subcontratas',
