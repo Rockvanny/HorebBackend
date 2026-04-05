@@ -3,7 +3,8 @@ const { Model, DataTypes, Sequelize } = require('sequelize');
 const USER_TABLE = 'users';
 
 const UserSchema = {
-  Userid: {
+  // Identificador de login (Ej: 'dayala')
+  userId: {
     field: 'user_id',
     allowNull: false,
     autoIncrement: false,
@@ -11,15 +12,24 @@ const UserSchema = {
     type: DataTypes.STRING,
   },
 
+  // --- NUEVO CAMPO: Nombre y Apellidos ---
+  fullName: {
+    field: 'full_name',
+    allowNull: false,
+    type: DataTypes.STRING,
+    defaultValue: 'Usuario Nuevo'
+  },
+
   email: {
     field: 'email',
     allowNull: false,
     type: DataTypes.STRING,
     unique: true,
+    validate: { isEmail: true }
   },
 
   password: {
-    field: 'password', // Corregido el typo de 'passwrod'
+    field: 'password',
     allowNull: false,
     type: DataTypes.STRING,
   },
@@ -28,9 +38,10 @@ const UserSchema = {
     field: 'role',
     allowNull: false,
     type: DataTypes.STRING,
-    defaultValue: 'viewer', // Cambiado a 'viewer' según tu lógica de acceso
+    defaultValue: 'viewer',
   },
 
+  // Mapeo de módulos (coinciden con la lógica del access-manager)
   allowGestion: {
     field: 'allow_gestion',
     allowNull: false,
@@ -90,9 +101,45 @@ class User extends Model {
       tableName: USER_TABLE,
       modelName: 'User',
       timestamps: true,
-      underscored: true
+      underscored: true,
+      hooks: {
+        beforeCreate: async (user, options) => {
+          if (user.fullName && !user.userId) {
+            // 1. Limpieza inicial: "Daniel Ayala" -> "dayala"
+            const parts = user.fullName.trim().toLowerCase().split(' ');
+            const firstName = parts[0];
+            const lastName = parts.length > 1 ? parts[parts.length - 1] : '';
+
+            let baseId = lastName ? (firstName[0] + lastName) : firstName;
+
+            // Normalizar: quitar acentos y caracteres especiales
+            baseId = baseId.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+
+            // 2. Verificar duplicados (por si ya existe un 'dayala')
+            let finalId = baseId;
+            let counter = 1;
+            let exists = true;
+
+            while (exists) {
+              const duplicate = await User.findOne({
+                where: { userId: finalId },
+                transaction: options.transaction
+              });
+
+              if (duplicate) {
+                finalId = `${baseId}${counter}`; // 'dayala1', 'dayala2'...
+                counter++;
+              } else {
+                exists = false;
+              }
+            }
+
+            user.userId = finalId;
+          }
+        }
+      }
     }
   }
 }
 
-module.exports = { USER_TABLE, UserSchema, User }
+module.exports = { USER_TABLE, UserSchema, User };

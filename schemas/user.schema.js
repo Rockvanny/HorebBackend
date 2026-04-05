@@ -1,7 +1,7 @@
 const Joi = require('joi');
-
 // Definición de tipos base
-const Userid = Joi.string();
+const userId = Joi.string(); // Cambiado a camelCase para consistencia
+const fullName = Joi.string().min(3).max(100); // Nuevo campo
 const email = Joi.string().email();
 const password = Joi.string().min(8);
 const role = Joi.string().min(5);
@@ -19,8 +19,9 @@ const loginUserSchema = Joi.object({
     password: Joi.string().required(),
 });
 
+// --- Esquema para Creación ---
 const createUserSchema = Joi.object({
-    Userid: Userid.required(),
+    fullName: fullName.required(), // Ahora es obligatorio al crear
     email: email.required(),
     password: password.required(),
     role: role.required(),
@@ -31,7 +32,9 @@ const createUserSchema = Joi.object({
     allowSettings
 });
 
+// --- Esquema para Actualización ---
 const updateUserSchema = Joi.object({
+    fullName: fullName, // Permitimos actualizar el nombre
     email: email,
     role: role,
     allowGestion,
@@ -41,11 +44,11 @@ const updateUserSchema = Joi.object({
     allowSettings
 });
 
+// --- Esquema para Obtener (Query params / Params) ---
 const getUserSchema = Joi.object({
-    id: Userid.required(),
+    id: userId.required(),
 });
 
-// EXPORTA EL NUEVO ESQUEMA AQUÍ
 module.exports = {
     createUserSchema,
     updateUserSchema,

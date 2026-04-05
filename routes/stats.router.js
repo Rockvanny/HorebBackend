@@ -4,8 +4,8 @@ const router = express.Router();
 const service = new StatsService();
 
 // 1. Dashboard General
-// Accesible vía: /stats/dashboard
-router.get('/dashboard', async (req, res, next) => {
+// Accesible vía: /stats
+router.get('/stats', async (req, res, next) => {
   try {
     const data = await service.getBarChartStats();
     return res.json({ success: true, data: data });

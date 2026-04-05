@@ -4,11 +4,18 @@ const { USER_TABLE } = require('./../models/user.model');
 module.exports = {
   up: async (queryInterface, Sequelize) => {
     await queryInterface.createTable(USER_TABLE, {
-      Userid: {
+      userId: {
         field: 'user_id',
         allowNull: false,
         primaryKey: true,
         type: Sequelize.DataTypes.STRING
+      },
+      // --- NUEVO CAMPO: NOMBRE Y APELLIDOS ---
+      fullName: {
+        field: 'full_name',
+        allowNull: false,
+        type: Sequelize.DataTypes.STRING,
+        defaultValue: 'Usuario Nuevo'
       },
       email: {
         field: 'email',
@@ -17,7 +24,7 @@ module.exports = {
         type: Sequelize.DataTypes.STRING,
       },
       password: {
-        field: 'password', // Asegúrate de que coincida con el modelo
+        field: 'password',
         allowNull: false,
         type: Sequelize.DataTypes.STRING,
       },

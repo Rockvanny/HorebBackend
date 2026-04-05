@@ -4,75 +4,69 @@ const { models } = require('./../libs/sequelize');
 const ROLES = ['master', 'admin', 'financiero', 'vendedor', 'almacen', 'externo', 'viewer'];
 
 class UserService {
-    constructor() {}
+  constructor() { }
 
-    
-    async login(email, password) {
-        // 1. Buscamos al usuario por email
-        // IMPORTANTE: Aquí NO excluimos el password porque lo necesitamos para comparar
-        const user = await models.User.findOne({
-            where: { email }
-        });
 
-        // 2. Si no existe el usuario
-        if (!user) {
-            throw boom.unauthorized('Usuario o contraseña incorrectos');
-        }
+  async login(email, password) {
+    const user = await models.User.findOne({
+      where: { email }
+    });
 
-        // 3. Verificamos la contraseña
-        // (Nota: Si luego usas bcrypt, aquí iría: await bcrypt.compare(password, user.password))
-        if (user.password !== password) {
-            throw boom.unauthorized('Usuario o contraseña incorrectos');
-        }
-
-        // 4. Si es correcto, extraemos el password para no enviarlo al frontend
-        const { password: _, ...userWithoutPassword } = user.toJSON();
-
-        return userWithoutPassword;
+    if (!user) {
+      throw boom.unauthorized('Usuario o contraseña incorrectos');
     }
 
-    async create(data) {
-        const newUser = await models.User.create(data);
-        const { password, ...userWithoutPassword } = newUser.toJSON();
-        return userWithoutPassword;
+    if (user.password !== password) {
+      throw boom.unauthorized('Usuario o contraseña incorrectos');
     }
 
-    async find() {
-        const rta = await models.User.findAll({
-            include: ['customer'],
-            attributes: { exclude: ['password'] }
-        });
-        return rta;
-    }
+    // Al hacer toJSON() se incluyen fullName, userId, y todos los allowX
+    const { password: _, ...userWithoutPassword } = user.toJSON();
+    return userWithoutPassword;
+  }
 
-    async findOne(id) {
-        const user = await models.User.findByPk(id, {
-            attributes: { exclude: ['password'] },
-            include: ['customer']
-        });
+  async create(data) {
+    const newUser = await models.User.create(data);
+    const { password, ...userWithoutPassword } = newUser.toJSON();
+    return userWithoutPassword;
+  }
 
-        if (!user) {
-            throw boom.notFound('user not found');
-        }
-        return user;
-    }
+  async find() {
+    const rta = await models.User.findAll({
+      include: ['customer'],
+      attributes: { exclude: ['password'] }
+    });
+    return rta;
+  }
 
-    async update(id, changes) {
-        const user = await this.findOne(id);
-        const rta = await user.update(changes);
-        const { password, ...updatedUser } = rta.toJSON();
-        return updatedUser;
-    }
+  async findOne(id) {
+    const user = await models.User.findByPk(id, {
+      attributes: { exclude: ['password'] },
+      include: ['customer']
+    });
 
-    async delete(id) {
-        const user = await this.findOne(id);
-        await user.destroy();
-        return { id };
+    if (!user) {
+      throw boom.notFound('user not found');
     }
+    return user;
+  }
 
-    async getAvailableRoles() {
-        return ROLES;
-    }
+  async update(id, changes) {
+    const user = await this.findOne(id);
+    const rta = await user.update(changes);
+    const { password, ...updatedUser } = rta.toJSON();
+    return updatedUser;
+  }
+
+  async delete(id) {
+    const user = await this.findOne(id);
+    await user.destroy();
+    return { id };
+  }
+
+  async getAvailableRoles() {
+    return ROLES;
+  }
 }
 
 module.exports = UserService;
