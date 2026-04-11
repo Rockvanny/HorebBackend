@@ -28,6 +28,12 @@ module.exports = {
         allowNull: false,
         type: Sequelize.DataTypes.STRING,
       },
+      mustChangePassword: {
+        field: 'must_change_password',
+        allowNull: false,
+        type: Sequelize.DataTypes.BOOLEAN,
+        defaultValue: true,
+      },
       role: {
         field: 'role',
         allowNull: false,

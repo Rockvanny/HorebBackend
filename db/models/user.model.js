@@ -1,4 +1,5 @@
 const { Model, DataTypes, Sequelize } = require('sequelize');
+const bcrypt = require('bcryptjs');
 
 const USER_TABLE = 'users';
 
@@ -32,6 +33,13 @@ const UserSchema = {
     field: 'password',
     allowNull: false,
     type: DataTypes.STRING,
+  },
+
+  mustChangePassword: {
+    field: 'must_change_password',
+    allowNull: false,
+    type: DataTypes.BOOLEAN,
+    defaultValue: true, // Siempre true al crear
   },
 
   role: {
@@ -103,19 +111,15 @@ class User extends Model {
       timestamps: true,
       underscored: true,
       hooks: {
-        beforeCreate: async (user, options) => {
+        beforeValidate: async (user, options) => {
+          // 1. Lógica de generación de userId (Solo si no viene uno)
           if (user.fullName && !user.userId) {
-            // 1. Limpieza inicial: "Daniel Ayala" -> "dayala"
             const parts = user.fullName.trim().toLowerCase().split(' ');
             const firstName = parts[0];
             const lastName = parts.length > 1 ? parts[parts.length - 1] : '';
-
             let baseId = lastName ? (firstName[0] + lastName) : firstName;
-
-            // Normalizar: quitar acentos y caracteres especiales
             baseId = baseId.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
 
-            // 2. Verificar duplicados (por si ya existe un 'dayala')
             let finalId = baseId;
             let counter = 1;
             let exists = true;
@@ -127,14 +131,26 @@ class User extends Model {
               });
 
               if (duplicate) {
-                finalId = `${baseId}${counter}`; // 'dayala1', 'dayala2'...
+                finalId = `${baseId}${counter}`;
                 counter++;
               } else {
                 exists = false;
               }
             }
-
             user.userId = finalId;
+          }
+
+          // 2. ENCRIPTACIÓN (Fuera del IF para que SIEMPRE se ejecute)
+          if (user.password) {
+            const hash = await bcrypt.hash(user.password, 10);
+            user.password = hash;
+          }
+        },
+
+        beforeUpdate: async (user) => {
+          if (user.changed('password')) {
+            const hash = await bcrypt.hash(user.password, 10);
+            user.password = hash;
           }
         }
       }

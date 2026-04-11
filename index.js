@@ -1,61 +1,58 @@
 const express = require('express');
-const sequelize = require('./libs/sequelize');
 const cors = require('cors');
-const routerApi = require('./routes');
-const { logErrors, errorHandler, boomErrorHandler, ormErrorHandler } = require('./middlewares/error.handler');
-
-const { Sequelize } = require('sequelize');
-const { Umzug, SequelizeStorage } = require('umzug');
+const passport = require('passport');
 const path = require('path');
 require('dotenv').config();
+
+// Importación de librerías internas
+const sequelize = require('./libs/sequelize');
+const JwtStrategy = require('./libs/jwt.strategy');
+const routerApi = require('./routes');
+
+const {
+        logErrors,
+        errorHandler,
+        boomErrorHandler,
+        ormErrorHandler
+      } = require('./middlewares/error.handler');
+
+
+const { Umzug, SequelizeStorage } = require('umzug');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
+// --- 1. CONFIGURACIÓN DE SEGURIDAD (PASSPORT) ---
+passport.use(JwtStrategy);
+
+// --- 2. MIDDLEWARES GLOBALES ---
 // Configuración de CORS (para las rutas REST)
 const whitelist = ['http://localhost:8080', 'https://myapp.co'];
-const options = {
+const corsOptions = {
   origin: (origin, callback) => {
     if (whitelist.includes(origin) || !origin) {
       callback(null, true);
     } else {
-      callback(new Error('no permitido'));
+      callback(new Error('Acceso no permitido por política de CORS'));
     }
   }
 };
 
-app.use(cors(options));
+app.use(cors(corsOptions));
+// Esto permite recibir cuerpos de mensaje grandes (ej: imágenes de productos o facturas)
 app.use(express.json({ limit: '50mb' }));
-app.use(express.json());
 
-// Mantener las rutas organizadas en `routes/`
+
+// --- 3. RUTAS DE LA API ---
 routerApi(app);
 
+// --- 4. MIDDLEWARES DE ERROR (Deben ir después de las rutas) ---
 app.use(logErrors);
 app.use(ormErrorHandler);
 app.use(boomErrorHandler);
 app.use(errorHandler);
 
-//TODO console.log('🔍 Variables de entorno:');
-//TODO console.log('DB_NAME:', `"${process.env.DB_NAME}"`);
-//TODO console.log('DB_USER:', `"${process.env.DB_USER}"`);
-//TODO console.log('DB_PASSWORD:', `"${process.env.DB_PASSWORD}"`);
-//TODO console.log('DB_HOST:', `"${process.env.DB_HOST}"`);
-//TODO console.log('DB_PORT:', `"${process.env.DB_PORT}"`);
-
-// Configuración de Sequelize y Umzug para migraciones
-/*const sequelize = new Sequelize(
-  process.env.DB_NAME,
-  process.env.DB_USER,
-  process.env.DB_PASSWORD,
-  {
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT,
-    dialect: 'postgres',
-    logging: false,
-  }
-);*/
-
+// --- 5. CONFIGURACIÓN DE MIGRACIONES (UMZUG) ---
 const migrator = new Umzug({
   migrations: {
     glob: path.join(__dirname, 'db/migrations/*.js'),
@@ -65,6 +62,7 @@ const migrator = new Umzug({
   logger: console,
 });
 
+// --- 6. INICIO DEL SERVIDOR Y CONEXIÓN A BD ---
 // Ejecutar migraciones y luego iniciar el servidor
 (async () => {
   try {

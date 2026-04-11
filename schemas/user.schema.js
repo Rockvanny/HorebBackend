@@ -5,6 +5,7 @@ const fullName = Joi.string().min(3).max(100); // Nuevo campo
 const email = Joi.string().email();
 const password = Joi.string().min(8);
 const role = Joi.string().min(5);
+const mustChangePassword = Joi.boolean();
 
 // Permisos de módulos (Booleanos)
 const allowGestion = Joi.boolean();
@@ -15,43 +16,46 @@ const allowSettings = Joi.boolean();
 
 // --- Esquema para Login ---
 const loginUserSchema = Joi.object({
-    email: Joi.string().required(),
-    password: Joi.string().required(),
+  email: Joi.string().required(),
+  password: Joi.string().required(),
 });
 
 // --- Esquema para Creación ---
 const createUserSchema = Joi.object({
-    fullName: fullName.required(), // Ahora es obligatorio al crear
-    email: email.required(),
-    password: password.required(),
-    role: role.required(),
-    allowGestion,
-    allowSales,
-    allowPurchases,
-    allowReports,
-    allowSettings
+  userId: userId.allow('', null),
+  fullName: fullName.required(), // Ahora es obligatorio al crear
+  email: email.required(),
+  password: password.required(),
+  role: role.required(),
+  mustChangePassword,
+  allowGestion,
+  allowSales,
+  allowPurchases,
+  allowReports,
+  allowSettings
 });
 
 // --- Esquema para Actualización ---
 const updateUserSchema = Joi.object({
-    fullName: fullName, // Permitimos actualizar el nombre
-    email: email,
-    role: role,
-    allowGestion,
-    allowSales,
-    allowPurchases,
-    allowReports,
-    allowSettings
+  fullName: fullName, // Permitimos actualizar el nombre
+  email: email,
+  role: role,
+  mustChangePassword,
+  allowGestion,
+  allowSales,
+  allowPurchases,
+  allowReports,
+  allowSettings
 });
 
 // --- Esquema para Obtener (Query params / Params) ---
 const getUserSchema = Joi.object({
-    id: userId.required(),
+  id: userId.required(),
 });
 
 module.exports = {
-    createUserSchema,
-    updateUserSchema,
-    getUserSchema,
-    loginUserSchema
+  createUserSchema,
+  updateUserSchema,
+  getUserSchema,
+  loginUserSchema
 };

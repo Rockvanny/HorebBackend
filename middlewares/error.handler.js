@@ -1,36 +1,52 @@
 const { ValidationError } = require('sequelize');
-const boom = require('@hapi/boom');
 
-function logErrors (err, req, res, next) {
-  console.error(err);
+function logErrors(err, req, res, next) {
+  // Solo logueamos, no respondemos. El error sigue su camino.
+  console.error(`[Stack Trace]:`, err.stack);
   next(err);
-}
-
-function errorHandler(err, req, res, next) {
-  res.status(500).json({
-    message: err.message,
-    stack: err.stack,
-  });
 }
 
 function boomErrorHandler(err, req, res, next) {
   if (err.isBoom) {
     const { output } = err;
-    res.status(output.statusCode).json(output.payload);
+    // IMPORTANTE: Si respondemos aquí, NO llamamos a next(err)
+    return res.status(output.statusCode).json({
+        success: false,
+        ...output.payload
+    });
   }
   next(err);
 }
 
 function ormErrorHandler(err, req, res, next) {
   if (err instanceof ValidationError) {
-    res.status(409).json({
+    // 409 Conflict es ideal para violaciones de integridad/validación de ORM
+    return res.status(409).json({
+      success: false,
       statusCode: 409,
       message: err.name,
-      errors: err.errors
+      errors: err.errors.map(e => ({
+          field: e.path,
+          message: e.message
+      }))
     });
   }
   next(err);
 }
 
+function errorHandler(err, req, res, next) {
+  // Si llegamos aquí y ya se envió cabecera (por algún error previo), abortamos
+  if (res.headersSent) {
+    return next(err);
+  }
 
-module.exports = { logErrors, errorHandler, boomErrorHandler, ormErrorHandler }
+  const statusCode = err.statusCode || 500;
+
+  res.status(statusCode).json({
+    success: false,
+    message: err.message || "Internal Server Error",
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+  });
+}
+
+module.exports = { logErrors, boomErrorHandler, ormErrorHandler, errorHandler };

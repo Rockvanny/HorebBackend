@@ -13,29 +13,33 @@ function checkRole(...roles) {
   };
 }
 
-// OPCIÓN B: Verificar por PERMISO (allowSales, allowSettings, etc)
-// Esta es la que necesitas para tu tabla de usuarios actual
+/**
+ * Middleware para verificar permisos específicos en Horeb.
+ * @param {string} permissionField - El nombre del campo booleano (ej: 'allowSettings')
+ */
 function checkPermission(permissionField) {
   return async (req, res, next) => {
     try {
-      // Leemos el ID desde los headers para pruebas (Postman)
-      const userId = req.headers['user-id'];
+      // 1. Intentamos obtener el usuario de la sesión (cuando ya tengamos JWT activo)
+      // 2. Si no hay sesión, buscamos el ID en los headers (para tus pruebas actuales en Postman)
+      let user = req.user;
+      const headerUserId = req.headers['user-id'];
 
-      if (!userId) {
-        return next(boom.unauthorized('Se requiere User-ID en los headers'));
+      if (!user && headerUserId) {
+        user = await models.User.findByPk(headerUserId);
       }
 
-      const user = await models.User.findByPk(userId);
-
+      // Si después de ambas comprobaciones no hay usuario...
       if (!user) {
-        return next(boom.notFound('Usuario no encontrado'));
+        return next(boom.unauthorized('Se requiere una sesión activa o User-ID válido'));
       }
 
-      // Verificamos el booleano (ej: user.allowSettings)
+      // 3. Verificamos el permiso en el objeto usuario
+      // IMPORTANTE: Asegúrate de que 'user' tenga el campo buscado
       if (user[permissionField] === true) {
         next();
       } else {
-        next(boom.forbidden(`No tienes habilitado el permiso: ${permissionField}`));
+        next(boom.forbidden(`Acceso denegado: No tienes habilitado el permiso '${permissionField}'`));
       }
     } catch (error) {
       next(error);
