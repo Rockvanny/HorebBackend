@@ -130,11 +130,26 @@ class CustomerService {
    * CREAR: Envía 'userExecutor' en las opciones para el Hook Global.
    */
   async create(data, userExecutor) {
-    // Al pasar userExecutor en el objeto de opciones, el hook beforeSave lo procesa
-    const newCustomer = await models.Customer.create(data, {
-      userExecutor
-    });
-    return newCustomer;
+    // 1. Iniciamos la transacción
+    const t = await models.Customer.sequelize.transaction();
+
+    try {
+      // 2. Pasamos la transacción en las opciones
+      const newCustomer = await models.Customer.create(data, {
+        transaction: t,
+        userExecutor // Tu auditoría sigue funcionando igual
+      });
+
+      // 3. Si todo sale bien, confirmamos (aquí se quema el número oficialmente)
+      await t.commit();
+      return newCustomer;
+
+    } catch (error) {
+      // 4. SI HAY ERROR, SE HACE ROLLBACK
+      // El número de serie vuelve a su estado anterior como si nada hubiera pasado
+      await t.rollback();
+      throw error;
+    }
   }
 
   /**

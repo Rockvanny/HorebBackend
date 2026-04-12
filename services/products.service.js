@@ -89,10 +89,29 @@ class ProductsService {
     const records = await models.Products.findAll(options);
     return records;
   }
+  
 
-  async create(data) {
-    const newProduct = await models.Products.create(data);
-    return newProduct;
+  async create(data, userExecutor) {
+    // 1. Iniciamos la transacción
+    const t = await models.Products.sequelize.transaction();
+
+    try {
+      // 2. Pasamos la transacción en las opciones
+      const newProduct = await models.Products.create(data, {
+        transaction: t,
+        userExecutor // Tu auditoría sigue funcionando igual
+      });
+
+      // 3. Si todo sale bien, confirmamos (aquí se quema el número oficialmente)
+      await t.commit();
+      return newProduct;
+
+    } catch (error) {
+      // 4. SI HAY ERROR, SE HACE ROLLBACK
+      // El número de serie vuelve a su estado anterior como si nada hubiera pasado
+      await t.rollback();
+      throw error;
+    }
   }
 
   // Este método necesita obtener un producto existente para actualizarlo.

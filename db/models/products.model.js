@@ -77,7 +77,15 @@ class Products extends Model {
       timestamps: true,
       underscored: true,
       paranoid: true,
-      deletedAt: 'deleteAt'
+      deletedAt: 'deleteAt',
+      beforeValidate: async (instance, options) => {
+        // Solo actuamos si es un registro nuevo (Creación)
+        if (instance.isNewRecord) {
+          // Pasamos la instancia y las opciones (que traen la transacción)
+          await generateNextCode(instance, options);
+        }
+
+      }
     }
   }
 }

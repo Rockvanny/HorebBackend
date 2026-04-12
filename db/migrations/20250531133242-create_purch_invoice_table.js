@@ -1,5 +1,4 @@
 'use strict';
-const { DataTypes } = require("sequelize");
 
 const { PURCHINVOICE_TABLE } = require('../models/purchInvoice.model');
 
@@ -7,80 +6,58 @@ module.exports = {
   up: async (queryInterface, Sequelize) => {
     await queryInterface.createTable(PURCHINVOICE_TABLE, {
       code: {
-        field: 'code',
         allowNull: false,
         primaryKey: true,
         type: Sequelize.DataTypes.STRING
       },
-      codePosting: {
-        field:'code_posting',
+      code_posting: {
+        field: 'code_posting',
         type: Sequelize.DataTypes.STRING
       },
-      postingDate: {
+      posting_date: {
         field: 'posting_date',
         type: Sequelize.DataTypes.DATEONLY,
       },
-      dueDate: {
+      due_date: {
         field: 'due_date',
         type: Sequelize.DataTypes.DATEONLY,
       },
-      budgetCode: {
+      budget_code: {
         field: 'budget_code',
         type: Sequelize.DataTypes.STRING
       },
-      vendorCode: {
+      vendor_code: {
         field: 'vendor_code',
         type: Sequelize.DataTypes.STRING,
       },
       name: {
-        field: 'name',
         type: Sequelize.DataTypes.STRING,
       },
       email: {
-        field: 'email',
         type: Sequelize.DataTypes.STRING,
       },
       phone: {
-        field: 'phone',
         type: Sequelize.DataTypes.STRING,
       },
       address: {
-        field: 'address',
         type: Sequelize.DataTypes.STRING,
       },
-      postCode: {
+      post_code: {
         field: 'post_code',
         type: Sequelize.DataTypes.STRING,
       },
       city: {
-        field: 'city',
         type: Sequelize.DataTypes.STRING,
       },
-      paymentMethod: {
+      payment_method: {
         field: 'payment_method',
         type: Sequelize.DataTypes.STRING,
       },
       status: {
-        field: 'status',
         type: Sequelize.DataTypes.STRING,
-      },
-      amountWithoutVAT: {
-        field: 'amount_Without_vat',
-        type: Sequelize.DataTypes.DECIMAL(10, 2),
-        allowNull: false,
-      },
-      amountVAT: {
-        field: 'amount_vat',
-        type: Sequelize.DataTypes.DECIMAL(10, 2),
-        allowNull: false,
-      },
-      amountWithVAT: {
-        field: 'amount_with_vat',
-        type: Sequelize.DataTypes.DECIMAL(10, 2),
-        allowNull: false,
+        defaultValue: 'Borrador'
       },
       category: {
-        field: 'category',
         type: Sequelize.DataTypes.ENUM(
           'Materiales',
           'Subcontratas',
@@ -92,17 +69,36 @@ module.exports = {
         allowNull: true,
         defaultValue: 'Gastos de Oficina y Varios'
       },
-      username: {
+      // TOTALES NORMALIZADOS (Importante: minúsculas)
+      amount_without_vat: {
+        field: 'amount_without_vat', // Corregido: sin la W mayúscula
+        type: Sequelize.DataTypes.DECIMAL(10, 2),
+        allowNull: false,
+        defaultValue: 0.00
+      },
+      amount_vat: {
+        field: 'amount_vat',
+        type: Sequelize.DataTypes.DECIMAL(10, 2),
+        allowNull: false,
+        defaultValue: 0.00
+      },
+      amount_with_vat: {
+        field: 'amount_with_vat',
+        type: Sequelize.DataTypes.DECIMAL(10, 2),
+        allowNull: false,
+        defaultValue: 0.00
+      },
+      user_name: {
         field: 'user_name',
         type: Sequelize.DataTypes.STRING,
       },
-      createdAt: {
+      created_at: {
         field: 'created_at',
         allowNull: false,
         type: Sequelize.DataTypes.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
       },
-      updatedAt: {
+      updated_at: {
         field: 'updated_at',
         allowNull: false,
         type: Sequelize.DataTypes.DATE,
@@ -111,7 +107,7 @@ module.exports = {
     });
   },
 
-  down: async (queryInterface, Sequelize) => {
+  down: async (queryInterface) => {
     await queryInterface.dropTable(PURCHINVOICE_TABLE);
   }
 };

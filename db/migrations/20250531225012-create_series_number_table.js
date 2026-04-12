@@ -23,9 +23,36 @@ module.exports = {
         type: Sequelize.DataTypes.STRING,
         allowNull: false,
       },
-      lastSerie: {
-        field: 'last_series',
+      // Nuevo: Prefijo alfanumérico (ej: 'CL')
+      prefix: {
+        field: 'prefix',
         type: Sequelize.DataTypes.STRING,
+        allowNull: false,
+      },
+      // Nuevo: El contador real
+      lastNumber: {
+        field: 'last_number',
+        type: Sequelize.DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0
+      },
+      // Nuevo: Longitud de ceros (ej: 4)
+      digits: {
+        field: 'digits',
+        type: Sequelize.DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 4
+      },
+      // Nuevo: Vigencia temporal
+      fromDate: {
+        field: 'from_date',
+        allowNull: false,
+        type: Sequelize.DataTypes.DATEONLY
+      },
+      toDate: {
+        field: 'to_date',
+        allowNull: false,
+        type: Sequelize.DataTypes.DATEONLY
       },
       username: {
         field: 'user_name',

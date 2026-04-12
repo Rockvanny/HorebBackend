@@ -1,43 +1,69 @@
-const Joi = require('joi');
+const express = require('express');
+const seriesNumberService = require('../services/seriesNumber.service');
+const validatorHandler = require('../middlewares/validator.handler');
+const {
+  createSeriesNumberSchema,
+  updateSeriesNumberSchema,
+  getSeriesNumberSchema,
+  querySeriesNumberSchema
+} = require('../schemas/seriesNumber.schema');
 
-const type = Joi.string().min(3).max(25); // Ajuste aquí
-const startSerie = Joi.string().alphanum().max(20);
+const router = express.Router();
+const service = new seriesNumberService();
 
-const description = Joi.string().min(3).max(50);
-const lastSerie = Joi.string().max(20);
-const username = Joi.string();
+// LISTADO PAGINADO
+router.get('/',
+  validatorHandler(querySeriesNumberSchema, 'query'),
+  async (req, res, next) => {
+    try {
+      const result = await service.findPaginated(req.query);
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
-const limit = Joi.number().integer();
-const offset = Joi.number().integer();
+// OBTENER UNA
+router.get('/:type/:startSerie',
+  validatorHandler(getSeriesNumberSchema, 'params'),
+  async (req, res, next) => {
+    try {
+      const { type, startSerie } = req.params;
+      const serie = await service.findOne(type, startSerie);
+      res.json(serie);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
-const createSeriesNumberSchema = Joi.object({
-  type: type.required(),
-  startSerie: startSerie.required(),
-  description: description.required(),
-});
+// CREAR (Aquí es donde el administrador define el prefijo, ceros y fechas)
+router.post('/',
+  validatorHandler(createSeriesNumberSchema, 'body'),
+  async (req, res, next) => {
+    try {
+      const newSerie = await service.create(req.body);
+      res.status(201).json(newSerie);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
-const updateSeriesNumberSchema = Joi.object({
-  description: description.required(),
-  lastSerie: lastSerie.required()
-});
+// ACTUALIZAR
+router.patch('/:type/:startSerie',
+  validatorHandler(getSeriesNumberSchema, 'params'),
+  validatorHandler(updateSeriesNumberSchema, 'body'),
+  async (req, res, next) => {
+    try {
+      const { type, startSerie } = req.params;
+      const updated = await service.update(type, startSerie, req.body);
+      res.json(updated);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
-const getSeriesNumberSchema = Joi.object({
-  type: type.required(),
-  startSerie: startSerie.required()
-});
-
-const getSeriesByTypeSchema = Joi.object({
-  type: Joi.string().min(3).max(50).required(),
-});
-
-const querySeriesNumberSchema = Joi.object({
-  type: Joi.string().optional(),
-  startSerie: Joi.string().optional().messages({
-    'any.required': 'El parámetro "startSerie" es obligatorio para esta consulta.',
-    'string.empty': 'El parámetro "startSerie" no puede estar vacío.'
-  }),
-  limit,
-  offset,
-});
-
-module.exports = { createSeriesNumberSchema, updateSeriesNumberSchema, getSeriesNumberSchema, getSeriesByTypeSchema, querySeriesNumberSchema };
+module.exports = router;

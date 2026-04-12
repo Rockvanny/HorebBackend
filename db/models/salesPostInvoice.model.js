@@ -1,4 +1,5 @@
 const { Model, DataTypes, Sequelize } = require('sequelize');
+const { generateNextCode } = require('../libs/sequence.handler');
 
 const SALESPOSTINVOICE_TABLE = 'sales_post_invoices';
 
@@ -128,7 +129,15 @@ class salesPostInvoice extends Model {
       tableName: SALESPOSTINVOICE_TABLE,
       modelName: 'salesPostInvoice',
       timestamps: true,
-      underscored: true
+      underscored: true,
+      beforeValidate: async (instance, options) => {
+        // Solo actuamos si es un registro nuevo (Creación)
+        if (instance.isNewRecord) {
+          // Pasamos la instancia y las opciones (que traen la transacción)
+          await generateNextCode(instance, options);
+        }
+
+      }
     }
   }
 }

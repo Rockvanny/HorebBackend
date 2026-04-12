@@ -1,17 +1,15 @@
 'use strict';
-const { DataTypes } = require("sequelize");
 
-const { SALESBUDGETLINE_TABLE } = require('../models/salesBudgetLines.model');
+const { SALESBUDGETLINE_TABLE } = require('../models/salesBudgetLine.model');
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
     await queryInterface.createTable(SALESBUDGETLINE_TABLE, {
-      codeBudget: {
+      code_budget: { // Usamos snake_case para la definición de la columna
         field: 'code_budget',
         allowNull: false,
         primaryKey: true,
         type: Sequelize.DataTypes.STRING,
-
         references: {
           model: 'sales_budgets',
           key: 'code'
@@ -19,76 +17,69 @@ module.exports = {
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE'
       },
-
-      lineNo: {
+      line_no: {
         field: 'line_no',
         type: Sequelize.DataTypes.INTEGER,
         allowNull: false,
         primaryKey: true,
       },
-
-      codeItem: {
+      item_code: {
         field: 'item_code',
         type: Sequelize.DataTypes.STRING,
         allowNull: false,
       },
-
       description: {
-        field: 'description',
         type: Sequelize.DataTypes.STRING,
-        allowNull: false,
+        allowNull: true, // Permitimos nulo si solo quieren usar el código
       },
-
       quantity: {
         field: 'quantity',
-        type: Sequelize.DataTypes.INTEGER,
+        type: Sequelize.DataTypes.DECIMAL(10, 2), // Cambiado de INTEGER a DECIMAL
         allowNull: false,
+        defaultValue: 0.00
       },
-
-      unitMeasure: {
+      unit_measure: {
         field: 'unit_measure',
         type: Sequelize.DataTypes.STRING,
         allowNull: false,
+        defaultValue: 'UNIDAD'
       },
-
-      quantityUnitMeasure: {
+      quantity_unit_measure: {
         field: 'quantity_unit_measure',
-        type: Sequelize.DataTypes.INTEGER,
+        type: Sequelize.DataTypes.DECIMAL(10, 2), // También a DECIMAL por coherencia
         allowNull: false,
+        defaultValue: 0.00
       },
-
-      unitPrice: {
+      unit_price: {
         field: 'unit_price',
         type: Sequelize.DataTypes.DECIMAL(10, 2),
         allowNull: false,
+        defaultValue: 0.00
       },
-
       vat: {
         field: 'vat',
         type: Sequelize.DataTypes.DECIMAL(10, 2),
         allowNull: false,
+        defaultValue: 0.00
       },
-
-      amountLine: {
+      amount_line: {
         field: 'amount_line',
         type: Sequelize.DataTypes.DECIMAL(10, 2),
         allowNull: false,
+        defaultValue: 0.00
       },
-
-      username: {
+      user_name: {
         field: 'user_name',
         type: Sequelize.DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
       },
-
-      createdAt: {
+      created_at: {
         field: 'created_at',
         allowNull: false,
         type: Sequelize.DataTypes.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
       },
-
-      updatedAt: {
+      updated_at: {
         field: 'updated_at',
         allowNull: false,
         type: Sequelize.DataTypes.DATE,

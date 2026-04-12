@@ -15,7 +15,8 @@ class purchInvoiceService {
 
   constructor() {
     //se inicializa el servicio de números de serie.
-    this.seriesNumberService = new seriesNumberService(); }
+    this.seriesNumberService = new seriesNumberService();
+  }
 
   async countAll() {
     try {
@@ -124,12 +125,15 @@ class purchInvoiceService {
     let transaction;
     try {
       transaction = await sequelize.transaction();
+
+      // 1. Al crear la factura, el HOOK 'beforeValidate' se disparará.
+      // Como pasamos { transaction }, el sequence.handler bloqueará la fila
+      // de la serie y generará el código (ej: FC2026-0001).
       const newPurchInvoice = await purchInvoice.create(data, { transaction });
 
-      // Preparar los datos para la primera línea vacía
-      // Asegúrate de que estos valores por defecto sean aceptables por tu modelo purchInvoiceLine
+      // 2. Usamos el código generado automáticamente para la línea
       const emptyItemData = {
-        codeInvoice: newPurchInvoice.code,
+        codeInvoice: newPurchInvoice.code, // <--- Este ya viene generado por el hook
         lineNo: 1,
         codeItem: '',
         description: '',
@@ -137,38 +141,35 @@ class purchInvoiceService {
         unitMeasure: 'UNIDAD',
         quantityUnitMeasure: 0,
         unitPrice: 0.00,
-        vat: 0.00,         // Asumiendo que existe un campo 'vat' en purchInvoiceLine
-        amountLine: 0.00,  // Asumiendo que existe un campo 'amountLine' en purchInvoiceLine
+        vat: 0.00,
+        amountLine: 0.00,
         username: data.username || 'Sistema',
       };
 
-      // Crea la primera línea vacía y vinculada dentro de la misma transacción
+      // 3. Creamos la línea dentro de la misma transacción
       await purchInvoiceLine.create(emptyItemData, { transaction });
 
-      await transaction.commit(); // Si todo fue bien, confirma la transacción
+      // 4. Consolidamos TODO: Factura + Línea + Incremento de Serie
+      await transaction.commit();
 
-      const fullBudget = await purchInvoice.findByPk(newPurchInvoice.code, {
+      // 5. Devolvemos el objeto completo (fuera de la transacción para limpieza)
+      return await purchInvoice.findByPk(newPurchInvoice.code, {
         include: [{
           model: purchInvoiceLine,
           as: 'lines'
         }]
       });
 
-      console.log('--- DEBUG: fullBudget devuelto por el servicio ---');
-      console.log(JSON.stringify(fullBudget, null, 2)); // Para ver el objeto completo, con sus anidamientos
-      console.log('--- FIN DEBUG ---');
-
-      return fullBudget;
     } catch (error) {
-      // Solo intenta hacer rollback si la transacción aún está activa (no ha terminado)
-      if (transaction && !transaction.finished) { // <--- CAMBIO CLAVE AQUÍ
-        await transaction.rollback();
-      }
-      console.error('Error en purchInvoiceService.create (con transacción y primera línea): ', error);
+      if (transaction) await transaction.rollback();
+
+      console.error('Error en purchInvoiceService.create: ', error);
+
+      // Personalización del error de duplicados (aunque con el hook esto será raro)
       if (error.name === "SequelizeUniqueConstraintError") {
-        throw boom.conflict(`El código de Factura '${data.code}' ya existe. Intenta otro.`);
+        throw boom.conflict(`El código de Factura ya existe.`);
       }
-      throw boom.badImplementation('Error al crear el Factura y su primera línea', error);
+      throw boom.badImplementation('Error al crear la Factura de compra', error);
     }
   }
 

@@ -1,4 +1,5 @@
 const { Model, DataTypes, Sequelize } = require('sequelize');
+const { generateNextCode } = require('../libs/sequence.handler');
 
 const PURCHPOSTINVOICE_TABLE = 'purch_post_invoices';
 
@@ -73,7 +74,7 @@ const purchPostInvoiceSchema = {
     field: 'status',
     type: DataTypes.STRING,
   },
-  
+
   category: {
     field: 'category',
     type: DataTypes.ENUM(
@@ -143,7 +144,15 @@ class purchpostInvoice extends Model {
       tableName: PURCHPOSTINVOICE_TABLE,
       modelName: 'purchpostInvoice',
       timestamps: true,
-      underscored: true
+      underscored: true,
+      beforeValidate: async (instance, options) => {
+        // Solo actuamos si es un registro nuevo (Creación)
+        if (instance.isNewRecord) {
+          // Pasamos la instancia y las opciones (que traen la transacción)
+          await generateNextCode(instance, options);
+        }
+
+      }
     }
   }
 }
