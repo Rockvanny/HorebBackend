@@ -4,8 +4,8 @@ const { USER_TABLE } = require('./../models/user.model');
 module.exports = {
   up: async (queryInterface, Sequelize) => {
     await queryInterface.createTable(USER_TABLE, {
-      userId: {
-        field: 'user_id',
+      code: {
+        field: 'code',
         allowNull: false,
         primaryKey: true,
         type: Sequelize.DataTypes.STRING

@@ -1,5 +1,5 @@
 const { Model, DataTypes, Sequelize } = require('sequelize');
-const { generateNextCode } = require('../libs/sequence.handler');
+const { generateNextCode } = require('../../libs/sequence.handler');
 
 const VENDOR_TABLE = 'vendors';
 
@@ -11,39 +11,51 @@ const VendorSchema = {
     type: DataTypes.STRING
   },
 
+  // Campo virtual para recibir la serie desde el front sin persistir en DB
+  selectedSerie: {
+    type: DataTypes.VIRTUAL,
+  },
+
   name: {
     field: 'name',
     type: DataTypes.STRING,
+    allowNull: false,
   },
 
   nif: {
     field: 'nif',
     type: DataTypes.STRING,
+    allowNull: false,
   },
 
   email: {
     field: 'email',
     type: DataTypes.STRING,
+    allowNull: false,
   },
 
   phone: {
     field: 'phone',
     type: DataTypes.STRING,
+    allowNull: false,
   },
 
   address: {
     field: 'address',
     type: DataTypes.STRING,
+    allowNull: false,
   },
 
   postCode: {
     field: 'post_code',
     type: DataTypes.STRING,
+    allowNull: false,
   },
 
   city: {
     field: 'city',
     type: DataTypes.STRING,
+    allowNull: false,
   },
 
   category: {
@@ -56,7 +68,7 @@ const VendorSchema = {
       'Vehículos y Movilidad',
       'Gastos de Oficina y Varios'
     ),
-    allowNull: true,
+    allowNull: false,
     defaultValue: 'Gastos de Oficina y Varios'
   },
 
@@ -74,7 +86,7 @@ const VendorSchema = {
   updatedAt: {
     field: 'updated_at',
     allowNull: false,
-    type: DataTypes.DATE,
+    type: DataTypes.DATE
   },
 
   deleteAt: {
@@ -86,15 +98,13 @@ const VendorSchema = {
 
 class Vendor extends Model {
   static associate(models) {
-    // Un proveedor (Vendor) tiene muchas facturas.
     this.hasMany(models.purchInvoice, {
       as: 'purchInvoice',
       foreignKey: 'vendor_code'
     });
 
-    // Un proveedor (Vendor) tiene muchas facturas registradas.
-    this.hasMany(models.purchpostInvoice, {
-      as: 'purchpostInvoice',
+    this.hasMany(models.purchPostInvoice, {
+      as: 'purchPostInvoice', // Corregido CamelCase para consistencia
       foreignKey: 'vendor_code'
     });
   }
@@ -108,13 +118,10 @@ class Vendor extends Model {
       underscored: true,
       paranoid: true,
       deletedAt: 'deleteAt',
-      beforeValidate: async (instance, options) => {
-        // Solo actuamos si es un registro nuevo (Creación)
-        if (instance.isNewRecord) {
-          // Pasamos la instancia y las opciones (que traen la transacción)
-          await generateNextCode(instance, options);
+      hooks: {
+        beforeValidate: async (vendor, options) => {
+          await generateNextCode(vendor, options);
         }
-
       }
     }
   }

@@ -4,12 +4,11 @@ const code = Joi.string();
 const name = Joi.string().min(3).max(50);
 const nif = Joi.string().min(9).max(15);
 const email = Joi.string().email();
-const phone =  Joi.string();
+const phone = Joi.string();
 const address = Joi.string();
 const postCode = Joi.string();
-const city =  Joi.string();
+const city = Joi.string();
 const username = Joi.string();
-
 const category = Joi.string().valid(
   'Materiales',
   'Subcontratas',
@@ -27,9 +26,10 @@ const getVendorSchema = Joi.object({
 });
 
 const createVendorSchema = Joi.object({
-  code: code.required(),
+  selectedSerie: Joi.string().required(), // Ahora permitido y obligatorio para nuevos
+  code: code.optional(),
   name: name.required(),
-  nif: nif.optional().allow(''),
+  nif: nif.required(),
   email: email.required(),
   phone: phone.required(),
   address: address.required(),
@@ -47,7 +47,7 @@ const updateVendorSchema = Joi.object({
   address: address.required(),
   postCode: postCode.required(),
   city: city.required(),
-  category: category.optional(), 
+  category: category.optional(),
   username,
 });
 
