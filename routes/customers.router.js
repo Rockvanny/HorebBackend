@@ -91,7 +91,7 @@ router.post('/',
     try {
       const body = req.body;
       // Pasamos userId para la auditoría
-      const newCustomer = await service.create(body, req.user.userId);
+      const newCustomer = await service.create(body, req.user.code);
       res.status(201).json(newCustomer);
     } catch (error) {
       if (error.name === "SequelizeUniqueConstraintError") {

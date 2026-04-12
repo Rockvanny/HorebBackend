@@ -18,7 +18,8 @@ const getCustomerSchema = Joi.object({
 });
 
 const createCustomerSchema = Joi.object({
-  code: code.required(),
+  selectedSerie: Joi.string().required(),
+  code: code.optional(),
   name: name.required(),
   nif: nif.required(),
   email: email.required(),

@@ -159,11 +159,9 @@ class CustomerService {
     const customer = await this.findOne(code);
 
     // El segundo parámetro de update (en instancia) son las opciones
-    const updatedCustomer = await customer.update(changes, {
-      userExecutor
+    return await customer.update(changes, {
+      userExecutor // Asegúrate de que este valor no sea undefined
     });
-
-    return updatedCustomer;
   }
 
   /**

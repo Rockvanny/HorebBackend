@@ -1,5 +1,5 @@
 const { Model, DataTypes, Sequelize } = require('sequelize');
-const { generateNextCode } = require('../libs/sequence.handler');
+const { generateNextCode } = require('../../libs/sequence.handler');
 
 const CUSTOMER_TABLE = 'customers';
 
@@ -9,6 +9,10 @@ const CustomerSchema = {
     allowNull: false,
     primaryKey: true,
     type: DataTypes.STRING
+  },
+  
+  selectedSerie: {
+    type: DataTypes.VIRTUAL,
   },
 
   name: {
@@ -105,13 +109,8 @@ class Customer extends Model {
       paranoid: true,
       deletedAt: 'deleteAt',
       hooks: {
-        beforeValidate: async (instance, options) => {
-          // Solo actuamos si es un registro nuevo (Creación)
-          if (instance.isNewRecord) {
-            // Pasamos la instancia y las opciones (que traen la transacción)
-            await generateNextCode(instance, options);
-          }
-
+        beforeValidate: async (customer, options) => {
+          await generateNextCode(customer, options);
         }
       }
     }
