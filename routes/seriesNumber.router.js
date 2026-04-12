@@ -1,26 +1,44 @@
 const express = require('express');
 const seriesNumberService = require('../services/seriesNumber.service');
 const validatorHandler = require('../middlewares/validator.handler');
-
-// Importamos el middleware de permisos
 const { checkPermission } = require('../middlewares/auth.handler');
 
 const {
   createSeriesNumberSchema,
   updateSeriesNumberSchema,
   getSeriesNumberSchema,
-  querySeriesNumberSchema
+  querySeriesNumberSchema,
+  // Asegúrate de añadir este en tu archivo de schemas:
+  // getSeriesByTypeSchema = Joi.object({ type: Joi.string().required() })
 } = require('../schemas/seriesNumber.schema');
 
 const router = express.Router();
 const service = new seriesNumberService();
 
 /**
- * LISTADO DE SERIES
- * Generalmente para verlas en el panel de Ajustes.
+ * BUSCAR POR TIPO (Para selectores de Clientes, Facturas, etc.)
+ * Esta ruta NO lleva checkPermission de Settings porque cualquier
+ * usuario que pueda crear un cliente necesita listar las series.
+ */
+router.get('/by-type',
+  async (req, res, next) => {
+    try {
+      const { type } = req.query; // ?type=customer
+      const series = await service.findByType(type);
+      res.json({
+        success: true,
+        data: series
+      });
+    } catch (error) {
+      next(error);
+    }
+});
+
+/**
+ * LISTADO GENERAL (Configuración)
  */
 router.get('/',
-  checkPermission('allowSettings'), // Solo usuarios con acceso a configuración
+  checkPermission('allowSettings'),
   validatorHandler(querySeriesNumberSchema, 'query'),
   async (req, res, next) => {
     try {
@@ -33,15 +51,15 @@ router.get('/',
 );
 
 /**
- * CREAR NUEVA SERIE (Ej: Al iniciar el año 2027)
+ * CREAR, ACTUALIZAR Y ELIMINAR (Se mantienen abajo)
  */
 router.post('/',
   checkPermission('allowSettings'),
   validatorHandler(createSeriesNumberSchema, 'body'),
   async (req, res, next) => {
     try {
-      // Pasamos el userId para saber quién creó la serie
-      const data = { ...req.body, username: req.user.userId };
+      // Usamos el ID de usuario del token para la auditoría
+      const data = { ...req.body, user_name: req.user.sub };
       const newSerie = await service.create(data);
       res.status(201).json(newSerie);
     } catch (error) {
@@ -50,9 +68,6 @@ router.post('/',
   }
 );
 
-/**
- * ACTUALIZAR SERIE
- */
 router.patch('/:type/:startSerie',
   checkPermission('allowSettings'),
   validatorHandler(getSeriesNumberSchema, 'params'),
@@ -68,10 +83,6 @@ router.patch('/:type/:startSerie',
   }
 );
 
-/**
- * ELIMINAR SERIE
- * ¡Peligro! Solo permitimos borrar si tienes permisos de configuración.
- */
 router.delete('/:type/:startSerie',
   checkPermission('allowSettings'),
   validatorHandler(getSeriesNumberSchema, 'params'),

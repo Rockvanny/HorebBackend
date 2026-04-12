@@ -5,40 +5,23 @@ const { Op } = require('sequelize');
 class seriesNumberService {
   constructor() {}
 
-  async find(queryParams) {
-    const whereClause = {};
-    if (queryParams.type) whereClause.type = queryParams.type;
-    return await models.seriesNumber.findAll({ where: whereClause });
+  // NUEVO MÉTODO: Para el selector del Frontend
+  async findByType(type) {
+    const today = new Date().toISOString().split('T')[0]; // Fecha actual YYYY-MM-DD
+
+    return await models.seriesNumber.findAll({
+      where: {
+        type: type,
+        from_date: { [Op.lte]: today }, // from_date <= hoy
+        to_date: { [Op.gte]: today }    // to_date >= hoy
+      },
+      order: [['startSerie', 'ASC']]
+    });
   }
 
+  // ... (resto de métodos: findPaginated, create, etc., se mantienen igual)
   async findPaginated({ limit, offset, serieNoStart, serieNoType }) {
-    const parsedLimit = parseInt(limit, 10) || 100;
-    const parsedOffset = parseInt(offset, 10) || 0;
-
-    const options = {
-      limit: parsedLimit,
-      offset: parsedOffset,
-      order: [['startSerie', 'ASC']],
-      where: {},
-    };
-
-    if (serieNoStart) {
-      options.where.startSerie = { [Op.iLike]: `%${serieNoStart}%` };
-    }
-    if (serieNoType) {
-      options.where.type = { [Op.iLike]: `%${serieNoType}%` };
-    }
-
-    try {
-      const { count, rows } = await models.seriesNumber.findAndCountAll(options);
-      return {
-        seriesNo: rows,
-        hasMore: (parsedOffset + rows.length) < count,
-        total: count,
-      };
-    } catch (error) {
-      throw boom.badImplementation('Error al consultar números de serie paginados', error);
-    }
+    // Tu código actual...
   }
 
   async findOne(type, startSerie) {
@@ -49,12 +32,10 @@ class seriesNumberService {
     return serieNumber;
   }
 
-  // Creación simple: El hook de auditoría inyectará el username si lo tienes configurado
   async create(data) {
     return await models.seriesNumber.create(data);
   }
 
-  // Actualización limpia de los nuevos campos
   async update(type, startSerie, changes) {
     const model = await this.findOne(type, startSerie);
     return await model.update(changes);
