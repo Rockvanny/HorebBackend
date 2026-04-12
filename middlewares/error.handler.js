@@ -1,8 +1,25 @@
 const { ValidationError } = require('sequelize');
 
 function logErrors(err, req, res, next) {
-  // Solo logueamos, no respondemos. El error sigue su camino.
-  console.error(`[Stack Trace]:`, err.stack);
+  console.error('--- [INICIO ERROR LOG] ---');
+
+  if (err.stack) {
+    // Si es un error estándar de JS o Boom
+    console.error(`[Stack Trace]:`, err.stack);
+  } else {
+    // Si el error es un objeto plano o undefined, lo inspeccionamos a fondo
+    console.error(`[Error detectado sin Stack]:`);
+    console.dir(err, { depth: null, colors: true });
+
+    // Si es un objeto de Joi o similar, intentamos stringificarlo
+    try {
+      console.error(`[JSON Detail]:`, JSON.stringify(err, null, 2));
+    } catch (e) {
+      console.error(`[Raw Value]:`, err);
+    }
+  }
+
+  console.error('--- [FIN ERROR LOG] ---');
   next(err);
 }
 
