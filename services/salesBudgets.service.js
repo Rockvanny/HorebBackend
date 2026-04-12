@@ -6,7 +6,7 @@ const {
   salesBudget,
   salesBudgetLine,
   Customer,
-} = sequelize.models
+} = sequelize.models;
 
 class salesBudgetService {
 
@@ -14,31 +14,15 @@ class salesBudgetService {
 
   async countAll() {
     try {
-      // Sequelize's count() method returns the total number of records
-      const totalCount = await salesBudget.count();
-      console.log(`Total de presupuestos encontrados: ${totalCount}`);
-      return totalCount;
+      return await salesBudget.count();
     } catch (error) {
-      console.error('Error al contar los presupuestos:', error);
-      throw boom.badImplementation('Error al contar los presupuestos', error); // Usa Boom para errores
+      throw boom.badImplementation('Error al contar los registros', error);
     }
   }
 
-  async find(query) {
-    const options = {
-      where: {}
-    }
-
-    const { limit, offset } = query;
-    if (limit && offset) {
-      options.limit = parseInt(limit, 10);
-      options.offset = parseInt(offset, 10);
-    }
-
-    const salesBudgets = await salesBudget.findAll(options);
-    return salesBudgets;
-  }
-
+  /**
+   * Respuesta normalizada con 'records' para el Frontend
+   */
   async findPaginated({ limit, offset, searchTerm }) {
     const parsedLimit = parseInt(limit, 10) || 100;
     const parsedOffset = parseInt(offset, 10) || 0;
@@ -46,212 +30,131 @@ class salesBudgetService {
     const options = {
       limit: parsedLimit,
       offset: parsedOffset,
-      order: [['code', 'ASC']],
+      order: [['created_at', 'DESC']],
       where: {},
-    }
+    };
 
     if (searchTerm) {
-      if (searchTerm.includes('%')) {
-        options.where[Op.or] = [
-          { code: { [Op.iLike]: `%${searchTerm}%` } },
-          { name: { [Op.iLike]: `%${searchTerm}%` } }
-        ];
-      } else {
-        options.where.code = {
-          [Op.iLike]: `%${searchTerm}`
-        }
-      }
+      options.where[Op.or] = [
+        { code: { [Op.iLike]: `%${searchTerm}%` } },
+        { name: { [Op.iLike]: `%${searchTerm}%` } },
+        { nif: { [Op.iLike]: `%${searchTerm}%` } }
+      ];
     }
 
     try {
       const { count, rows } = await salesBudget.findAndCountAll(options);
-
       return {
-        records: rows,
+        records: rows, // Consistencia total con el front
         hasMore: (parsedOffset + rows.length) < count,
         total: count,
       };
     } catch (error) {
-      console.error('Error en salesBudgetService.findPaginated: ', error);
-      throw boom.badImplementation('Error al consultar presupuestos paginados', error);
+      throw boom.badImplementation('Error al consultar registros paginados', error);
     }
   }
 
-  async findOne(code, options = {}) { // Usamos un objeto options para mayor flexibilidad
+  async findOne(code, options = {}) {
     const { includeLines = false, includeCustomer = false } = options;
 
     const queryOptions = {
-      where: {
-        code: code,
-      },
-      include: [] // Inicializamos un array de inclusiones
+      include: []
     };
 
     if (includeCustomer) {
-      queryOptions.include.push({
-        model: Customer,
-        as: 'customer' // Asegúrate de que este alias coincida con salesBudget.associate
-      });
+      queryOptions.include.push({ model: Customer, as: 'customer' });
     }
 
     if (includeLines) {
       queryOptions.include.push({
         model: salesBudgetLine,
-        as: 'lines' // Asegúrate de que este alias coincida con salesBudget.associate
+        as: 'lines',
+        separate: false
       });
-    }
-
-    // Si no hay inclusiones, eliminamos la propiedad 'include' para evitar errores de Sequelize
-    if (queryOptions.include.length === 0) {
-      delete queryOptions.include;
     }
 
     const salesBudgetFound = await salesBudget.findByPk(code, queryOptions);
     if (!salesBudgetFound) {
-      throw boom.notFound('Presupuesto no encontrado');
+      throw boom.notFound('Registro no encontrado');
     }
     return salesBudgetFound;
   }
 
-
   async create(data) {
-    let transaction;
+    const transaction = await sequelize.transaction();
     try {
-      transaction = await sequelize.transaction();
+      // 1. Crear cabecera
       const newSalesBudget = await salesBudget.create(data, { transaction });
 
-      // Preparar los datos para la primera línea vacía
-      // Asegúrate de que estos valores por defecto sean aceptables por tu modelo salesBudgetLine
-      const emptyItemData = {
+      // 2. Crear línea inicial por defecto
+      const emptyLine = {
         codeBudget: newSalesBudget.code,
         lineNo: 1,
-        codeItem: '',
-        description: '',
-        quantity: 0,
-        unitMeasure: 'UNIDAD',
-        quantityUnitMeasure: 0,
-        unitPrice: 0.00,
-        vat: 0.00,         // Asumiendo que existe un campo 'vat' en salesBudgetLine
-        amountLine: 0.00,  // Asumiendo que existe un campo 'amountLine' en salesBudgetLine
-        username: data.username || 'Sistema',
+        description: 'Nueva línea',
+        quantity: 1.0000,
+        unitPrice: 0.0000,
+        vat: 21.0000,
+        amountLine: 0.0000,
+        username: data.username || 'Sistema'
       };
 
-      // Crea la primera línea vacía y vinculada dentro de la misma transacción
-      await salesBudgetLine.create(emptyItemData, { transaction });
+      await salesBudgetLine.create(emptyLine, { transaction });
+      await transaction.commit();
 
-      await transaction.commit(); // Si todo fue bien, confirma la transacción
-
-      const fullBudget = await salesBudget.findByPk(newSalesBudget.code, {
-        include: [{
-          model: salesBudgetLine,
-          as: 'lines'
-        }]
-      });
-
-      console.log('--- DEBUG: fullBudget devuelto por el servicio ---');
-      console.log(JSON.stringify(fullBudget, null, 2)); // Para ver el objeto completo, con sus anidamientos
-      console.log('--- FIN DEBUG ---');
-
-      return fullBudget;
+      return await this.findOne(newSalesBudget.code, { includeLines: true });
     } catch (error) {
-      // Solo intenta hacer rollback si la transacción aún está activa (no ha terminado)
-      if (transaction && !transaction.finished) { // <--- CAMBIO CLAVE AQUÍ
-        await transaction.rollback();
-      }
-      console.error('Error en salesInvoiceService.create (con transacción y primera línea): ', error);
+      if (transaction) await transaction.rollback();
       if (error.name === "SequelizeUniqueConstraintError") {
-        throw boom.conflict(`El código de presupuesto '${data.code}' ya existe. Intenta otro.`);
+        throw boom.conflict(`El código '${data.code}' ya existe en el sistema.`);
       }
-      throw boom.badImplementation('Error al crear el presupuesto y su primera línea', error);
+      throw boom.badImplementation('Error al crear el registro', error);
     }
   }
 
   async update(code, changes) {
-    console.log(`\n--- DEBUG: Dentro de salesBudgetService.update(${code}, changes) ---`);
-    console.log("Cambios recibidos (body):", JSON.stringify(changes, null, 2));
-
     const { lines, ...headerChanges } = changes;
     const transaction = await sequelize.transaction();
 
     try {
-      const salesBudgetInstance = await salesBudget.findOne({
-        where: { code },
-        transaction
-      });
+      const instance = await salesBudget.findByPk(code, { transaction });
+      if (!instance) throw boom.notFound('Registro no encontrado');
 
-      if (!salesBudgetInstance) {
-        throw boom.notFound('Presupuesto no encontrado');
-      }
+      // 1. Actualizar cabecera
+      await instance.update(headerChanges, { transaction });
 
-      await salesBudgetInstance.update(headerChanges, { transaction });
-
-      // Eliminar todas las líneas existentes para este presupuesto
-      await salesBudgetLine.destroy({
-        where: { codeBudget: code },
-        transaction
-      });
-
-      // Depuración: Confirma si las líneas se borraron antes de insertar
-      console.log(`DEBUG: Líneas existentes borradas para codeBudget: ${code}`);
-
-      if (lines && lines.length > 0) {
-        const linesToInsert = lines.map(line => ({
-          ...line,
-          codeBudget: code
-        }));
-
-        await salesBudgetLine.bulkCreate(linesToInsert, {
-          transaction,
-
-          updateOnDuplicate: [
-            'item_code',
-            'description',
-            'quantity',
-            'unit_measure',
-            'quantity_unit_measure',
-            'unit_price',
-            'vat',
-            'amount_line',
-            'user_name',
-            'updated_at'
-          ]
+      // 2. Sincronizar líneas (Flush & Fill)
+      if (lines) {
+        await salesBudgetLine.destroy({
+          where: { codeBudget: code },
+          transaction
         });
-        console.log("DEBUG: bulkCreate (con updateOnDuplicate) completado exitosamente.");
+
+        if (lines.length > 0) {
+          const linesToInsert = lines.map((line, index) => ({
+            ...line,
+            codeBudget: code,
+            lineNo: index + 1
+          }));
+          await salesBudgetLine.bulkCreate(linesToInsert, { transaction });
+        }
       }
 
       await transaction.commit();
-
-      const updatedSalesBudgetWithLines = await this.findOne(code, { includeLines: true });
-
-      console.log("Presupuesto actualizado (con líneas):", JSON.stringify(updatedSalesBudgetWithLines, null, 2));
-      return updatedSalesBudgetWithLines;
+      return await this.findOne(code, { includeLines: true, includeCustomer: true });
 
     } catch (error) {
-      await transaction.rollback();
-      console.error("Error al actualizar el presupuesto y las líneas:", error);
-      // Si el error tiene detalles de Sequelize, imprímelos
-      if (error.errors) {
-        console.error("Detalles del error de Sequelize:", JSON.stringify(error.errors, null, 2));
-      }
+      if (transaction) await transaction.rollback();
       throw error;
     }
   }
 
   async delete(code) {
-    console.log(`\n--- DEBUG: Dentro de salesBudgetService.delete(${code}) ---`);
+    const instance = await salesBudget.findByPk(code);
+    if (!instance) throw boom.notFound('Registro no encontrado');
 
-    const salesBudgetToDelete = await salesBudget.findOne({
-      where: { code }
-    });
-
-    if (!salesBudgetToDelete) {
-      throw boom.notFound(`Presupuesto con código ${code} no encontrado para eliminar`);
-    }
-
-    await salesBudgetToDelete.destroy();
-
-    console.log(`Presupuesto ${code} y sus líneas eliminadas correctamente (vía CASCADE).`);
-    return { code, message: 'Eliminado correctamente' };
+    // El ON DELETE CASCADE se encarga de las líneas
+    await instance.destroy();
+    return { code, message: 'Registro eliminado correctamente' };
   }
 }
 

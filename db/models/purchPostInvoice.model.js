@@ -1,5 +1,5 @@
 const { Model, DataTypes, Sequelize } = require('sequelize');
-const { generateNextCode } = require('../libs/sequence.handler');
+const { generateNextCode } = require('../../libs/sequence.handler');
 
 const PURCHPOSTINVOICE_TABLE = 'purch_post_invoices';
 
@@ -124,7 +124,7 @@ const purchPostInvoiceSchema = {
   }
 }
 
-class purchpostInvoice extends Model {
+class purchPostInvoice extends Model {
   static associate(models) {
     // Una factura compra pertenece a un proveedor
     this.belongsTo(models.Vendor, {
@@ -142,19 +142,19 @@ class purchpostInvoice extends Model {
     return {
       sequelize,
       tableName: PURCHPOSTINVOICE_TABLE,
-      modelName: 'purchpostInvoice',
+      modelName: 'purchPostInvoice',
       timestamps: true,
       underscored: true,
-      beforeValidate: async (instance, options) => {
-        // Solo actuamos si es un registro nuevo (Creación)
-        if (instance.isNewRecord) {
-          // Pasamos la instancia y las opciones (que traen la transacción)
-          await generateNextCode(instance, options);
+      // Mover el hook aquí dentro para evitar comportamientos extraños
+      hooks: {
+        beforeValidate: async (instance, options) => {
+          if (instance.isNewRecord) {
+            await generateNextCode(instance, options);
+          }
         }
-
       }
     }
   }
 }
 
-module.exports = { purchpostInvoice, purchPostInvoiceSchema, PURCHPOSTINVOICE_TABLE };
+module.exports = { purchPostInvoice, purchPostInvoiceSchema, PURCHPOSTINVOICE_TABLE };

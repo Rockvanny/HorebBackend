@@ -98,7 +98,7 @@ const purchPostInvoiceLineSchema = {
 
 class purchPostInvoiceLine extends Model {
   static associate(models) {
-    this.belongsTo(models.purchpostInvoice, { // 'models.salesBudget' es el modelo al que pertenece
+    this.belongsTo(models.purchPostInvoice, { // 'models.salesBudget' es el modelo al que pertenece
       as: 'invoice',                       // Alias para acceder a la factura regsitrada desde la línea (ej. line.budget)
       foreignKey: 'code_invoice'            // La clave foránea en ESTA tabla (purch_Invoice_lines)
     });

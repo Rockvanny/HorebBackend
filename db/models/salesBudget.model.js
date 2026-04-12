@@ -1,17 +1,14 @@
 const { Model, DataTypes, Sequelize } = require('sequelize');
-const { generateNextCode } = require('../libs/sequence.handler');
+const { generateNextCode } = require('../../libs/sequence.handler');
 
 const SALESBUDGET_TABLE = 'sales_budgets';
 
 const salesBudgetSchema = {
-  // IDENTIFICADOR ÚNICO (Estandarizado)
   code: {
-    field: 'code',
     allowNull: false,
     primaryKey: true,
     type: DataTypes.STRING
   },
-  // FECHAS (Igualado a purchInvoice)
   postingDate: {
     field: 'posting_date',
     type: DataTypes.DATE,
@@ -20,50 +17,43 @@ const salesBudgetSchema = {
     field: 'due_date',
     type: DataTypes.DATE,
   },
-  // DATOS DEL CONTACTO (Estandarizado)
   customerCode: {
     field: 'customer_code',
     type: DataTypes.STRING,
+    allowNull: false,
   },
-  name: { // Nombre del cliente (para la tabla genérica)
-    field: 'name',
-    type: DataTypes.STRING,
+  name: DataTypes.STRING,
+  nif: DataTypes.STRING,
+  email: DataTypes.STRING,
+  phone: DataTypes.STRING,
+  address: DataTypes.STRING,
+  postCode: {
+    field: 'post_code',
+    type: DataTypes.STRING
   },
-  nif: { // Campo específico de venta
-    field: 'nif',
-    type: DataTypes.STRING,
-  },
-  email: { field: 'email', type: DataTypes.STRING },
-  phone: { field: 'phone', type: DataTypes.STRING },
-  address: { field: 'address', type: DataTypes.STRING },
-  postCode: { field: 'post_code', type: DataTypes.STRING },
-  city: { field: 'city', type: DataTypes.STRING },
-
-  // ESTADO (Consistente con Compras)
+  city: DataTypes.STRING,
   status: {
-    field: 'status',
-    type: DataTypes.STRING,
+    type: DataTypes.ENUM('Borrador', 'Aprobada', 'Rechazada'),
+    allowNull: false,
     defaultValue: 'Borrador'
   },
-
-  // TOTALES (Copiado exacto de purchInvoice para que el Front no sufra)
+  // TOTALES NORMALIZADOS A 4 DECIMALES
   amountWithoutVAT: {
-    field: 'amount_without_vat', // Corregido: todo minúsculas
-    type: DataTypes.DECIMAL(10, 2),
-    defaultValue: 0.00
+    field: 'amount_without_vat',
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 0.0000
   },
   amountVAT: {
     field: 'amount_vat',
-    type: DataTypes.DECIMAL(10, 2),
-    defaultValue: 0.00
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 0.0000
   },
   amountWithVAT: {
     field: 'amount_with_vat',
-    type: DataTypes.DECIMAL(10, 2),
-    defaultValue: 0.00
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 0.0000
   },
-
-  // AUDITORÍA
+  comments: DataTypes.TEXT,
   username: {
     field: 'user_name',
     type: DataTypes.STRING,
@@ -80,7 +70,7 @@ const salesBudgetSchema = {
     type: DataTypes.DATE,
     defaultValue: Sequelize.NOW
   }
-}
+};
 
 class salesBudget extends Model {
   static associate(models) {
@@ -88,10 +78,11 @@ class salesBudget extends Model {
       as: 'customer',
       foreignKey: 'customer_code'
     });
-
     this.hasMany(models.salesBudgetLine, {
       as: 'lines',
-      foreignKey: 'codeBudget'
+      foreignKey: 'codeBudget',
+      onDelete: 'CASCADE',
+      hooks: true
     });
   }
 
@@ -100,16 +91,16 @@ class salesBudget extends Model {
       sequelize,
       tableName: SALESBUDGET_TABLE,
       modelName: 'salesBudget',
-      timestamps: true,
+      timestamps: false, // Ya definimos nosotros created_at y updated_at
       underscored: true,
-      hooks: { // CORRECCIÓN: Encapsulado en el objeto hooks
+      hooks: {
         beforeValidate: async (instance, options) => {
-          if (instance.isNewRecord) {
+          if (instance.isNewRecord && !instance.code) {
             await generateNextCode(instance, options);
           }
         }
       }
-    }
+    };
   }
 }
 

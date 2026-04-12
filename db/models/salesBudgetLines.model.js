@@ -26,20 +26,20 @@ const salesBudgetLineSchema = {
   // PRODUCTO Y DESCRIPCIÓN
   codeItem: {
     field: 'item_code',
-    allowNull: false,
+    allowNull: true, // Permitir líneas de texto libre sin código de artículo
     type: DataTypes.STRING,
   },
   description: {
     field: 'description',
-    type: DataTypes.STRING
+    type: DataTypes.TEXT // Cambiado a TEXT para descripciones largas
   },
 
-  // CANTIDADES (Cambiado a DECIMAL para mayor flexibilidad)
+  // CANTIDADES (Sincronizado a 4 decimales)
   quantity: {
     field: 'quantity',
     allowNull: false,
-    type: DataTypes.DECIMAL(10, 2),
-    defaultValue: 0.00
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 0.0000
   },
   unitMeasure: {
     field: 'unit_measure',
@@ -47,31 +47,32 @@ const salesBudgetLineSchema = {
     type: DataTypes.STRING,
     defaultValue: 'UNIDAD'
   },
+  // Este campo suele ser para conversiones, lo mantenemos normalizado
   quantityUnitMeasure: {
     field: 'quantity_unit_measure',
     allowNull: false,
-    type: DataTypes.DECIMAL(10, 2),
-    defaultValue: 0.00
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 0.0000
   },
 
   // PRECIOS E IMPUESTOS
   unitPrice: {
     field: 'unit_price',
     allowNull: false,
-    type: DataTypes.DECIMAL(10, 2),
-    defaultValue: 0.00
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 0.0000
   },
-  vat: { // Porcentaje de IVA
+  vat: {
     field: 'vat',
     allowNull: false,
-    type: DataTypes.DECIMAL(10, 2),
-    defaultValue: 0.00
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 21.0000 // Por defecto el IVA estándar
   },
-  amountLine: { // Base imponible de la línea
+  amountLine: {
     field: 'amount_line',
     allowNull: false,
-    type: DataTypes.DECIMAL(10, 2),
-    defaultValue: 0.00
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 0.0000
   },
 
   // AUDITORÍA
@@ -97,11 +98,11 @@ class salesBudgetLine extends Model {
   static associate(models) {
     this.belongsTo(models.salesBudget, {
       as: 'budget',
-      foreignKey: 'codeBudget' // Usamos el nombre de JS definido arriba
+      foreignKey: 'code_budget'
     });
   }
 
-  // MÉTODO DE RECÁLCULO PARA PRESUPUESTOS
+  // MÉTODO DE RECÁLCULO PARA CABECERA
   static async updateBudgetTotals(codeBudget, transaction) {
     const { salesBudget } = this.sequelize.models;
 
@@ -111,8 +112,9 @@ class salesBudgetLine extends Model {
     });
 
     const totals = lines.reduce((acc, line) => {
-      const base = parseFloat(line.amountLine) || 0;
-      const vatPercent = parseFloat(line.vat) || 0;
+      // Usamos Number() para asegurar precisión en el cálculo intermedio
+      const base = Number(line.amountLine) || 0;
+      const vatPercent = Number(line.vat) || 0;
       const vatAmount = base * (vatPercent / 100);
 
       acc.baseTotal += base;
@@ -120,11 +122,11 @@ class salesBudgetLine extends Model {
       return acc;
     }, { baseTotal: 0, vatTotal: 0 });
 
-    // Actualizamos los campos estandarizados de la cabecera
+    // Redondeo final a 4 decimales para la DB
     await salesBudget.update({
-      amountWithoutVAT: totals.baseTotal,
-      amountVAT: totals.vatTotal,
-      amountWithVAT: totals.baseTotal + totals.vatTotal
+      amountWithoutVAT: totals.baseTotal.toFixed(4),
+      amountVAT: totals.vatTotal.toFixed(4),
+      amountWithVAT: (totals.baseTotal + totals.vatTotal).toFixed(4)
     }, {
       where: { code: codeBudget },
       transaction
@@ -139,11 +141,22 @@ class salesBudgetLine extends Model {
       timestamps: true,
       underscored: true,
       hooks: {
+        // Importante: El recálculo ocurre tras cualquier cambio en las líneas
         afterSave: async (line, options) => {
-          await this.updateBudgetTotals(line.codeBudget, options.transaction);
+          if (options.transaction) {
+            await this.updateBudgetTotals(line.codeBudget, options.transaction);
+          }
         },
         afterDestroy: async (line, options) => {
-          await this.updateBudgetTotals(line.codeBudget, options.transaction);
+          if (options.transaction) {
+            await this.updateBudgetTotals(line.codeBudget, options.transaction);
+          }
+        },
+        // afterBulkCreate es vital para cuando insertamos muchas líneas de golpe
+        afterBulkCreate: async (lines, options) => {
+          if (lines.length > 0 && options.transaction) {
+            await this.updateBudgetTotals(lines[0].codeBudget, options.transaction);
+          }
         }
       }
     };

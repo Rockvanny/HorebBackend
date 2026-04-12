@@ -1,94 +1,87 @@
 'use strict';
 
-const { SALESBUDGETLINE_TABLE } = require('../models/salesBudgetLine.model');
+const { SALESBUDGETLINE_TABLE } = require('../models/salesBudgetLines.model');
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
     await queryInterface.createTable(SALESBUDGETLINE_TABLE, {
-      code_budget: { // Usamos snake_case para la definición de la columna
-        field: 'code_budget',
+      // CLAVE COMPUESTA: code_budget + line_no
+      code_budget: {
         allowNull: false,
         primaryKey: true,
         type: Sequelize.DataTypes.STRING,
         references: {
-          model: 'sales_budgets',
+          model: 'sales_budgets', // Nombre de la tabla física
           key: 'code'
         },
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE'
       },
       line_no: {
-        field: 'line_no',
-        type: Sequelize.DataTypes.INTEGER,
         allowNull: false,
         primaryKey: true,
+        type: Sequelize.DataTypes.INTEGER,
       },
       item_code: {
-        field: 'item_code',
         type: Sequelize.DataTypes.STRING,
-        allowNull: false,
+        allowNull: true, // Cambiado a true por si hay líneas de solo texto
       },
       description: {
-        type: Sequelize.DataTypes.STRING,
-        allowNull: true, // Permitimos nulo si solo quieren usar el código
+        type: Sequelize.DataTypes.TEXT, // Cambiado a TEXT para descripciones largas
+        allowNull: true,
       },
+      // PRECISIÓN NORMALIZADA A 4 DECIMALES
       quantity: {
-        field: 'quantity',
-        type: Sequelize.DataTypes.DECIMAL(10, 2), // Cambiado de INTEGER a DECIMAL
+        type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 0.00
+        defaultValue: 0.0000
       },
       unit_measure: {
-        field: 'unit_measure',
         type: Sequelize.DataTypes.STRING,
         allowNull: false,
         defaultValue: 'UNIDAD'
       },
       quantity_unit_measure: {
-        field: 'quantity_unit_measure',
-        type: Sequelize.DataTypes.DECIMAL(10, 2), // También a DECIMAL por coherencia
+        type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 0.00
+        defaultValue: 0.0000
       },
       unit_price: {
-        field: 'unit_price',
-        type: Sequelize.DataTypes.DECIMAL(10, 2),
+        type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 0.00
+        defaultValue: 0.0000
       },
       vat: {
-        field: 'vat',
-        type: Sequelize.DataTypes.DECIMAL(10, 2),
+        type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 0.00
+        defaultValue: 21.0000 // Por defecto el IVA estándar
       },
       amount_line: {
-        field: 'amount_line',
-        type: Sequelize.DataTypes.DECIMAL(10, 2),
+        type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 0.00
+        defaultValue: 0.0000
       },
       user_name: {
-        field: 'user_name',
         type: Sequelize.DataTypes.STRING,
         allowNull: true,
       },
       created_at: {
-        field: 'created_at',
         allowNull: false,
         type: Sequelize.DataTypes.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
       },
       updated_at: {
-        field: 'updated_at',
         allowNull: false,
         type: Sequelize.DataTypes.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
       }
     });
+
+    // Índice de rendimiento para búsquedas de líneas por presupuesto
+    await queryInterface.addIndex(SALESBUDGETLINE_TABLE, ['code_budget']);
   },
 
-  down: async (queryInterface) => {
+  async down(queryInterface) {
     await queryInterface.dropTable(SALESBUDGETLINE_TABLE);
   }
 };

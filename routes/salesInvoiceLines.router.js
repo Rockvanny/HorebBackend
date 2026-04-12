@@ -1,12 +1,11 @@
 const express = require('express');
-
 const SalesInvoiceLineService = require('../services/salesInvoiceLines.service');
 const validatorHandler = require('../middlewares/validator.handler');
+const { checkPermission } = require('../middlewares/auth.handler');
 
-// Esquemas específicos para las líneas de presupuesto
 const {
   createSalesInvoiceLineSchema,
-  getSalesInvoiceLineSchema,    // <-- Este esquema ahora necesitará validar codeInvoice y lineNo
+  getSalesInvoiceLineSchema,
   updateSalesInvoiceLineSchema,
   querySalesInvoiceLineSchema
 } = require('../schemas/salesInvoiceLine.schema');
@@ -14,8 +13,13 @@ const {
 const router = express.Router();
 const service = new SalesInvoiceLineService();
 
-// GET /paginated (Obtener todas las líneas con paginación y búsqueda)
+/**
+ * LECTURA DE LÍNEAS
+ */
+
+// GET /paginated - Listado con filtros
 router.get('/salesInvoiceLines-paginated',
+  checkPermission('VIEW_SALESINVOICES'),
   validatorHandler(querySalesInvoiceLineSchema, 'query'),
   async (req, res, next) => {
     try {
@@ -28,16 +32,14 @@ router.get('/salesInvoiceLines-paginated',
   }
 );
 
-// GET /:codeInvoice/:lineNo (Obtener una línea específica por su clave primaria compuesta)
+// GET /:codeInvoice/:lineNo - Una línea específica (PK compuesta)
 router.get('/:codeInvoice/:lineNo',
+  checkPermission('VIEW_SALESINVOICES'),
   validatorHandler(getSalesInvoiceLineSchema, 'params'),
   async (req, res, next) => {
-    const { codeInvoice, lineNo } = req.params;
-    console.time(`Tiempo de consulta para línea de presupuesto ${codeInvoice}-${lineNo}`);
     try {
-      // Pasar un objeto con ambas partes de la PK al servicio
+      const { codeInvoice, lineNo } = req.params;
       const salesInvoiceLine = await service.findOne({ codeInvoice, lineNo });
-      console.timeEnd(`Tiempo de consulta para línea de presupuesto ${codeInvoice}-${lineNo}`);
       res.json(salesInvoiceLine);
     } catch (error) {
       next(error);
@@ -45,14 +47,13 @@ router.get('/:codeInvoice/:lineNo',
   }
 );
 
-// GET / (Obtener todas las líneas sin paginación - si es necesario)
+// GET / - Listado general
 router.get('/',
+  checkPermission('VIEW_SALESINVOICES'),
   validatorHandler(querySalesInvoiceLineSchema, 'query'),
   async (req, res, next) => {
-    console.time("Tiempo de consulta a líneas de presupuesto");
     try {
       const SalesInvoiceLines = await service.find(req.query);
-      console.timeEnd("Tiempo de consulta a líneas de presupuesto");
       res.json(SalesInvoiceLines);
     } catch (error) {
       next(error);
@@ -60,22 +61,26 @@ router.get('/',
   }
 );
 
+/**
+ * ESCRITURA DE LÍNEAS
+ */
 
-router.post('/:codeInvoice', // Aquí 'codeInvoice' viene de los parámetros de la URL
-  validatorHandler(getSalesInvoiceLineSchema, 'params'), // Valida que el codeInvoice en params sea válido
-  validatorHandler(createSalesInvoiceLineSchema, 'body'), // Valida el resto de los datos de la línea
+// POST /:codeInvoice - Añadir una línea a una factura existente
+router.post('/:codeInvoice',
+  checkPermission('UPDATE_SALESINVOICES'), // Usamos UPDATE porque altera una factura existente
+  validatorHandler(getSalesInvoiceLineSchema, 'params'),
+  validatorHandler(createSalesInvoiceLineSchema, 'body'),
   async (req, res, next) => {
     try {
-      const { codeInvoice } = req.params; // Obtener codeInvoice de la URL
-      const body = req.body; // El body contendrá lineNo, codeItem, description, etc.
-      // Combinar codeInvoice de params con el resto del body
+      const { codeInvoice } = req.params;
+      const body = req.body;
       const newSalesInvoiceLine = await service.create({ ...body, codeInvoice });
       res.status(201).json(newSalesInvoiceLine);
     } catch (error) {
       if (error.name === "SequelizeUniqueConstraintError") {
         return res.status(409).json({
           success: false,
-          message: `Una línea de presupuesto con el mismo 'codeInvoice' y 'lineNo' ya existe.`,
+          message: `La línea ${req.body.lineNo} ya existe para la factura ${req.params.codeInvoice}.`,
           error: error.errors
         });
       }
@@ -84,17 +89,15 @@ router.post('/:codeInvoice', // Aquí 'codeInvoice' viene de los parámetros de 
   }
 );
 
-
-// PATCH /:codeInvoice/:lineNo (Actualizar una línea por su clave primaria compuesta)
+// PATCH /:codeInvoice/:lineNo - Actualización parcial de una línea
 router.patch('/:codeInvoice/:lineNo',
-  validatorHandler(getSalesInvoiceLineSchema, 'params'), // Valida codeInvoice y lineNo
+  checkPermission('UPDATE_SALESINVOICES'),
+  validatorHandler(getSalesInvoiceLineSchema, 'params'),
   validatorHandler(updateSalesInvoiceLineSchema, 'body'),
   async (req, res, next) => {
     try {
-      console.log('Consulta PATCH para línea de presupuesto');
       const { codeInvoice, lineNo } = req.params;
       const body = req.body;
-      // Pasar un objeto con la PK completa
       const salesInvoiceLine = await service.update({ codeInvoice, lineNo }, body);
       res.json(salesInvoiceLine);
     } catch (error) {
@@ -103,14 +106,19 @@ router.patch('/:codeInvoice/:lineNo',
   }
 );
 
-// DELETE /:codeInvoice/:lineNo (Eliminar una línea por su clave primaria compuesta)
+// DELETE /:codeInvoice/:lineNo - Eliminar una línea específica
 router.delete('/:codeInvoice/:lineNo',
-  validatorHandler(getSalesInvoiceLineSchema, 'params'), // Valida codeInvoice y lineNo
+  checkPermission('UPDATE_SALESINVOICES'),
+  validatorHandler(getSalesInvoiceLineSchema, 'params'),
   async (req, res, next) => {
     try {
       const { codeInvoice, lineNo } = req.params;
-      await service.delete({ codeInvoice, lineNo }); // Pasar un objeto con la PK completa
-      res.status(200).json({ codeInvoice, lineNo, message: 'Línea de presupuesto eliminada correctamente.' });
+      await service.delete({ codeInvoice, lineNo });
+      res.status(200).json({
+        codeInvoice,
+        lineNo,
+        message: 'Línea de factura eliminada y totales recalculados.'
+      });
     } catch (error) {
       next(error);
     }

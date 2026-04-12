@@ -67,7 +67,7 @@ const updateSalesInvoiceSchema = Joi.object({
   amountWithVAT: amountWithVAT.optional(),
   username: username.optional(),
 
-  lines: Joi.array().items(updateSalesInvoiceLineSchema).optional(),
+  lines: Joi.array().items(createSalesInvoiceSchema).optional(),
 });
 
 const querySalesInvoiceSchema = Joi.object({

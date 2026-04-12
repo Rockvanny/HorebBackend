@@ -1,5 +1,6 @@
 'use strict';
 
+// Mantenemos tu sintaxis de importación original
 const { SALESBUDGET_TABLE } = require('../models/salesBudget.model');
 
 module.exports = {
@@ -10,17 +11,20 @@ module.exports = {
         primaryKey: true,
         type: Sequelize.DataTypes.STRING
       },
-      posting_date: { // Cambiado a snake_case para la DB
+      posting_date: {
         field: 'posting_date',
-        type: Sequelize.DataTypes.DATEONLY,
+        type: Sequelize.DataTypes.DATE,
+        allowNull: true
       },
       due_date: {
         field: 'due_date',
-        type: Sequelize.DataTypes.DATEONLY,
+        type: Sequelize.DataTypes.DATE,
+        allowNull: true
       },
       customer_code: {
         field: 'customer_code',
         type: Sequelize.DataTypes.STRING,
+        allowNull: false,
       },
       name: {
         type: Sequelize.DataTypes.STRING,
@@ -45,27 +49,32 @@ module.exports = {
         type: Sequelize.DataTypes.STRING,
       },
       status: {
-        type: Sequelize.DataTypes.STRING,
+        type: Sequelize.DataTypes.ENUM('Borrador', 'Aprobada', 'Rechazada'),
+        allowNull: false,
         defaultValue: 'Borrador'
       },
-      // TOTALES ESTANDARIZADOS (Igual que en facturas)
+      comments: {
+        type: Sequelize.DataTypes.TEXT,
+        allowNull: true
+      },
+      // Importante: Usamos DECIMAL(12, 4) para coincidir con la lógica de precisión
       amount_without_vat: {
-        field: 'amount_without_vat', // Corregido: minúsculas
-        type: Sequelize.DataTypes.DECIMAL(10, 2),
+        field: 'amount_without_vat',
+        type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 0.00
+        defaultValue: 0.0000
       },
       amount_vat: {
         field: 'amount_vat',
-        type: Sequelize.DataTypes.DECIMAL(10, 2),
+        type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 0.00
+        defaultValue: 0.0000
       },
       amount_with_vat: {
         field: 'amount_with_vat',
-        type: Sequelize.DataTypes.DECIMAL(10, 2),
+        type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 0.00
+        defaultValue: 0.0000
       },
       user_name: {
         field: 'user_name',
@@ -88,5 +97,7 @@ module.exports = {
 
   down: async (queryInterface) => {
     await queryInterface.dropTable(SALESBUDGET_TABLE);
+    // Nota: Si la migración falla y usas Postgres, puede que debas borrar el ENUM manualmente
+    // await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_budgets_status";');
   }
 };

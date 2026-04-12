@@ -1,5 +1,5 @@
 const { Model, DataTypes, Sequelize } = require('sequelize');
-const { generateNextCode } = require('../libs/sequence.handler');
+const { generateNextCode } = require('../../libs/sequence.handler');
 
 const SALESPOSTINVOICE_TABLE = 'sales_post_invoices';
 
