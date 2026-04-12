@@ -1,14 +1,20 @@
 const { Model, DataTypes, Sequelize } = require('sequelize');
+const { generateNextCode } = require('../../libs/sequence.handler');
 
 const PRODUCT_TABLE = 'products';
 
 const ProductSchema = {
+  // Cambiamos a primaryKey simple sin autoIncrement porque es STRING
   code: {
     field: 'code',
     allowNull: false,
-    autoIncrement: true,
     primaryKey: true,
     type: DataTypes.STRING
+  },
+
+  // Campo Virtual para recibir la serie desde el frontend sin guardarla en DB
+  selectedSerie: {
+    type: DataTypes.VIRTUAL
   },
 
   name: {
@@ -25,13 +31,13 @@ const ProductSchema = {
 
   qtyByUnitMeasure: {
     field: 'qty_by_unit_measure',
-    type: DataTypes.DECIMAL,
+    type: DataTypes.DECIMAL(10, 2), // Añadida precisión para evitar errores de redondeo
     allowNull: false
   },
 
   price: {
     field: 'price',
-    type: DataTypes.DECIMAL,
+    type: DataTypes.DECIMAL(10, 2), // Añadida precisión
     allowNull: false,
   },
 
@@ -67,7 +73,9 @@ const ProductSchema = {
 
 class Products extends Model {
 
-  static associate(models) { }
+  static associate(models) {
+    // Aquí irán las asociaciones (ej: con categorías o líneas de factura)
+  }
 
   static config(sequelize) {
     return {
@@ -78,13 +86,23 @@ class Products extends Model {
       underscored: true,
       paranoid: true,
       deletedAt: 'deleteAt',
-      beforeValidate: async (instance, options) => {
-        // Solo actuamos si es un registro nuevo (Creación)
-        if (instance.isNewRecord) {
-          // Pasamos la instancia y las opciones (que traen la transacción)
-          await generateNextCode(instance, options);
-        }
+      hooks: {
+        beforeValidate: async (instance, options) => {
+          // 1. ASIGNACIÓN DE USUARIO (Si se pasa en las opciones del Service)
+          if (options.user) {
+            instance.username = options.user;
+          }
 
+          // 2. GENERACIÓN DE CÓDIGO (Solo para nuevos registros)
+          if (instance.isNewRecord) {
+            // Verificamos que el VIRTUAL 'selectedSerie' traiga valor
+            if (!instance.selectedSerie) {
+              throw new Error("Se requiere 'selectedSerie' para generar el código del producto.");
+            }
+            // Llamamos a tu lógica global de secuencias
+            await generateNextCode(instance, options);
+          }
+        }
       }
     }
   }
