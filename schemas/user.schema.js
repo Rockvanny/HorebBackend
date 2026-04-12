@@ -1,6 +1,6 @@
 const Joi = require('joi');
 // Definición de tipos base
-const userId = Joi.string(); // Cambiado a camelCase para consistencia
+const code = Joi.string(); // Cambiado a camelCase para consistencia
 const fullName = Joi.string().min(3).max(100); // Nuevo campo
 const email = Joi.string().email();
 const password = Joi.string().min(8);
@@ -22,7 +22,7 @@ const loginUserSchema = Joi.object({
 
 // --- Esquema para Creación ---
 const createUserSchema = Joi.object({
-  userId: userId.allow('', null),
+  code: code.allow('', null),
   fullName: fullName.required(), // Ahora es obligatorio al crear
   email: email.required(),
   password: password.required(),
@@ -50,7 +50,7 @@ const updateUserSchema = Joi.object({
 
 // --- Esquema para Obtener (Query params / Params) ---
 const getUserSchema = Joi.object({
-  id: userId.required(),
+  id: code.required(),
 });
 
 module.exports = {

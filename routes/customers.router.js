@@ -1,24 +1,40 @@
 const express = require('express');
 const CustomerService = require('../services/customers.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { createCustomerSchema, getCustomerSchema, updateCustomerSchema, queryCustomerSchema } = require('../schemas/customer.schema');
+const { checkPermission } = require('../middlewares/auth.handler');
+const {
+  createCustomerSchema,
+  getCustomerSchema,
+  updateCustomerSchema,
+  queryCustomerSchema
+} = require('../schemas/customer.schema');
 
 const router = express.Router();
 const service = new CustomerService();
 
-router.get('/customers-paginated', async(req, res, next) => {
-  try {
-    const { limit, offset, searchTerm } = req.query;
-    const result = await service.findPaginated({ limit, offset, searchTerm });
-
-    res.json(result);
-  } catch (error) {
-    next(error);
+/**
+ * GET PAGINADO (El que usa tu tabla)
+ * Recuperamos el endpoint que faltaba.
+ */
+router.get('/customers-paginated',
+  checkPermission('allowGestion'),
+  validatorHandler(queryCustomerSchema, 'query'),
+  async (req, res, next) => {
+    try {
+      const { limit, offset, searchTerm } = req.query;
+      const result = await service.findPaginated({ limit, offset, searchTerm });
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 
+/**
+ * BUSQUEDA RAPIDA
+ */
 router.get('/search',
-  // validatorHandler(queryProductSchema, 'query'), // Si tienes esquema para el query param
+  checkPermission('allowGestion'),
   async (req, res, next) => {
     try {
       const { searchTerm } = req.query;
@@ -30,21 +46,18 @@ router.get('/search',
   }
 );
 
+/**
+ * OBTENER UNO POR CODIGO
+ */
 router.get('/:code',
+  checkPermission('allowGestion'),
   validatorHandler(getCustomerSchema, 'params'),
   async (req, res, next) => {
-    console.time(`Tiempo de consulta para cliente ID ${req.params.code}`);
     try {
       const { code } = req.params;
-
-      // --- CAMBIO CLAVE AQUÍ ---
-      // Leer el parámetro de consulta 'include_docs'
-      // Convertirlo a booleano: 'true' o 1 se convierten en true, cualquier otra cosa en false
       const includeDocuments = req.query.include_docs === 'true' || req.query.include_docs === '1';
 
-      // Llamar al servicio, pasando el valor booleano de includeDocuments
       const customer = await service.findOne(code, includeDocuments);
-      console.timeEnd(`Tiempo de consulta para cliente ID ${code}`);
       res.json(customer);
     } catch (error) {
       next(error);
@@ -52,50 +65,59 @@ router.get('/:code',
   }
 );
 
+/**
+ * LISTADO SIMPLE (Opcional)
+ */
 router.get('/',
+  checkPermission('allowGestion'),
   validatorHandler(queryCustomerSchema, 'query'),
   async (req, res, next) => {
-    console.time("Tiempo de consulta a clientes");
     try {
-      const customer = await service.find(req.query);
-      console.timeEnd("Tiempo de consulta a clientes");
-      res.json(customer);
+      const customers = await service.find(req.query);
+      res.json(customers);
     } catch (error) {
       next(error);
     }
   }
 );
 
+/**
+ * CREAR CLIENTE
+ */
 router.post('/',
+  checkPermission('allowGestion'),
   validatorHandler(createCustomerSchema, 'body'),
   async (req, res, next) => {
     try {
       const body = req.body;
-      const newCustomer = await service.create(body);
+      // Pasamos userId para la auditoría
+      const newCustomer = await service.create(body, req.user.userId);
       res.status(201).json(newCustomer);
     } catch (error) {
-      //Manejo explícito de errores de clave única
       if (error.name === "SequelizeUniqueConstraintError") {
         return res.status(409).json({
           success: false,
-          message: `El código de cliente '${req.body.code}' ya existe. Intenta otro.`,
+          message: `El código de cliente '${req.body.code}' ya existe.`,
           error: error.errors
         });
       }
-      next(error); // Otros errores seguirán su flujo normal
+      next(error);
     }
   }
 );
 
+/**
+ * ACTUALIZAR CLIENTE
+ */
 router.patch('/:code',
+  checkPermission('allowGestion'),
   validatorHandler(getCustomerSchema, 'params'),
   validatorHandler(updateCustomerSchema, 'body'),
   async (req, res, next) => {
     try {
-      console.log('Consulta PATCH')
       const { code } = req.params;
       const body = req.body;
-      const customer = await service.update(code, body);
+      const customer = await service.update(code, body, req.user.userId);
       res.json(customer);
     } catch (error) {
       next(error);
@@ -103,14 +125,17 @@ router.patch('/:code',
   }
 );
 
-
+/**
+ * ELIMINAR CLIENTE
+ */
 router.delete('/:code',
+  checkPermission('allowSettings'),
   validatorHandler(getCustomerSchema, 'params'),
   async (req, res, next) => {
     try {
       const { code } = req.params;
-      await service.delete(code);
-      res.status(201).json({ code });
+      await service.delete(code, req.user.userId);
+      res.status(200).json({ code });
     } catch (error) {
       next(error);
     }

@@ -3,6 +3,7 @@ const boom = require('@hapi/boom');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { models } = require('../libs/sequelize');
+const { config } = require('../config/config'); // Importante para validar el Master
 
 const ROLES = ['master', 'admin', 'financiero', 'vendedor', 'almacen', 'externo', 'viewer'];
 
@@ -43,38 +44,78 @@ class UserService {
         }
     }
 
+    /**
+     * Login unificado: Procesa tanto al usuario Maestro (config) como a los de BD.
+     */
     async login(email, password) {
-        const user = await models.User.findOne({ where: { email } });
-        if (!user) throw boom.unauthorized('Usuario o contraseña incorrectos');
+        let userData = null;
 
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) throw boom.unauthorized('Usuario o contraseña incorrectos');
+        // 1. CAPA MAESTRA: Validamos contra variables de entorno
+        if (email === config.masterUser && password === config.masterPassword) {
+            userData = {
+                userId: config.masterUser,
+                fullName: 'Soporte Horeb',
+                role: 'master',
+                mustChangePassword: false,
+                allowGestion: true,
+                allowSales: true,
+                allowPurchases: true,
+                allowReports: true,
+                allowSettings: true
+            };
+        } else {
+            // 2. CAPA BASE DE DATOS: Búsqueda normal
+            const user = await models.User.findOne({ where: { email } });
+            if (!user) throw boom.unauthorized('Usuario o contraseña incorrectos');
 
+            const isMatch = await bcrypt.compare(password, user.password);
+            if (!isMatch) throw boom.unauthorized('Usuario o contraseña incorrectos');
+
+            userData = user.toJSON();
+        }
+
+        // 3. Generación de Token (JWT)
         const payload = {
-            sub: user.userId,
-            role: user.role,
-            mustChangePassword: user.mustChangePassword,
+            sub: userData.userId,
+            role: userData.role,
+            mustChangePassword: userData.mustChangePassword,
             permissions: {
-                allowGestion: user.allowGestion,
-                allowSales: user.allowSales,
-                allowPurchases: user.allowPurchases,
-                allowSettings: user.allowSettings
+                allowGestion: userData.allowGestion,
+                allowSales: userData.allowSales,
+                allowPurchases: userData.allowPurchases,
+                allowSettings: userData.allowSettings
             }
         };
 
-        const token = jwt.sign(payload, process.env.JWT_SECRET || 'secret_key', { expiresIn: '8h' });
-        const { password: _, ...userWithoutPassword } = user.toJSON();
+        const token = jwt.sign(payload, config.jwtSecret || 'secret_key', { expiresIn: '8h' });
 
-        return { user: userWithoutPassword, token };
+        // Limpiamos el password antes de devolverlo
+        if (userData.password) delete userData.password;
+
+        return { user: userData, token };
     }
 
-    async create(data) {
-        const newUser = await models.User.create(data);
+    /**
+     * CREAR: Añadido userExecutor para auditoría.
+     */
+    async create(data, userExecutor) {
+        const newUser = await models.User.create(data, { userExecutor });
         const { password, ...userWithoutPassword } = newUser.toJSON();
         return userWithoutPassword;
     }
 
     async findOne(id) {
+        // Si el ID buscado es el master, devolvemos el perfil virtual
+        if (id === config.masterUser) {
+            return {
+                userId: config.masterUser,
+                fullName: 'Soporte Horeb',
+                role: 'master',
+                allowGestion: true,
+                allowSettings: true
+            };
+        }
+
         const user = await models.User.findByPk(id, {
             attributes: { exclude: ['password'] }
         });
@@ -82,16 +123,22 @@ class UserService {
         return user;
     }
 
-    async update(id, changes) {
+    /**
+     * ACTUALIZAR: Añadido userExecutor para auditoría.
+     */
+    async update(id, changes, userExecutor) {
+        if (id === config.masterUser) throw boom.forbidden('No se puede modificar el usuario Maestro desde la API');
+
         const user = await this.findOne(id);
-        const updatedUser = await user.update(changes);
+        const updatedUser = await user.update(changes, { userExecutor });
         const { password, ...userWithoutPassword } = updatedUser.toJSON();
         return userWithoutPassword;
     }
 
     async delete(id) {
+        if (id === config.masterUser) throw boom.forbidden('No se puede eliminar al usuario Maestro');
+
         const user = await this.findOne(id);
-        if (user.role === 'master') throw boom.forbidden('No se puede eliminar al usuario Master');
         await user.destroy();
         return { id };
     }

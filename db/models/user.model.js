@@ -5,7 +5,7 @@ const USER_TABLE = 'users';
 
 const UserSchema = {
   // Identificador de login (Ej: 'dayala')
-  userId: {
+  code: {
     field: 'user_id',
     allowNull: false,
     autoIncrement: false,
