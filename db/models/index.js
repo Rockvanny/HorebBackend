@@ -12,7 +12,7 @@ const { salesPostInvoice, salesPostInvoiceSchema } = require('./salesPostInvoice
 const { salesPostInvoiceLine, salesPostInvoicetLineSchema } = require('./salesPostInvoiceLine.model');
 const { purchInvoice, purchInvoiceSchema } = require('./purchInvoice.model');
 const { purchInvoiceLine, purchInvoiceLineSchema } = require('./purchInvoiceLine.model');
-const { purchpostInvoice, purchPostInvoiceSchema } = require('./purchPostInvoice.model');
+const { purchPostInvoice, purchPostInvoiceSchema } = require('./purchPostInvoice.model');
 const { purchPostInvoiceLine, purchPostInvoiceLineSchema } = require('./purchPostInvoiceLine.model');
 const { seriesNumber, seriesNumberSchema } = require('./SeriesNumber.model');
 
@@ -32,7 +32,7 @@ function setupModels(sequelize) {
   salesPostInvoiceLine.init(salesPostInvoicetLineSchema, salesPostInvoiceLine.config(sequelize));
   purchInvoice.init(purchInvoiceSchema, purchInvoice.config(sequelize));
   purchInvoiceLine.init(purchInvoiceLineSchema, purchInvoiceLine.config(sequelize));
-  purchpostInvoice.init(purchPostInvoiceSchema, purchpostInvoice.config(sequelize));
+  purchPostInvoice.init(purchPostInvoiceSchema, purchPostInvoice.config(sequelize));
   purchPostInvoiceLine.init(purchPostInvoiceLineSchema, purchPostInvoiceLine.config(sequelize));
   seriesNumber.init(seriesNumberSchema, seriesNumber.config(sequelize));
 
@@ -49,7 +49,7 @@ function setupModels(sequelize) {
   salesPostInvoice.associate(sequelize.models);
   purchInvoice.associate(sequelize.models);
   purchInvoiceLine.associate(sequelize.models);
-  purchpostInvoice.associate(sequelize.models);
+  purchPostInvoice.associate(sequelize.models);
   purchPostInvoiceLine.associate(sequelize.models);
   seriesNumber.associate(sequelize.models);
 }

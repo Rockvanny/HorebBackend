@@ -8,7 +8,6 @@ const phone =  Joi.string();
 const address = Joi.string();
 const postCode = Joi.string();
 const city =  Joi.string();
-const username = Joi.string();
 
 const limit = Joi.number().integer();
 const offset = Joi.number().integer();
@@ -27,7 +26,6 @@ const createCustomerSchema = Joi.object({
   address: address.required(),
   postCode: postCode.required(),
   city: city.required(),
-  username,
 });
 
 const updateCustomerSchema = Joi.object({
@@ -38,7 +36,6 @@ const updateCustomerSchema = Joi.object({
   address: address.required(),
   postCode: postCode.required(),
   city: city.required(),
-  username,
 });
 
 const queryCustomerSchema = Joi.object({

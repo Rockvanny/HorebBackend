@@ -8,7 +8,6 @@ const phone = Joi.string();
 const address = Joi.string();
 const postCode = Joi.string();
 const city = Joi.string();
-const username = Joi.string();
 const category = Joi.string().valid(
   'Materiales',
   'Subcontratas',
@@ -36,7 +35,6 @@ const createVendorSchema = Joi.object({
   postCode: postCode.required(),
   city: city.required(),
   category: category.required(),
-  username,
 });
 
 const updateVendorSchema = Joi.object({
@@ -48,7 +46,6 @@ const updateVendorSchema = Joi.object({
   postCode: postCode.required(),
   city: city.required(),
   category: category.optional(),
-  username,
 });
 
 const queryVendorSchema = Joi.object({
