@@ -6,7 +6,7 @@ const USER_TABLE = 'users';
 const UserSchema = {
   // Identificador de login (Ej: 'dayala')
   code: {
-    field: 'user_id',
+    field: 'code',
     allowNull: false,
     autoIncrement: false,
     primaryKey: true,
@@ -112,12 +112,15 @@ class User extends Model {
       underscored: true,
       hooks: {
         beforeValidate: async (user, options) => {
-          // 1. Lógica de generación de userId (Solo si no viene uno)
-          if (user.fullName && !user.userId) {
+          // 1. Lógica de generación de 'code' (antiguo userId)
+          // Cambiamos user.userId por user.code
+          if (user.fullName && !user.code) {
             const parts = user.fullName.trim().toLowerCase().split(' ');
             const firstName = parts[0];
             const lastName = parts.length > 1 ? parts[parts.length - 1] : '';
             let baseId = lastName ? (firstName[0] + lastName) : firstName;
+
+            // Limpieza de acentos y caracteres raros
             baseId = baseId.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
 
             let finalId = baseId;
@@ -125,8 +128,9 @@ class User extends Model {
             let exists = true;
 
             while (exists) {
+              // CORRECCIÓN AQUÍ: Buscamos por 'code'
               const duplicate = await User.findOne({
-                where: { userId: finalId },
+                where: { code: finalId },
                 transaction: options.transaction
               });
 
@@ -137,11 +141,13 @@ class User extends Model {
                 exists = false;
               }
             }
-            user.userId = finalId;
+            // CORRECCIÓN AQUÍ: Asignamos a 'code'
+            user.code = finalId;
           }
 
-          // 2. ENCRIPTACIÓN (Fuera del IF para que SIEMPRE se ejecute)
-          if (user.password) {
+          // 2. ENCRIPTACIÓN
+          // Añadimos comprobación para no re-encriptar si ya es un hash
+          if (user.password && user.changed('password')) {
             const hash = await bcrypt.hash(user.password, 10);
             user.password = hash;
           }
