@@ -2,37 +2,48 @@ const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
 
 /**
+ * MAPEO DE TRADUCCIÓN TÉCNICA
+ * Vincula el nombre del modelo de Sequelize con el 'type' de la tabla series_numbers.
+ */
+const MODEL_SERIES_MAP = {
+    'salesBudget': 'budget',   // Traducción: Modelo salesBudget -> Serie budget
+    'Customer': 'customer',
+    'Product': 'product',
+    'Vendor': 'vendor'
+};
+
+/**
  * Genera el siguiente código secuencial basado en la serie seleccionada.
- * Ajustado para evitar errores de lectura de propiedades en 'instance'.
  */
 async function generateNextCode(instance, options) {
   try {
     // 1. OBTENCIÓN ROBUSTA DEL NOMBRE DEL MODELO
-    // Intentamos varias vías comunes en Sequelize para obtener el nombre (Customer, Invoice, etc.)
     const modelName = instance.constructor.options?.name?.singular ||
-                     instance.constructor.name ||
-                     (instance._modelOptions && instance._modelOptions.name.singular);
+                      instance.constructor.name ||
+                      (instance._modelOptions && instance._modelOptions.name.singular);
 
     if (!modelName) {
       throw new Error("No se pudo determinar el nombre del modelo en el Hook de numeración.");
     }
 
-    const type = modelName.toLowerCase();
+    // 2. TRADUCCIÓN DE TIPO
+    // Si el modelo está en el mapa (ej. salesBudget), usamos su alias (budget).
+    // Si no está, usamos el nombre del modelo en minúsculas por defecto.
+    const type = MODEL_SERIES_MAP[modelName] || modelName.toLowerCase();
 
-    // 2. ACCESO A MODELOS
-    // Asegúrate de que en tu index de modelos, 'seriesNumber' esté definido con ese nombre exacto.
+    // 3. ACCESO A MODELOS
     const { seriesNumber } = instance.sequelize.models;
 
     if (!seriesNumber) {
-      throw new Error(`El modelo 'seriesNumber' no está cargado en Sequelize. Revisa la definición del modelo.`);
+      throw new Error(`El modelo 'seriesNumber' no está cargado en Sequelize.`);
     }
 
     const today = new Date().toISOString().split('T')[0];
 
-    // 3. CONFIGURACIÓN DE BÚSQUEDA
+    // 4. CONFIGURACIÓN DE BÚSQUEDA
     const findOptions = {
       where: {
-        type: type,
+        type: type, // Aquí buscará 'budget'
         fromDate: { [Op.lte]: today },
         toDate: { [Op.gte]: today }
       }
@@ -44,12 +55,12 @@ async function generateNextCode(instance, options) {
       findOptions.lock = options.transaction.LOCK.UPDATE;
     }
 
-    // Filtramos por la serie específica enviada desde el campo VIRTUAL del front
+    // Filtramos por la serie específica enviada desde el front (si existe)
     if (instance.selectedSerie) {
       findOptions.where.startSerie = instance.selectedSerie;
     }
 
-    // 4. BÚSQUEDA DE LA SERIE
+    // 5. BÚSQUEDA DE LA SERIE
     const serie = await seriesNumber.findOne(findOptions);
 
     if (!serie) {
@@ -58,27 +69,24 @@ async function generateNextCode(instance, options) {
       );
     }
 
-    // 5. CÁLCULO DEL NUEVO CÓDIGO
+    // 6. CÁLCULO DEL NUEVO CÓDIGO
     const nextNumber = (serie.lastNumber || 0) + 1;
-    const formattedNumber = nextNumber.toString().padStart(serie.digits, '0');
+    const formattedNumber = nextNumber.toString().padStart(serie.digits || 4, '0');
 
-    // Asignamos el código final a la instancia (Ej: CLI-0001)
-    // 'code' es el nombre de la columna en tu tabla de Clientes
-    instance.code = `${serie.prefix}${formattedNumber}`;
+    // Asignamos el código final a la instancia
+    instance.code = `${serie.prefix || ''}${formattedNumber}`;
 
-    // 6. ACTUALIZACIÓN DEL CONTADOR
+    // 7. ACTUALIZACIÓN DEL CONTADOR
     await serie.update({ lastNumber: nextNumber }, {
       transaction: options.transaction || null
     });
 
-    console.log(`[Sequence] Código generado con éxito para ${type}: ${instance.code}`);
+    console.log(`[Sequence] Código generado con éxito para modelo ${modelName} (Tipo DB: ${type}): ${instance.code}`);
 
   } catch (error) {
-    // Log detallado para desarrollo
     console.log("--- DEBUG HOOK ERROR START ---");
+    console.error("Modelo detectado:", instance.constructor.name);
     console.error("Mensaje:", error.message);
-    console.error("Nombre Error:", error.name);
-    if (error.stack) console.error("Stack:", error.stack);
     console.log("--- DEBUG HOOK ERROR END ---");
 
     throw error;

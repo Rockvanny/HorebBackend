@@ -2,10 +2,11 @@ const Joi = require('joi');
 // Importamos tanto el de creación como el de actualización de líneas
 const { createSalesBudgetLineSchema, updateSalesBudgetLineSchema } = require('./salesBudgetLines.schema');
 
-// Definición de tipos base
+// --- DEFINICIÓN DE TIPOS BASE ---
 const code = Joi.string();
+const selectedSerie = Joi.string(); // Campo necesario para el Hook de serie del backend
 const postingDate = Joi.date();
-const dueDate = Joi.date().allow(null); // Permitir nulo si no hay vencimiento claro
+const dueDate = Joi.date().allow(null);
 const customerCode = Joi.string();
 const name = Joi.string().min(3).max(100);
 const nif = Joi.string().min(5).max(20);
@@ -29,13 +30,21 @@ const searchTerm = Joi.string().allow('');
 
 // --- ESQUEMAS DE ACCIÓN ---
 
+/**
+ * Esquema para obtener un registro por su PK
+ */
 const getSalesBudgetSchema = Joi.object({
     code: code.required(),
 });
 
+/**
+ * Esquema para CREACIÓN
+ * Permite recibir el documento completo (Cabecera + Líneas)
+ */
 const createSalesBudgetSchema = Joi.object({
-    code: code.optional(), // Opcional porque lo genera el hook beforeValidate
-    // CORRECCIÓN: Se pasa la función directamente para evitar el error de "Options must be of type object"
+    code: code.optional(), // Opcional porque lo genera el hook beforeCreate
+    selectedSerie: selectedSerie.optional(), // Serie elegida en el combo de Electron
+
     postingDate: postingDate.default(() => new Date()),
     dueDate: dueDate.optional(),
     customerCode: customerCode.required(),
@@ -49,20 +58,24 @@ const createSalesBudgetSchema = Joi.object({
     status: status.optional(),
     comments: comments.optional(),
 
-    // Totales
+    // Totales calculados en el Front
     amountWithoutVAT: money.optional(),
     amountVAT: money.optional(),
     amountWithVAT: money.optional(),
 
     username: username.optional(),
 
-    // IMPORTANTE: Permitir crear presupuesto con sus líneas de golpe
+    // Inserción masiva de líneas
     lines: Joi.array().items(createSalesBudgetLineSchema).optional(),
 });
 
+/**
+ * Esquema para ACTUALIZACIÓN (PATCH/PUT)
+ * Se vuelve flexible con el 'code' ya que suele venir por req.params
+ */
 const updateSalesBudgetSchema = Joi.object({
-    // El code es necesario para identificar el registro
-    code: code.required(),
+    // Opcional en el body para no duplicar la validación de la URL
+    code: code.optional(),
 
     postingDate: postingDate.optional(),
     dueDate: dueDate.optional(),
@@ -83,10 +96,13 @@ const updateSalesBudgetSchema = Joi.object({
 
     username: username.optional(),
 
-    // Gestión de líneas en la actualización
+    // Sincronización de líneas (Flush & Fill)
     lines: Joi.array().items(updateSalesBudgetLineSchema).optional(),
 });
 
+/**
+ * Esquema para filtrado y paginación
+ */
 const querySalesBudgetSchema = Joi.object({
     limit,
     offset,

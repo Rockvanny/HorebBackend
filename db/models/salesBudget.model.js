@@ -78,9 +78,10 @@ class salesBudget extends Model {
       as: 'customer',
       foreignKey: 'customer_code'
     });
+    
     this.hasMany(models.salesBudgetLine, {
       as: 'lines',
-      foreignKey: 'codeBudget',
+      foreignKey: 'codeDocument',
       onDelete: 'CASCADE',
       hooks: true
     });

@@ -5,13 +5,16 @@ const { SALESBUDGETLINE_TABLE } = require('../models/salesBudgetLines.model');
 module.exports = {
   up: async (queryInterface, Sequelize) => {
     await queryInterface.createTable(SALESBUDGETLINE_TABLE, {
-      // CLAVE COMPUESTA: code_budget + line_no
-      code_budget: {
+      /**
+       * CLAVE COMPUESTA NORMALIZADA
+       * code_document + line_no
+       */
+      code_document: {
         allowNull: false,
         primaryKey: true,
         type: Sequelize.DataTypes.STRING,
         references: {
-          model: 'sales_budgets', // Nombre de la tabla física
+          model: 'sales_budgets', // Asegúrate de que este sea el nombre real de la tabla de cabecera
           key: 'code'
         },
         onUpdate: 'CASCADE',
@@ -22,15 +25,18 @@ module.exports = {
         primaryKey: true,
         type: Sequelize.DataTypes.INTEGER,
       },
+
+      // --- REFERENCIAS ---
       item_code: {
         type: Sequelize.DataTypes.STRING,
-        allowNull: true, // Cambiado a true por si hay líneas de solo texto
-      },
-      description: {
-        type: Sequelize.DataTypes.TEXT, // Cambiado a TEXT para descripciones largas
         allowNull: true,
       },
-      // PRECISIÓN NORMALIZADA A 4 DECIMALES
+      description: {
+        type: Sequelize.DataTypes.TEXT,
+        allowNull: true,
+      },
+
+      // --- CANTIDADES Y PRECISIÓN (DECIMAL 12,4) ---
       quantity: {
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
@@ -44,8 +50,10 @@ module.exports = {
       quantity_unit_measure: {
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 0.0000
+        defaultValue: 1.0000 // Importante: valor 1 para evitar anulaciones en cálculos
       },
+
+      // --- PRECIOS E IMPUESTOS ---
       unit_price: {
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
@@ -54,13 +62,15 @@ module.exports = {
       vat: {
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 21.0000 // Por defecto el IVA estándar
+        defaultValue: 21.0000
       },
       amount_line: {
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 0.0000
       },
+
+      // --- AUDITORÍA Y CONTROL ---
       user_name: {
         type: Sequelize.DataTypes.STRING,
         allowNull: true,
@@ -77,8 +87,11 @@ module.exports = {
       }
     });
 
-    // Índice de rendimiento para búsquedas de líneas por presupuesto
-    await queryInterface.addIndex(SALESBUDGETLINE_TABLE, ['code_budget']);
+    /**
+     * ÍNDICE DE RENDIMIENTO
+     * Optimiza las consultas de líneas por documento (Operaciones masivas)
+     */
+    await queryInterface.addIndex(SALESBUDGETLINE_TABLE, ['code_document']);
   },
 
   async down(queryInterface) {

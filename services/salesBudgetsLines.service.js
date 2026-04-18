@@ -1,17 +1,12 @@
+// services/salesBudgetsLines.service.js
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
 const sequelize = require('../libs/sequelize');
-
 const { salesBudgetLine, salesBudget } = sequelize.models;
 
 class salesBudgetLineService {
-
   constructor() { }
 
-  /**
-   * Consulta paginada normalizada
-   * Retorna 'records' para consistencia con el Frontend
-   */
   async findPaginated({ limit, offset, searchTerm }) {
     const parsedLimit = parseInt(limit, 10) || 100;
     const parsedOffset = parseInt(offset, 10) || 0;
@@ -19,13 +14,13 @@ class salesBudgetLineService {
     const options = {
       limit: parsedLimit,
       offset: parsedOffset,
-      order: [['code_budget', 'ASC'], ['line_no', 'ASC']],
+      order: [['code_document', 'ASC'], ['line_no', 'ASC']],
       where: {},
     };
 
     if (searchTerm) {
       options.where[Op.or] = [
-        { codeBudget: { [Op.iLike]: `%${searchTerm}%` } },
+        { codeDocument: { [Op.iLike]: `%${searchTerm}%` } },
         { codeItem: { [Op.iLike]: `%${searchTerm}%` } },
         { description: { [Op.iLike]: `%${searchTerm}%` } }
       ];
@@ -34,7 +29,7 @@ class salesBudgetLineService {
     try {
       const { count, rows } = await salesBudgetLine.findAndCountAll(options);
       return {
-        records: rows, // Clave genérica para el Front
+        records: rows,
         hasMore: (parsedOffset + rows.length) < count,
         total: count,
       };
@@ -43,70 +38,56 @@ class salesBudgetLineService {
     }
   }
 
-  async findOne({ codeBudget, lineNo }, options = {}) {
-    const queryOptions = {
-      where: { codeBudget, lineNo },
-      include: []
-    };
-
-    if (options.includeBudget) {
-      queryOptions.include.push({
-        model: salesBudget,
-        as: 'budget'
-      });
-    }
-
-    const line = await salesBudgetLine.findOne(queryOptions);
-    if (!line) {
-      throw boom.notFound(`Línea ${lineNo} del documento ${codeBudget} no encontrada`);
-    }
+  async findOne({ codeDocument, lineNo }, options = {}) {
+    const line = await salesBudgetLine.findOne({
+      where: { codeDocument, lineNo },
+      include: options.includeParent ? [{ model: salesBudget, as: 'parentDocument' }] : []
+    });
+    if (!line) throw boom.notFound(`Línea ${lineNo} del documento ${codeDocument} no encontrada`);
     return line;
   }
 
-  async create(data) {
-    const transaction = await sequelize.transaction();
+  async create(data, transaction = null) {
+    const t = transaction || await sequelize.transaction();
     try {
       const existingLine = await salesBudgetLine.findOne({
-        where: { codeBudget: data.codeBudget, lineNo: data.lineNo },
-        transaction
+        where: { codeDocument: data.codeDocument, lineNo: data.lineNo },
+        transaction: t
       });
 
-      if (existingLine) {
-        throw boom.conflict(`La línea ${data.lineNo} ya existe en el documento ${data.codeBudget}`);
-      }
+      if (existingLine) throw boom.conflict(`La línea ${data.lineNo} ya existe.`);
 
-      const newLine = await salesBudgetLine.create(data, { transaction });
-      await transaction.commit();
+      const newLine = await salesBudgetLine.create(data, { transaction: t });
+      if (!transaction) await t.commit();
       return newLine;
     } catch (error) {
-      if (transaction) await transaction.rollback();
-      if (error.isBoom) throw error;
-      throw boom.badImplementation('Error al crear el registro', error);
+      if (!transaction) await t.rollback();
+      throw error.isBoom ? error : boom.badImplementation(error);
     }
   }
 
-  async update({ codeBudget, lineNo }, changes) {
-    const transaction = await sequelize.transaction();
+  async update({ codeDocument, lineNo }, changes, transaction = null) {
+    const t = transaction || await sequelize.transaction();
     try {
-      const line = await this.findOne({ codeBudget, lineNo });
-      const updatedLine = await line.update(changes, { transaction });
-      await transaction.commit();
+      const line = await this.findOne({ codeDocument, lineNo });
+      const updatedLine = await line.update(changes, { transaction: t });
+      if (!transaction) await t.commit();
       return updatedLine;
     } catch (error) {
-      if (transaction) await transaction.rollback();
+      if (!transaction) await t.rollback();
       throw error;
     }
   }
 
-  async delete({ codeBudget, lineNo }) {
-    const transaction = await sequelize.transaction();
+  async delete({ codeDocument, lineNo }, transaction = null) {
+    const t = transaction || await sequelize.transaction();
     try {
-      const line = await this.findOne({ codeBudget, lineNo });
-      await line.destroy({ transaction });
-      await transaction.commit();
-      return { codeBudget, lineNo, message: 'Registro eliminado correctamente' };
+      const line = await this.findOne({ codeDocument, lineNo });
+      await line.destroy({ transaction: t });
+      if (!transaction) await t.commit();
+      return { codeDocument, lineNo, message: 'Eliminado correctamente' };
     } catch (error) {
-      if (transaction) await transaction.rollback();
+      if (!transaction) await t.rollback();
       throw error;
     }
   }

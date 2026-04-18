@@ -1,43 +1,41 @@
 const Joi = require('joi');
 
-const codeBudget = Joi.string();
+const codeDocument = Joi.string();
 const lineNo = Joi.number().integer().min(1);
-const codeItem = Joi.string();
+const codeItem = Joi.string().allow('', null);
 const description = Joi.string().allow('', null);
-const quantity = Joi.number().integer().min(0);
-const unitMeasure = Joi.string();
-const quantityUnitMeasure = Joi.number().integer().min(0);
-const unitPrice = Joi.number().precision(2).min(0);
-const vat = Joi.number().precision(2).min(0).max(100); // IVA como porcentaje
-const amountLine = Joi.number().precision(2).min(0);
+const quantity = Joi.number().min(0).precision(4);
+// Ajuste: Permitir explícitamente null o vacío para que no falle si llega del front
+const unitMeasure = Joi.string().allow('', null).default('UNIDAD');
+const quantityUnitMeasure = Joi.number().min(0).precision(4).default(1);
+const unitPrice = Joi.number().min(0).precision(4);
+const vat = Joi.number().min(0).max(100).precision(4).default(21);
+const amountLine = Joi.number().min(0).precision(4);
 const username = Joi.string().allow('', null);
 
-const limit = Joi.number().integer();
-const offset = Joi.number().integer();
-const searchTerm = Joi.string().allow('');
-
 const getSalesBudgetLineSchema = Joi.object({
-  codeBudget: codeBudget.required(),
+  codeDocument: codeDocument.required(),
   lineNo: lineNo.required(),
 });
 
 const createSalesBudgetLineSchema = Joi.object({
-  codeBudget: codeBudget.required(),
+  // CAMBIO CRÍTICO: Ahora es opcional porque el Service lo inyectará al guardar el Header
+  codeDocument: codeDocument.optional().allow('', null),
   lineNo: lineNo.required(),
-  codeItem: codeItem.required(),
+  codeItem: codeItem.optional(),
   description: description.required(),
   quantity: quantity.required(),
-  unitMeasure: unitMeasure.required(),
-  quantityUnitMeasure: quantityUnitMeasure.required(),
+  unitMeasure: unitMeasure.optional(),
+  quantityUnitMeasure: quantityUnitMeasure.optional(),
   unitPrice: unitPrice.required(),
-  vat: vat.required(),
+  vat: vat.optional(),
   amountLine: amountLine.required(),
   username: username.optional(),
 });
 
 const updateSalesBudgetLineSchema = Joi.object({
-  codeBudget: codeBudget.required(),
-  lineNo: lineNo.required(),
+  codeDocument: codeDocument.optional(),
+  lineNo: lineNo.optional(),
   codeItem: codeItem.optional(),
   description: description.optional(),
   quantity: quantity.optional(),
@@ -50,9 +48,14 @@ const updateSalesBudgetLineSchema = Joi.object({
 });
 
 const querySalesBudgetLineSchema = Joi.object({
-  limit,
-  offset,
-  searchTerm: searchTerm.optional(),
+  limit: Joi.number().integer(),
+  offset: Joi.number().integer(),
+  searchTerm: Joi.string().allow('').optional(),
 });
 
-module.exports = { getSalesBudgetLineSchema, createSalesBudgetLineSchema, updateSalesBudgetLineSchema, querySalesBudgetLineSchema };
+module.exports = {
+  getSalesBudgetLineSchema,
+  createSalesBudgetLineSchema,
+  updateSalesBudgetLineSchema,
+  querySalesBudgetLineSchema
+};
