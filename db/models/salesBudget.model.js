@@ -32,8 +32,9 @@ const salesBudgetSchema = {
     type: DataTypes.STRING
   },
   city: DataTypes.STRING,
+
   status: {
-    type: DataTypes.ENUM('Borrador', 'Aprobada', 'Rechazada'),
+    type: DataTypes.ENUM('Borrador', 'Enviado','Aprobado', 'Rechazado'),
     allowNull: false,
     defaultValue: 'Borrador'
   },
@@ -78,10 +79,11 @@ class salesBudget extends Model {
       as: 'customer',
       foreignKey: 'customer_code'
     });
-    
+
     this.hasMany(models.salesBudgetLine, {
       as: 'lines',
       foreignKey: 'codeDocument',
+      sourceKey: 'code',
       onDelete: 'CASCADE',
       hooks: true
     });
