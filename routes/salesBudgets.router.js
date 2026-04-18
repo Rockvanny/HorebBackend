@@ -35,8 +35,8 @@ router.get('/count',
     checkPermission('VIEW_SALESBUDGETS'),
     async (req, res, next) => {
         try {
-            const totalBudgets = await service.countAll();
-            res.status(200).json({ totalBudgets });
+            const total = await service.countAll();
+            res.status(200).json({ total });
         } catch (error) {
             next(error);
         }
@@ -45,24 +45,27 @@ router.get('/count',
 
 // Obtener un presupuesto específico por código (con inclusiones opcionales)
 router.get('/:code',
-    checkPermission('VIEW_SALESBUDGETS'),
-    validatorHandler(getSalesBudgetSchema, 'params'),
-    async (req, res, next) => {
-        try {
-            const { code } = req.params;
-            const includeCustomer = req.query.include_customer === 'true' || req.query.include_customer === '1';
-            const includeLines = req.query.include_lines === 'true' || req.query.include_lines === '1';
+  checkPermission('VIEW_SALESBUDGETS'),
+  validatorHandler(getSalesBudgetSchema, 'params'),
+  async (req, res, next) => {
+    try {
+      const { code } = req.params;
 
-            const salesBudget = await service.findOne(code, {
-                includeCustomer,
-                includeLines
-            });
+      // Capturamos el parámetro y lo convertimos a booleano real
+      const includeLines = req.query.include_lines === 'true' || req.query.includeLines === 'true';
 
-            res.json(salesBudget);
-        } catch (error) {
-            next(error);
-        }
+      const record = await service.findOne(code, {
+        includeLines: includeLines // Pasamos solo las líneas
+      });
+
+      res.json({
+        success: true,
+        data: record
+      });
+    } catch (error) {
+      next(error);
     }
+  }
 );
 
 // Listado general (Query params validados)
@@ -71,8 +74,8 @@ router.get('/',
     validatorHandler(querySalesBudgetSchema, 'query'),
     async (req, res, next) => {
         try {
-            const salesBudgets = await service.find(req.query);
-            res.json(salesBudgets);
+            const record = await service.find(req.query);
+            res.json(record);
         } catch (error) {
             next(error);
         }
@@ -116,8 +119,8 @@ router.put('/:code',
         try {
             const { code } = req.params;
             const body = req.body;
-            const salesBudget = await service.update(code, body);
-            res.json(salesBudget);
+            const record = await service.update(code, body);
+            res.json(record);
         } catch (error) {
             next(error);
         }
