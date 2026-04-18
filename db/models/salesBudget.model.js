@@ -34,7 +34,7 @@ const salesBudgetSchema = {
   city: DataTypes.STRING,
 
   status: {
-    type: DataTypes.ENUM('Borrador', 'Enviado','Aprobado', 'Rechazado'),
+    type: DataTypes.ENUM('Borrador','Enviado','Aprobado','Rechazado'),
     allowNull: false,
     defaultValue: 'Borrador'
   },

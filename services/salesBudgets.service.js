@@ -62,7 +62,7 @@ class salesBudgetService {
 
     if (includeLines) {
       queryOptions.include.push({
-        model: sequelize.models.salesBudgetLine,
+        model: salesBudgetLine,
         as: 'lines',
         // Esto asegura que si no hay líneas, al menos traiga la cabecera
         required: false
@@ -79,6 +79,23 @@ class salesBudgetService {
     // CONVERSIÓN A OBJETO PLANO (JSON)
     // Esto es lo que hará que las líneas aparezcan en el proceso de Render de Electron
     return record.get({ plain: true });
+  }
+
+  async findStatuses() {
+    try {
+      // USAMOS 'salesBudget', que es la constante que definiste arriba vía sequelize.models
+      const attributes = salesBudget.getAttributes();
+
+      if (attributes.status && attributes.status.values) {
+        return attributes.status.values;
+      }
+
+      // Fallback por si acaso el ENUM no se lee correctamente
+      return ['Borrador', 'Enviado','Aprobado', 'Rechazado'];
+    } catch (error) {
+      console.error("Error en findStatuses:", error);
+      throw boom.badImplementation('No se pudieron obtener los estados');
+    }
   }
 
   async create(data) {
@@ -148,15 +165,23 @@ class salesBudgetService {
     const transaction = await sequelize.transaction();
 
     try {
-      const instance = await salesBudget.findByPk(code, { transaction });
+      // Usamos findOne con el code porque es tu identificador de negocio
+      const instance = await salesBudget.findOne({ where: { code }, transaction });
       if (!instance) throw boom.notFound('Registro no encontrado');
 
-      // 1. Actualizar cabecera
-      await instance.update(headerChanges, { transaction });
+      // --- AJUSTE DE SEGURIDAD PARA POSTGRES/SEQUELIZE ---
+      // Eliminamos campos que NUNCA deben estar en el SET de un UPDATE
+      const cleanHeader = { ...headerChanges };
+      delete cleanHeader.id;
+      delete cleanHeader.code; // El código no se debe actualizar si es la PK
+      delete cleanHeader.createdAt;
+      delete cleanHeader.updatedAt;
 
-      // 2. Sincronizar líneas si vienen en el body
+      // 1. Actualizar cabecera con datos limpios
+      await instance.update(cleanHeader, { transaction });
+
+      // 2. Sincronizar líneas si vienen en el body (Lógica Flush & Fill)
       if (lines) {
-        // Borrar líneas existentes
         await salesBudgetLine.destroy({
           where: { codeDocument: code },
           transaction
@@ -164,20 +189,18 @@ class salesBudgetService {
 
         if (lines.length > 0) {
           const linesToInsert = lines.map((line, index) => {
-            // Extraemos id para evitar conflictos en la inserción de nuevos registros
+            // Limpiamos también el objeto de la línea
             const { id, ...lineData } = line;
             return {
               ...lineData,
               codeDocument: code,
               lineNo: line.lineNo || (index + 1),
-              // Aseguramos que el username persista si no viene en la línea
-              username: line.username || headerChanges.username || 'system'
+              username: line.username || cleanHeader.username || 'system'
             };
           });
           await salesBudgetLine.bulkCreate(linesToInsert, { transaction });
         } else {
-          // Opcional: Si el front envía array vacío, recrear la línea por defecto
-          // para que el documento nunca se quede sin líneas.
+          // Línea por defecto si se vacía el array
           await salesBudgetLine.create({
             codeDocument: code,
             lineNo: 1,
@@ -186,17 +209,18 @@ class salesBudgetService {
             unitPrice: 0.0,
             vat: 0.0,
             amountLine: 0.0,
-            username: headerChanges.username || 'Sistema'
+            username: cleanHeader.username || 'Sistema'
           }, { transaction });
         }
       }
 
       await transaction.commit();
-      // Importante: includeLines debe ser true para que el front reciba la actualización
-      return await this.findOne(code, { includeLines: true, includeCustomer: true });
+      return await this.findOne(code, { includeLines: true });
 
     } catch (error) {
       if (transaction) await transaction.rollback();
+      // Log extra para depurar qué campo está fallando exactamente
+      console.error("Error detallado en Sequelize Update:", error);
       throw error;
     }
   }

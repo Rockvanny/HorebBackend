@@ -49,7 +49,7 @@ module.exports = {
         type: Sequelize.DataTypes.STRING,
       },
       status: {
-        type: Sequelize.DataTypes.ENUM('Borrador', 'Enviado','Aprobado', 'Rechazado'),
+        type: Sequelize.DataTypes.ENUM('Borrador','Enviado','Aprobado','Rechazado'),
         allowNull: false,
         defaultValue: 'Borrador'
       },

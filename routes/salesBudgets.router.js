@@ -13,6 +13,27 @@ const router = express.Router();
 const service = new salesBudgetService();
 
 /**
+ * CONSULTAS DE CONFIGURACIÓN Y METADATOS
+ */
+
+// Obtener los estados permitidos del ENUM de la base de datos
+router.get('/statuses',
+    checkPermission('VIEW_SALESBUDGETS'),
+    async (req, res, next) => {
+        try {
+            // El servicio se encarga de hablar con el modelo
+            const enumValues = await service.findStatuses();
+            res.json({
+                success: true,
+                data: enumValues
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+/**
  * CONSULTAS DE PRESUPUESTOS (VIEW)
  */
 

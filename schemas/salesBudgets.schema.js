@@ -74,12 +74,8 @@ const createSalesBudgetSchema = Joi.object({
  * Se vuelve flexible con el 'code' ya que suele venir por req.params
  */
 const updateSalesBudgetSchema = Joi.object({
-    // Opcional en el body para no duplicar la validación de la URL
-    code: code.optional(),
-
     postingDate: postingDate.optional(),
     dueDate: dueDate.optional(),
-    customerCode: customerCode.optional(),
     name: name.optional(),
     nif: nif.optional().allow(''),
     email: email.optional(),
