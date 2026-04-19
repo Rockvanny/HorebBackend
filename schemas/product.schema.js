@@ -2,7 +2,7 @@ const Joi = require('joi');
 
 const code = Joi.string();
 const name = Joi.string().min(3).max(200);
-const unitMeasure = Joi.string().min(1).max(15); // Bajé el min a 1 por si usan "u" o "m"
+const unitMeasure = Joi.string().valid('Unidad', 'Caja', 'Kilos', 'Metros', 'Horas').default('Unidad');
 const qtyByUnitMeasure = Joi.number().precision(2);
 const price = Joi.number().precision(2);
 const vat = Joi.number().integer();

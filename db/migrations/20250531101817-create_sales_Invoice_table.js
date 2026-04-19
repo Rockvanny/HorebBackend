@@ -64,13 +64,15 @@ module.exports = {
       city: {
         type: Sequelize.DataTypes.STRING,
       },
-      payment_method: {
-        type: Sequelize.DataTypes.STRING,
-      },
       status: {
         type: Sequelize.DataTypes.ENUM('Abierto', 'Pagado'),
         allowNull: false,
         defaultValue: 'Abierto'
+      },
+      payment_method: {
+        type: Sequelize.DataTypes.ENUM('Tarjeta', 'Efectivo', 'Transferencia'),
+        allowNull: false,
+        defaultValue: 'Tarjeta'
       },
       amount_without_vat: {
         type: Sequelize.DataTypes.DECIMAL(12, 4),

@@ -10,7 +10,7 @@ const CustomerSchema = {
     primaryKey: true,
     type: DataTypes.STRING
   },
-  
+
   selectedSerie: {
     type: DataTypes.VIRTUAL,
   },
@@ -85,17 +85,17 @@ class Customer extends Model {
     // Un proveedor (cliente) tiene muchas ofertas.
     this.hasMany(models.salesBudget, {
       as: 'salesBudget',
-      foreignKey: 'customer_code'
+      foreignKey: 'entity_code'
     });
 
     this.hasMany(models.salesInvoice, {
       as: 'salesInvoice',
-      foreignKey: 'customer_code'
+      foreignKey: 'entity_code'
     });
 
     this.hasMany(models.salesPostInvoice, {
       as: 'salesPostInvoice',
-      foreignKey: 'customer_code'
+      foreignKey: 'entity_code'
     });
   }
 

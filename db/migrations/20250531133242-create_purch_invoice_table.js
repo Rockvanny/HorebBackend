@@ -50,8 +50,10 @@ module.exports = {
       city: {
         type: Sequelize.DataTypes.STRING,
       },
-      payment_method: {
-        type: Sequelize.DataTypes.STRING,
+      paymentMethod: {
+        type: Sequelize.DataTypes.ENUM('Tarjeta', 'Efectivo', 'Transferencia'),
+        allowNull: false,
+        defaultValue: 'Tarjeta'
       },
       status: {
         type: Sequelize.DataTypes.ENUM('Abierto', 'Pagado'),

@@ -12,57 +12,6 @@ const {
 const router = express.Router();
 const service = new salesInvoiceService();
 
-/**
- * CONSULTAS DE CONFIGURACIÓN Y METADATOS
- */
-
-// Obtener los estados permitidos (Espejo de Budget)
-router.get('/statuses',
-    checkPermission('VIEW_SALESINVOICES'),
-    async (req, res, next) => {
-        try {
-            const enumValues = await service.findStatuses();
-            res.json({
-                success: true,
-                data: enumValues
-            });
-        } catch (error) {
-            next(error);
-        }
-    }
-);
-
-// NUEVO: Obtener los tipos de factura (Específico de Invoice)
-router.get('/type-invoices',
-    checkPermission('VIEW_SALESINVOICES'),
-    async (req, res, next) => {
-        try {
-            const types = await service.findTypeInvoices();
-            res.json({
-                success: true,
-                data: types
-            });
-        } catch (error) {
-            next(error);
-        }
-    }
-);
-
-// NUEVO: Obtener los tipos de rectificación (Específico de Invoice)
-router.get('/rectification-types',
-    checkPermission('VIEW_SALESINVOICES'),
-    async (req, res, next) => {
-        try {
-            const types = await service.findRectificationTypes();
-            res.json({
-                success: true,
-                data: types
-            });
-        } catch (error) {
-            next(error);
-        }
-    }
-);
 
 /**
  * CONSULTAS DE FACTURAS (VIEW)

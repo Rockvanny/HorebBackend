@@ -16,9 +16,9 @@ module.exports = {
         allowNull: false,
       },
       unitMeasure: {
-        field: 'unit_measure',
-        type: Sequelize.DataTypes.STRING,
+        type: Sequelize.DataTypes.ENUM('Unidad', 'Caja', 'Kilos', 'Metros', 'Horas'),
         allowNull: false,
+        defaultValue: 'Unidad'
       },
       qtyByUnitMeasure: {
         field: 'qty_by_unit_measure',

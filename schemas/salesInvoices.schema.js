@@ -24,7 +24,7 @@ const phone = Joi.string().allow('', null);
 const address = Joi.string().allow('', null);
 const postCode = Joi.string().allow('', null);
 const city = Joi.string().allow('', null);
-const paymentMethod = Joi.string().allow('', null);
+const paymentMethod = Joi.string().valid('Tarjeta', 'Efectivo', 'Transferencia').default('Tarjeta');
 const status = Joi.string().valid('Abierto', 'Pagado').default('Abierto');
 const comments = Joi.string().allow('', null);
 

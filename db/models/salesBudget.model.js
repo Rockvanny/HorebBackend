@@ -77,7 +77,7 @@ class salesBudget extends Model {
   static associate(models) {
     this.belongsTo(models.Customer, {
       as: 'customer',
-      foreignKey: 'customer_code'
+      foreignKey: 'entity_code'
     });
 
     this.hasMany(models.salesBudgetLine, {

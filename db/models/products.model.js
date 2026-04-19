@@ -24,9 +24,9 @@ const ProductSchema = {
   },
 
   unitMeasure: {
-    field: 'unit_measure',
-    type: DataTypes.STRING,
+    type: DataTypes.ENUM('Unidad','Caja','Kilos','Metros', 'Horas'),
     allowNull: false,
+    defaultValue: 'Unidad'
   },
 
   qtyByUnitMeasure: {

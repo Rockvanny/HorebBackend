@@ -47,8 +47,9 @@ const purchInvoiceSchema = {
     defaultValue: 'Gastos de Oficina y Varios'
   },
   paymentMethod: {
-    field: 'payment_method',
-    type: DataTypes.STRING,
+    type: DataTypes.ENUM('Tarjeta', 'Efectivo', 'Transferencia'),
+    allowNull: false,
+    defaultValue: 'Tarjeta'
   },
   amountWithoutVAT: {
     field: 'amount_without_vat',

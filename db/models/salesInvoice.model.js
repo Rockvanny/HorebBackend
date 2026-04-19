@@ -62,14 +62,16 @@ const salesInvoiceSchema = {
     type: DataTypes.STRING
   },
   city: DataTypes.STRING,
-  paymentMethod: {
-    field: 'payment_method',
-    type: DataTypes.STRING,
-  },
+
   status: {
     type: DataTypes.ENUM('Abierto', 'Pagado'),
     allowNull: false,
     defaultValue: 'Abierto'
+  },
+  paymentMethod: {
+    type: DataTypes.ENUM('Tarjeta', 'Efectivo', 'Transferencia'),
+    allowNull: false,
+    defaultValue: 'Tarjeta'
   },
   amountWithoutVAT: {
     field: 'amount_without_vat',
@@ -109,7 +111,7 @@ class salesInvoice extends Model {
   static associate(models) {
     this.belongsTo(models.Customer, {
       as: 'customer',
-      foreignKey: 'customer_code'
+      foreignKey: 'entity_code'
     });
 
     this.hasMany(models.salesInvoiceLine, {
