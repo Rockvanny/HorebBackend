@@ -1,52 +1,56 @@
 const Joi = require('joi');
 
-const codeInvoice = Joi.string();
-const lineNo = Joi.number();
-const codeItem = Joi.string();
-const description = Joi.string();
-const quantity = Joi.number();
-const unitMeasure = Joi.string();
-const quantityUnitMeasure = Joi.number();
-const unitPrice = Joi.number().precision(2);
-const vat = Joi.number();
-const amountLine = Joi.number().precision(2);
+// Definición de tipos base con precisión 4 para coincidir con DECIMAL(12, 4)
+const codeDocument = Joi.string();
+const lineNo = Joi.number().integer();
+const codeItem = Joi.string().allow('', null);
+const description = Joi.string().allow('', null);
+const quantity = Joi.number().precision(4);
+const unitMeasure = Joi.string().default('UNIDAD');
+const quantityUnitMeasure = Joi.number().precision(4);
+const unitPrice = Joi.number().precision(4);
+const vat = Joi.number().precision(4).default(21);
+const amountLine = Joi.number().precision(4);
 const username = Joi.string();
 
+// Parámetros de consulta
 const limit = Joi.number().integer();
 const offset = Joi.number().integer();
 const searchTerm = Joi.string().allow('');
 
+// --- ESQUEMAS PARA LÍNEAS DE COMPRA ---
+
 const getPurchInvoiceLineSchema = Joi.object({
-  codeInvoice: codeInvoice.required(),
+  codeDocument: codeDocument.required(),
   lineNo: lineNo.required(),
 });
 
 const createPurchInvoiceLineSchema = Joi.object({
-  codeInvoice: codeInvoice.required(),
+  codeDocument: codeDocument.required(),
   lineNo: lineNo.required(),
-  codeItem: codeItem.required(),
+  codeItem: codeItem.optional(), // Opcional para gastos directos sin código de artículo
   description: description.required(),
   quantity: quantity.required(),
-  unitMeasure: unitMeasure.required(),
-  quantityUnitMeasure: quantityUnitMeasure.required(),
+  unitMeasure: unitMeasure.optional(),
+  quantityUnitMeasure: quantityUnitMeasure.optional().default(1),
   unitPrice: unitPrice.required(),
-  vat: vat.required(),
+  vat: vat.optional(),
   amountLine: amountLine.required(),
-  username,
+  username: username.optional(),
 });
 
 const updatePurchInvoiceLineSchema = Joi.object({
-  codeInvoice: codeInvoice.required(),
-  lineNo: lineNo.required(),
-  codeItem: codeItem.required(),
-  description: description.required(),
-  quantity: quantity.required(),
-  unitMeasure: unitMeasure.required(),
-  quantityUnitMeasure: quantityUnitMeasure.required(),
-  unitPrice: unitPrice.required(),
-  vat: vat.required(),
-  amountLine: amountLine.required(),
-  username,
+  codeDocument: codeDocument.optional(),
+  lineNo: lineNo.required(), // Identificador de línea necesario
+  codeItem: codeItem.optional(),
+  description: description.optional(),
+  quantity: quantity.optional(),
+  unitMeasure: unitMeasure.optional(),
+  quantityUnitMeasure: quantityUnitMeasure.optional(),
+  unitPrice: unitPrice.optional(),
+  vat: vat.optional(),
+  amountLine: amountLine.optional(),
+  username: username.optional(),
 });
 
 const queryPurchInvoiceLineSchema = Joi.object({
@@ -55,4 +59,9 @@ const queryPurchInvoiceLineSchema = Joi.object({
   searchTerm: searchTerm.optional(),
 });
 
-module.exports = { getPurchInvoiceLineSchema, createPurchInvoiceLineSchema, updatePurchInvoiceLineSchema, queryPurchInvoiceLineSchema };
+module.exports = {
+  getPurchInvoiceLineSchema,
+  createPurchInvoiceLineSchema,
+  updatePurchInvoiceLineSchema,
+  queryPurchInvoiceLineSchema
+};

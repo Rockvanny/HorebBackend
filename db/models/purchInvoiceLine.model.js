@@ -1,11 +1,12 @@
+// models/purchInvoiceLines.model.js
 const { Model, DataTypes, Sequelize } = require('sequelize');
 
 const PURCHINVOICELINE_TABLE = 'purch_invoice_lines';
 
 const purchInvoiceLineSchema = {
-  // CLAVE COMPUESTA (Estandarizada)
-  codeInvoice: {
-    field: 'code_invoice',
+  // CLAVE COMPUESTA NORMALIZADA
+  codeDocument: {
+    field: 'code_invoice', // Mantenemos el nombre físico de la columna en la DB
     allowNull: false,
     primaryKey: true,
     type: DataTypes.STRING,
@@ -26,94 +27,76 @@ const purchInvoiceLineSchema = {
   // DATOS DEL PRODUCTO/SERVICIO
   codeItem: {
     field: 'item_code',
-    allowNull: false,
+    allowNull: true, // Permitimos null para gastos generales sin artículo codificado
     type: DataTypes.STRING,
   },
   description: {
     field: 'description',
-    type: DataTypes.STRING
+    type: DataTypes.TEXT // TEXT para descripciones largas de proveedores
   },
 
-  // CANTIDADES Y MEDIDAS
+  // CANTIDADES Y MEDIDAS (Estandarizado a 12, 4)
   quantity: {
     field: 'quantity',
-    allowNull: false,
-    type: DataTypes.DECIMAL(10, 2), // Cambiado a DECIMAL por si hay kilos/metros
-    defaultValue: 0.00
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 0.0000
   },
   unitMeasure: {
     field: 'unit_measure',
-    allowNull: false,
     type: DataTypes.STRING,
     defaultValue: 'UNIDAD'
   },
-  // Si quantityUnitMeasure es lógica de negocio interna, la mantenemos
   quantityUnitMeasure: {
     field: 'quantity_unit_measure',
-    allowNull: false,
-    type: DataTypes.DECIMAL(10, 2),
-    defaultValue: 0.00
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 1.0000 // Valor base 1 para evitar multiplicaciones por cero
   },
 
-  // PRECIOS E IMPUESTOS
+  // PRECIOS E IMPUESTOS (Estandarizado a 12, 4)
   unitPrice: {
     field: 'unit_price',
-    allowNull: false,
-    type: DataTypes.DECIMAL(10, 2),
-    defaultValue: 0.00
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 0.0000
   },
-  vat: { // Porcentaje (ej: 21.00)
+  vat: {
     field: 'vat',
-    allowNull: false,
-    type: DataTypes.DECIMAL(10, 2),
-    defaultValue: 0.00
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 21.0000
   },
-  amountLine: { // Base imponible de la línea (quantity * unitPrice)
+  amountLine: {
     field: 'amount_line',
-    allowNull: false,
-    type: DataTypes.DECIMAL(10, 2),
-    defaultValue: 0.00
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 0.0000
   },
 
   // AUDITORÍA
   username: {
     field: 'user_name',
     type: DataTypes.STRING,
-  },
-  createdAt: {
-    field: 'created_at',
-    allowNull: false,
-    type: DataTypes.DATE,
-    defaultValue: Sequelize.NOW,
-  },
-  updatedAt: {
-    field: 'updated_at',
-    allowNull: false,
-    type: DataTypes.DATE,
-    defaultValue: Sequelize.NOW
   }
 };
 
 class purchInvoiceLine extends Model {
   static associate(models) {
     this.belongsTo(models.purchInvoice, {
-      as: 'invoice',
-      foreignKey: 'codeInvoice'
+      as: 'parentDocument',
+      foreignKey: 'codeDocument',
+      targetKey: 'code'
     });
   }
 
-  // MÉTODO ESTÁTICO DE RECÁLCULO
-  static async updateInvoiceTotals(codeInvoice, transaction) {
+  // MÉTODO ESTÁTICO DE RECÁLCULO (Sincronizado con Ventas)
+  static async updateInvoiceTotals(codeDocument, transaction) {
     const { purchInvoice } = this.sequelize.models;
 
     const lines = await this.findAll({
-      where: { codeInvoice },
+      where: { codeDocument },
       transaction
     });
 
     const totals = lines.reduce((acc, line) => {
-      const base = parseFloat(line.amountLine) || 0;
-      const vatPercent = parseFloat(line.vat) || 0;
+      const base = Number(line.amountLine) || 0;
+      const vatPercent = Number(line.vat) || 0;
       const vatAmount = base * (vatPercent / 100);
 
       acc.baseTotal += base;
@@ -122,11 +105,11 @@ class purchInvoiceLine extends Model {
     }, { baseTotal: 0, vatTotal: 0 });
 
     await purchInvoice.update({
-      amountWithoutVAT: totals.baseTotal,
-      amountVAT: totals.vatTotal,
-      amountWithVAT: totals.baseTotal + totals.vatTotal
+      amountWithoutVAT: totals.baseTotal.toFixed(4),
+      amountVAT: totals.vatTotal.toFixed(4),
+      amountWithVAT: (totals.baseTotal + totals.vatTotal).toFixed(4)
     }, {
-      where: { code: codeInvoice },
+      where: { code: codeDocument },
       transaction
     });
   }
@@ -139,11 +122,14 @@ class purchInvoiceLine extends Model {
       timestamps: true,
       underscored: true,
       hooks: {
-        afterSave: async (line, options) => {
-          await this.updateInvoiceTotals(line.codeInvoice, options.transaction);
+        afterSave: async (line, opts) => {
+          if (opts.transaction) await this.updateInvoiceTotals(line.codeDocument, opts.transaction);
         },
-        afterDestroy: async (line, options) => {
-          await this.updateInvoiceTotals(line.codeInvoice, options.transaction);
+        afterDestroy: async (line, opts) => {
+          if (opts.transaction) await this.updateInvoiceTotals(line.codeDocument, opts.transaction);
+        },
+        afterBulkCreate: async (lines, opts) => {
+          if (lines.length > 0 && opts.transaction) await this.updateInvoiceTotals(lines[0].codeDocument, opts.transaction);
         }
       }
     };
