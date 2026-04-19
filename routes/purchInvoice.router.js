@@ -33,6 +33,22 @@ router.get('/statuses',
     }
 );
 
+router.get('/categories',
+    checkPermission('VIEW_PURCHINVOICES'),
+    async (req, res, next) => {
+        try {
+            // El servicio se encarga de hablar con el modelo
+            const enumValues = await service.findCategories();
+            res.json({
+                success: true,
+                data: enumValues
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
 /**
  * CONSULTAS DE FACTURAS DE COMPRA (VIEW)
  */

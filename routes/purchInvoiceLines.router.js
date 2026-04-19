@@ -1,6 +1,6 @@
 const express = require('express');
 const Joi = require('joi'); // Importante para la validación del codeDocument en POST
-const PurchInvoiceLineService = require('../services/purchInvoiceLines.service');
+const PurchInvoiceLineService = require('../services/purchInvoiceLine.service');
 const validatorHandler = require('../middlewares/validator.handler');
 const { checkPermission } = require('../middlewares/auth.handler');
 const {
@@ -8,7 +8,7 @@ const {
   getPurchInvoiceLineSchema,
   updatePurchInvoiceLineSchema,
   queryPurchInvoiceLineSchema
-} = require('../schemas/purchInvoiceLines.schema');
+} = require('../schemas/purchInvoiceLine.schema');
 
 const router = express.Router();
 const service = new PurchInvoiceLineService();

@@ -34,9 +34,9 @@ const purchInvoiceSchema = {
   },
   city: DataTypes.STRING,
   status: {
-    type: DataTypes.ENUM('Borrador', 'Abierto', 'Pagado', 'Rechazado'),
+    type: DataTypes.ENUM('Abierto', 'Pagado'),
     allowNull: false,
-    defaultValue: 'Borrador'
+    defaultValue: 'Abierto'
   },
   category: {
     type: DataTypes.ENUM(

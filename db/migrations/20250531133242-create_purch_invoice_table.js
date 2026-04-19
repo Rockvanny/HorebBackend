@@ -54,10 +54,9 @@ module.exports = {
         type: Sequelize.DataTypes.STRING,
       },
       status: {
-        // Sincronizado con los ENUM del modelo: 'Borrador', 'Abierto', 'Pagado', 'Rechazado'
-        type: Sequelize.DataTypes.ENUM('Borrador', 'Abierto', 'Pagado', 'Rechazado'),
+        type: Sequelize.DataTypes.ENUM('Abierto', 'Pagado'),
         allowNull: false,
-        defaultValue: 'Borrador'
+        defaultValue: 'Abierto'
       },
       category: {
         type: Sequelize.DataTypes.ENUM(

@@ -15,7 +15,7 @@ const address = Joi.string().allow('', null);
 const postCode = Joi.string().allow('', null);
 const city = Joi.string().allow('', null);
 const paymentMethod = Joi.string().allow('', null);
-const status = Joi.string().default('Borrador'); // Sincronizado con Ofertas
+const status = Joi.string().default('Abierto'); // Sincronizado con Ofertas
 const comments = Joi.string().allow('', null);
 
 const category = Joi.string().valid(

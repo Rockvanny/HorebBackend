@@ -86,10 +86,27 @@ class purchInvoiceService {
       }
 
       // Fallback sincronizado
-      return ['Borrador', 'Abierto', 'Pagado'];
+      return ['Abierto', 'Pagado'];
     } catch (error) {
       console.error("Error en findStatuses:", error);
       throw boom.badImplementation('No se pudieron obtener los estados');
+    }
+  }
+
+  async findCategories() {
+    try {
+      const attributes = purchInvoice.getAttributes();
+
+      if (attributes.category && attributes.category.values) {
+        return attributes.category.values;
+      }
+
+      // Fallback sincronizado
+      return ['Materiales', 'Subcontratas', 'Personal y Nóminas',
+      'Herramientas y Alquileres', 'Vehículos y Movilidad', 'Gastos de Oficina y Varios'];
+    } catch (error) {
+      console.error("Error en findCategories:", error);
+      throw boom.badImplementation('No se pudieron obtener las categorías');
     }
   }
 

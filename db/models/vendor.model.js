@@ -100,12 +100,12 @@ class Vendor extends Model {
   static associate(models) {
     this.hasMany(models.purchInvoice, {
       as: 'purchInvoice',
-      foreignKey: 'vendor_code'
+      foreignKey: 'entity_code'
     });
 
     this.hasMany(models.purchPostInvoice, {
       as: 'purchPostInvoice', // Corregido CamelCase para consistencia
-      foreignKey: 'vendor_code'
+      foreignKey: 'entity_code'
     });
   }
 
