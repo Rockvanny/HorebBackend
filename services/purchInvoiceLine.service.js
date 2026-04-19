@@ -1,4 +1,3 @@
-// services/purchInvoiceLine.service.js
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
 const sequelize = require('../libs/sequelize');
@@ -34,7 +33,7 @@ class purchInvoiceLineService {
         total: count,
       };
     } catch (error) {
-      throw boom.badImplementation('Error al consultar líneas de compra', error);
+      throw boom.badImplementation('Error al consultar líneas', error);
     }
   }
 
@@ -44,7 +43,7 @@ class purchInvoiceLineService {
       include: options.includeParent ? [{ model: purchInvoice, as: 'parentDocument' }] : []
     });
 
-    if (!line) throw boom.notFound(`Línea ${lineNo} de la factura de compra ${codeDocument} no encontrada`);
+    if (!line) throw boom.notFound(`Línea ${lineNo} del documento ${codeDocument} no encontrada`);
     return line;
   }
 
@@ -56,7 +55,7 @@ class purchInvoiceLineService {
         transaction: t
       });
 
-      if (existingLine) throw boom.conflict(`La línea ${data.lineNo} ya existe en esta factura de compra.`);
+      if (existingLine) throw boom.conflict(`La línea ${data.lineNo} ya existe.`);
 
       const newLine = await purchInvoiceLine.create(data, { transaction: t });
 
@@ -89,7 +88,7 @@ class purchInvoiceLineService {
       await line.destroy({ transaction: t });
 
       if (!transaction) await t.commit();
-      return { codeDocument, lineNo, message: 'Línea de compra eliminada correctamente' };
+      return { codeDocument, lineNo, message: 'Eliminado correctamente' };
     } catch (error) {
       if (!transaction) await t.rollback();
       throw error.isBoom ? error : boom.badImplementation(error);

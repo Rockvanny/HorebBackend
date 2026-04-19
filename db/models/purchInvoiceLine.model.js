@@ -1,12 +1,11 @@
-// models/purchInvoiceLines.model.js
 const { Model, DataTypes, Sequelize } = require('sequelize');
 
 const PURCHINVOICELINE_TABLE = 'purch_invoice_lines';
 
 const purchInvoiceLineSchema = {
-  // CLAVE COMPUESTA NORMALIZADA
+  // CLAVE COMPUESTA NORMALIZADA (Espejo de salesBudgetLine)
   codeDocument: {
-    field: 'code_invoice', // Mantenemos el nombre físico de la columna en la DB
+    field: 'code_document', // Cambiado de code_invoice a code_document para consistencia total
     allowNull: false,
     primaryKey: true,
     type: DataTypes.STRING,
@@ -23,19 +22,16 @@ const purchInvoiceLineSchema = {
     primaryKey: true,
     type: DataTypes.INTEGER,
   },
-
-  // DATOS DEL PRODUCTO/SERVICIO
+  // CAMPOS GENÉRICOS (Mismos nombres que en ofertas)
   codeItem: {
     field: 'item_code',
-    allowNull: true, // Permitimos null para gastos generales sin artículo codificado
     type: DataTypes.STRING,
+    allowNull: true
   },
   description: {
     field: 'description',
-    type: DataTypes.TEXT // TEXT para descripciones largas de proveedores
+    type: DataTypes.TEXT
   },
-
-  // CANTIDADES Y MEDIDAS (Estandarizado a 12, 4)
   quantity: {
     field: 'quantity',
     type: DataTypes.DECIMAL(12, 4),
@@ -49,10 +45,8 @@ const purchInvoiceLineSchema = {
   quantityUnitMeasure: {
     field: 'quantity_unit_measure',
     type: DataTypes.DECIMAL(12, 4),
-    defaultValue: 1.0000 // Valor base 1 para evitar multiplicaciones por cero
+    defaultValue: 1.0000
   },
-
-  // PRECIOS E IMPUESTOS (Estandarizado a 12, 4)
   unitPrice: {
     field: 'unit_price',
     type: DataTypes.DECIMAL(12, 4),
@@ -68,12 +62,10 @@ const purchInvoiceLineSchema = {
     type: DataTypes.DECIMAL(12, 4),
     defaultValue: 0.0000
   },
-
-  // AUDITORÍA
   username: {
     field: 'user_name',
-    type: DataTypes.STRING,
-  }
+    type: DataTypes.STRING
+  },
 };
 
 class purchInvoiceLine extends Model {
@@ -85,20 +77,14 @@ class purchInvoiceLine extends Model {
     });
   }
 
-  // MÉTODO ESTÁTICO DE RECÁLCULO (Sincronizado con Ventas)
-  static async updateInvoiceTotals(codeDocument, transaction) {
+  // MÉTODO ESTÁTICO NORMALIZADO (Mismo nombre que en ofertas: updateDocumentTotals)
+  static async updateDocumentTotals(codeDocument, transaction) {
     const { purchInvoice } = this.sequelize.models;
-
-    const lines = await this.findAll({
-      where: { codeDocument },
-      transaction
-    });
+    const lines = await this.findAll({ where: { codeDocument }, transaction });
 
     const totals = lines.reduce((acc, line) => {
       const base = Number(line.amountLine) || 0;
-      const vatPercent = Number(line.vat) || 0;
-      const vatAmount = base * (vatPercent / 100);
-
+      const vatAmount = base * (Number(line.vat) / 100);
       acc.baseTotal += base;
       acc.vatTotal += vatAmount;
       return acc;
@@ -108,10 +94,7 @@ class purchInvoiceLine extends Model {
       amountWithoutVAT: totals.baseTotal.toFixed(4),
       amountVAT: totals.vatTotal.toFixed(4),
       amountWithVAT: (totals.baseTotal + totals.vatTotal).toFixed(4)
-    }, {
-      where: { code: codeDocument },
-      transaction
-    });
+    }, { where: { code: codeDocument }, transaction });
   }
 
   static config(sequelize) {
@@ -123,13 +106,15 @@ class purchInvoiceLine extends Model {
       underscored: true,
       hooks: {
         afterSave: async (line, opts) => {
-          if (opts.transaction) await this.updateInvoiceTotals(line.codeDocument, opts.transaction);
+          await this.updateDocumentTotals(line.codeDocument, opts.transaction);
         },
         afterDestroy: async (line, opts) => {
-          if (opts.transaction) await this.updateInvoiceTotals(line.codeDocument, opts.transaction);
+          await this.updateDocumentTotals(line.codeDocument, opts.transaction);
         },
         afterBulkCreate: async (lines, opts) => {
-          if (lines.length > 0 && opts.transaction) await this.updateInvoiceTotals(lines[0].codeDocument, opts.transaction);
+          if (lines.length > 0) {
+            await this.updateDocumentTotals(lines[0].codeDocument, opts.transaction);
+          }
         }
       }
     };

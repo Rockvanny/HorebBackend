@@ -1,27 +1,22 @@
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
 const sequelize = require('../libs/sequelize');
-const seriesNumberService = require('../services/seriesNumber.service');
 
-// Extraemos los modelos correctamente
+// Extraemos los modelos correctamente del objeto sequelize
 const {
   purchInvoice,
   purchInvoiceLine,
-  purchpostInvoice,
-  purchPostInvoiceLine,
   Vendor,
 } = sequelize.models;
 
 class purchInvoiceService {
-  constructor() {
-    this.seriesNumberService = new seriesNumberService();
-  }
+  constructor() { }
 
   async countAll() {
     try {
       return await purchInvoice.count();
     } catch (error) {
-      throw boom.badImplementation('Error al contar las facturas de compra', error);
+      throw boom.badImplementation('Error al contar los registros', error);
     }
   }
 
@@ -32,7 +27,7 @@ class purchInvoiceService {
     const options = {
       limit: parsedLimit,
       offset: parsedOffset,
-      order: [['created_at', 'DESC']], // Estandarizado: lo más nuevo primero
+      order: [['created_at', 'DESC']],
       where: {},
     };
 
@@ -40,7 +35,7 @@ class purchInvoiceService {
       options.where[Op.or] = [
         { code: { [Op.iLike]: `%${searchTerm}%` } },
         { name: { [Op.iLike]: `%${searchTerm}%` } },
-        { category: { [Op.iLike]: `%${searchTerm}%` } }
+        { nif: { [Op.iLike]: `%${searchTerm}%` } }
       ];
     }
 
@@ -52,11 +47,12 @@ class purchInvoiceService {
         total: count,
       };
     } catch (error) {
-      throw boom.badImplementation('Error al consultar facturas de compra paginadas', error);
+      throw boom.badImplementation('Error al consultar registros paginados', error);
     }
   }
 
   async findOne(code, options = {}) {
+    // Forzamos que solo nos interese includeLines (Igual que en la oferta)
     const { includeLines = false } = options;
 
     const queryOptions = {
@@ -73,7 +69,10 @@ class purchInvoiceService {
     }
 
     const record = await purchInvoice.findOne(queryOptions);
-    if (!record) throw boom.notFound('Factura de compra no encontrada');
+
+    if (!record) {
+      throw boom.notFound('Registro no encontrado');
+    }
 
     return record.get({ plain: true });
   }
@@ -81,11 +80,15 @@ class purchInvoiceService {
   async findStatuses() {
     try {
       const attributes = purchInvoice.getAttributes();
+
       if (attributes.status && attributes.status.values) {
         return attributes.status.values;
       }
-      return ['Abierto', 'Pagado'];
+
+      // Fallback sincronizado
+      return ['Borrador', 'Abierto', 'Pagado'];
     } catch (error) {
+      console.error("Error en findStatuses:", error);
       throw boom.badImplementation('No se pudieron obtener los estados');
     }
   }
@@ -95,13 +98,13 @@ class purchInvoiceService {
     const transaction = await sequelize.transaction();
 
     try {
-      // 1. Crear cabecera (Hook genera el código)
+      // 1. Crear cabecera (Genera el código via Hook)
       const newInvoice = await purchInvoice.create(headerData, { transaction });
 
       let totalNeto = 0;
       let totalIva = 0;
 
-      // 2. Procesar líneas y calcular totales reales
+      // 2. Procesar líneas
       if (lines && lines.length > 0) {
         const linesToInsert = lines.map((line, index) => {
           const qty = parseFloat(line.quantity) || 0;
@@ -118,13 +121,13 @@ class purchInvoiceService {
           return {
             ...line,
             lineNo: line.lineNo || (index + 1),
-            codeDocument: newInvoice.code, // Clave foránea estandarizada
+            codeDocument: newInvoice.code,
             amountLine: lineAmount
           };
         });
         await purchInvoiceLine.bulkCreate(linesToInsert, { transaction });
       } else {
-        // Línea vacía por defecto
+        // Línea por defecto igual que en la oferta
         await purchInvoiceLine.create({
           codeDocument: newInvoice.code,
           lineNo: 1,
@@ -135,7 +138,7 @@ class purchInvoiceService {
         }, { transaction });
       }
 
-      // 3. Actualizar totales finales en la cabecera
+      // 3. ACTUALIZAR TOTALES EN CABECERA
       await newInvoice.update({
         amountWithoutVAT: totalNeto,
         amountVAT: totalIva,
@@ -157,20 +160,24 @@ class purchInvoiceService {
 
     try {
       const instance = await purchInvoice.findOne({ where: { code }, transaction });
-      if (!instance) throw boom.notFound('Factura no encontrada');
+      if (!instance) throw boom.notFound('Registro no encontrado');
 
-      // Limpieza de campos sensibles
+      // Limpieza de campos (Seguridad Postgres)
       const cleanHeader = { ...headerChanges };
       delete cleanHeader.id;
       delete cleanHeader.code;
       delete cleanHeader.createdAt;
       delete cleanHeader.updatedAt;
 
+      // 1. Actualizar cabecera
       await instance.update(cleanHeader, { transaction });
 
+      // 2. Sincronizar líneas (Lógica Flush & Fill)
       if (lines) {
-        // Lógica Flush & Fill estandarizada
-        await purchInvoiceLine.destroy({ where: { codeDocument: code }, transaction });
+        await purchInvoiceLine.destroy({
+          where: { codeDocument: code },
+          transaction
+        });
 
         if (lines.length > 0) {
           const linesToInsert = lines.map((line, index) => {
@@ -183,6 +190,18 @@ class purchInvoiceService {
             };
           });
           await purchInvoiceLine.bulkCreate(linesToInsert, { transaction });
+        } else {
+          // Línea por defecto si se vacía
+          await purchInvoiceLine.create({
+            codeDocument: code,
+            lineNo: 1,
+            description: 'Nueva línea',
+            quantity: 1.0,
+            unitPrice: 0.0,
+            vat: 0.0,
+            amountLine: 0.0,
+            username: cleanHeader.username || 'Sistema'
+          }, { transaction });
         }
       }
 
@@ -191,57 +210,16 @@ class purchInvoiceService {
 
     } catch (error) {
       if (transaction) await transaction.rollback();
-      throw error;
-    }
-  }
-
-  async archiveInvoice(invoiceCode) {
-    const transaction = await sequelize.transaction();
-    try {
-      const invoice = await purchInvoice.findByPk(invoiceCode, {
-        include: [{ model: purchInvoiceLine, as: 'lines' }],
-        transaction
-      });
-
-      if (!invoice) throw boom.notFound('Factura de compra no encontrada');
-      if (invoice.status !== 'Pagado') throw boom.badRequest('Solo se pueden archivar facturas "Pagadas"');
-
-      // Nueva serie histórica para compras
-      const newNumber = await this.seriesNumberService.updateLastUsedSerie('Fact_compra_regist', invoice.codePosting, transaction);
-
-      const invoicePostData = invoice.toJSON();
-      invoicePostData.code = newNumber;
-      invoicePostData.preInvoice = invoiceCode;
-
-      // Crear Histórico
-      const newInvoicePost = await purchpostInvoice.create(invoicePostData, { transaction });
-
-      if (invoice.lines && invoice.lines.length > 0) {
-        const linesToCreate = invoice.lines.map(line => {
-          const l = line.toJSON();
-          l.codeDocument = newInvoicePost.code; // Estandarizado a codeDocument
-          return l;
-        });
-        await purchPostInvoiceLine.bulkCreate(linesToCreate, { transaction });
-      }
-
-      // Eliminar original (Cascade destroy)
-      await invoice.destroy({ transaction });
-
-      await transaction.commit();
-      return { message: newNumber, postInvoice: newInvoicePost };
-
-    } catch (error) {
-      if (transaction) await transaction.rollback();
+      console.error("Error detallado en Sequelize Update:", error);
       throw error;
     }
   }
 
   async delete(code) {
     const instance = await purchInvoice.findByPk(code);
-    if (!instance) throw boom.notFound('Factura no encontrada');
+    if (!instance) throw boom.notFound('Registro no encontrado');
     await instance.destroy();
-    return { code, message: 'Factura eliminada correctamente' };
+    return { code, message: 'Registro eliminado correctamente' };
   }
 }
 

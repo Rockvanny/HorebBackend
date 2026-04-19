@@ -1,120 +1,84 @@
-// routes/purchInvoiceLines.router.js
 const express = require('express');
-const PurchInvoiceLineService = require('../services/purchInvoiceLine.service');
+const Joi = require('joi'); // Importante para la validación del codeDocument en POST
+const PurchInvoiceLineService = require('../services/purchInvoiceLines.service');
 const validatorHandler = require('../middlewares/validator.handler');
 const { checkPermission } = require('../middlewares/auth.handler');
-
 const {
   createPurchInvoiceLineSchema,
   getPurchInvoiceLineSchema,
   updatePurchInvoiceLineSchema,
   queryPurchInvoiceLineSchema
-} = require('../schemas/purchInvoiceLine.schema');
+} = require('../schemas/purchInvoiceLines.schema');
 
 const router = express.Router();
 const service = new PurchInvoiceLineService();
 
 /**
- * 1. LECTURA DE LÍNEAS
+ * CONSULTAS DE LÍNEAS (VIEW)
  */
 
-// GET /purchInvoiceLines-paginated - Listado con filtros
-router.get('/purchInvoiceLines-paginated',
-  checkPermission('VIEW_PURCHINVOICES'), // Permiso de visualización de compras
-  validatorHandler(queryPurchInvoiceLineSchema, 'query'),
-  async (req, res, next) => {
-    try {
-      const { limit, offset, searchTerm } = req.query;
-      const result = await service.findPaginated({ limit, offset, searchTerm });
-      res.json(result);
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-// GET / - Listado general (usando la lógica de paginación por defecto)
-router.get('/',
-  checkPermission('VIEW_PURCHINVOICES'),
+router.get('/paginated',
+  checkPermission('VIEW_PURCHINVOICES'), // Protegido
   validatorHandler(queryPurchInvoiceLineSchema, 'query'),
   async (req, res, next) => {
     try {
       const result = await service.findPaginated(req.query);
-      res.json(result.records);
-    } catch (error) {
-      next(error);
-    }
+      res.json(result);
+    } catch (error) { next(error); }
   }
 );
 
-/**
- * 2. ACCIONES POR PK COMPUESTA (codeDocument + lineNo)
- */
-
-// GET /:codeDocument/:lineNo - Obtener una línea específica
 router.get('/:codeDocument/:lineNo',
-  checkPermission('VIEW_PURCHINVOICES'),
+  checkPermission('VIEW_PURCHINVOICES'), // Protegido
   validatorHandler(getPurchInvoiceLineSchema, 'params'),
   async (req, res, next) => {
     try {
       const { codeDocument, lineNo } = req.params;
       const line = await service.findOne({ codeDocument, lineNo });
       res.json(line);
-    } catch (error) {
-      next(next);
-    }
+    } catch (error) { next(error); }
   }
 );
 
-// POST /:codeDocument - Añadir línea a una factura de compra existente
+/**
+ * ACCIONES DE ESCRITURA EN LÍNEAS
+ */
+
 router.post('/:codeDocument',
-  checkPermission('UPDATE_PURCHINVOICES'), // Alterar una compra existente requiere permiso de edición
+  checkPermission('UPDATE_PURCHINVOICES'), // Crear líneas es parte de editar la compra
+  validatorHandler(Joi.object({ codeDocument: Joi.string().required() }), 'params'),
   validatorHandler(createPurchInvoiceLineSchema, 'body'),
   async (req, res, next) => {
     try {
       const { codeDocument } = req.params;
-      const body = req.body;
-      // Inyectamos el codeDocument de la URL en el objeto de creación
-      const newLine = await service.create({ ...body, codeDocument });
+      const newLine = await service.create({ ...req.body, codeDocument });
       res.status(201).json(newLine);
-    } catch (error) {
-      next(error);
-    }
+    } catch (error) { next(error); }
   }
 );
 
-// PATCH /:codeDocument/:lineNo - Actualización parcial de línea
 router.patch('/:codeDocument/:lineNo',
-  checkPermission('UPDATE_PURCHINVOICES'),
+  checkPermission('UPDATE_PURCHINVOICES'), // Protegido
   validatorHandler(getPurchInvoiceLineSchema, 'params'),
   validatorHandler(updatePurchInvoiceLineSchema, 'body'),
   async (req, res, next) => {
     try {
       const { codeDocument, lineNo } = req.params;
-      const body = req.body;
-      const updatedLine = await service.update({ codeDocument, lineNo }, body);
-      res.json(updatedLine);
-    } catch (error) {
-      next(error);
-    }
+      const line = await service.update({ codeDocument, lineNo }, req.body);
+      res.json(line);
+    } catch (error) { next(error); }
   }
 );
 
-// DELETE /:codeDocument/:lineNo - Eliminar línea de compra
 router.delete('/:codeDocument/:lineNo',
-  checkPermission('UPDATE_PURCHINVOICES'),
+  checkPermission('UPDATE_PURCHINVOICES'), // Borrar una línea suele requerir permiso de edición
   validatorHandler(getPurchInvoiceLineSchema, 'params'),
   async (req, res, next) => {
     try {
       const { codeDocument, lineNo } = req.params;
       const result = await service.delete({ codeDocument, lineNo });
-      res.status(200).json({
-        ...result,
-        message: 'Línea de compra eliminada y totales de la factura recalculados.'
-      });
-    } catch (error) {
-      next(error);
-    }
+      res.json(result);
+    } catch (error) { next(error); }
   }
 );
 

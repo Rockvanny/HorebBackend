@@ -7,7 +7,7 @@ const code = Joi.string();
 const selectedSerie = Joi.string(); // Campo necesario para el Hook de serie del backend
 const postingDate = Joi.date();
 const dueDate = Joi.date().allow(null);
-const customerCode = Joi.string();
+const entityCode = Joi.string();
 const name = Joi.string().min(3).max(100);
 const nif = Joi.string().min(5).max(20);
 const email = Joi.string().email().allow('', null);
@@ -47,7 +47,7 @@ const createSalesBudgetSchema = Joi.object({
 
     postingDate: postingDate.default(() => new Date()),
     dueDate: dueDate.optional(),
-    customerCode: customerCode.required(),
+    entityCode: entityCode.required(),
     name: name.required(),
     nif: nif.required(),
     email: email.optional(),

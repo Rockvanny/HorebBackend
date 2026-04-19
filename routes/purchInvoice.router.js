@@ -16,11 +16,12 @@ const service = new PurchInvoiceService();
  * CONSULTAS DE CONFIGURACIÓN Y METADATOS
  */
 
-// Obtener los estados permitidos y categorías
+// Obtener los estados permitidos del ENUM de la base de datos
 router.get('/statuses',
     checkPermission('VIEW_PURCHINVOICES'),
     async (req, res, next) => {
         try {
+            // El servicio se encarga de hablar con el modelo
             const enumValues = await service.findStatuses();
             res.json({
                 success: true,
@@ -63,27 +64,29 @@ router.get('/count',
     }
 );
 
-// Obtener una factura específica por código
+// Obtener una factura específica por código (con inclusiones opcionales)
 router.get('/:code',
-    checkPermission('VIEW_PURCHINVOICES'),
-    validatorHandler(getPurchInvoiceSchema, 'params'),
-    async (req, res, next) => {
-        try {
-            const { code } = req.params;
-            const includeLines = req.query.include_lines === 'true' || req.query.includeLines === 'true';
+  checkPermission('VIEW_PURCHINVOICES'),
+  validatorHandler(getPurchInvoiceSchema, 'params'),
+  async (req, res, next) => {
+    try {
+      const { code } = req.params;
 
-            const record = await service.findOne(code, {
-                includeLines: includeLines
-            });
+      // Capturamos el parámetro y lo convertimos a booleano real
+      const includeLines = req.query.include_lines === 'true' || req.query.includeLines === 'true';
 
-            res.json({
-                success: true,
-                data: record
-            });
-        } catch (error) {
-            next(error);
-        }
+      const record = await service.findOne(code, {
+        includeLines: includeLines // Pasamos solo las líneas
+      });
+
+      res.json({
+        success: true,
+        data: record
+      });
+    } catch (error) {
+      next(error);
     }
+  }
 );
 
 // Listado general (Query params validados)
@@ -92,8 +95,8 @@ router.get('/',
     validatorHandler(queryPurchInvoiceSchema, 'query'),
     async (req, res, next) => {
         try {
-            const records = await service.find(req.query);
-            res.json(records);
+            const record = await service.find(req.query);
+            res.json(record);
         } catch (error) {
             next(error);
         }
@@ -101,10 +104,10 @@ router.get('/',
 );
 
 /**
- * ACCIONES DE ESCRITURA Y PROCESADO
+ * ACCIONES DE ESCRITURA
  */
 
-// Crear nueva factura de compra
+// Crear nueva factura de compra (Cabecera + Líneas)
 router.post('/',
     checkPermission('CREATE_PURCHINVOICES'),
     validatorHandler(createPurchInvoiceSchema, 'body'),
@@ -114,6 +117,7 @@ router.post('/',
             const newInvoice = await service.create(body);
             res.status(201).json(newInvoice);
         } catch (error) {
+            // Sincronizado con la lógica de error de ofertas
             if (error.name === "SequelizeUniqueConstraintError") {
                 return res.status(409).json({
                     success: false,
@@ -126,26 +130,7 @@ router.post('/',
     }
 );
 
-// Archivar factura de compra (Pasar a histórico)
-router.post('/:code/archive',
-    checkPermission('UPDATE_PURCHINVOICES'),
-    validatorHandler(getPurchInvoiceSchema, 'params'),
-    async (req, res, next) => {
-        try {
-            const { code } = req.params;
-            const result = await service.archiveInvoice(code);
-            res.status(200).json({
-                success: true,
-                message: `Factura de compra archivada correctamente`,
-                data: result
-            });
-        } catch (error) {
-            next(error);
-        }
-    }
-);
-
-// Actualización de factura de compra
+// Actualización completa (Cabecera y Sincronización de Líneas)
 router.put('/:code',
     checkPermission('UPDATE_PURCHINVOICES'),
     validatorHandler(getPurchInvoiceSchema, 'params'),
@@ -162,7 +147,7 @@ router.put('/:code',
     }
 );
 
-// Eliminación (Borrado físico con CASCADE)
+// Eliminación (Borrado físico con CASCADE en líneas)
 router.delete('/:code',
     checkPermission('DELETE_PURCHINVOICES'),
     validatorHandler(getPurchInvoiceSchema, 'params'),
@@ -170,10 +155,7 @@ router.delete('/:code',
         try {
             const { code } = req.params;
             await service.delete(code);
-            res.status(200).json({
-                success: true,
-                code
-            });
+            res.status(200).json({ code });
         } catch (error) {
             next(error);
         }

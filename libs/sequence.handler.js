@@ -11,6 +11,7 @@ const MODEL_SERIES_MAP = {   // Traducción: Modelo salesBudget -> Serie budget
     'Vendor': 'vendor',
     'salesBudget': 'budget',
     'salesInvoice': 'salesinvoice',
+    'purchInvoice': 'purchinvoice',
 };
 
 /**

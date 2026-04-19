@@ -9,15 +9,6 @@ const purchInvoiceSchema = {
     primaryKey: true,
     type: DataTypes.STRING
   },
-  // Campos específicos de registro
-  codePosting: {
-    field: 'code_posting',
-    type: DataTypes.STRING
-  },
-  budgetCode: {
-    field: 'budget_code',
-    type: DataTypes.STRING
-  },
   postingDate: {
     field: 'posting_date',
     type: DataTypes.DATE,
@@ -26,14 +17,14 @@ const purchInvoiceSchema = {
     field: 'due_date',
     type: DataTypes.DATE,
   },
-  // Datos del Proveedor (Igualamos estructura al base)
-  vendorCode: {
-    field: 'vendor_code',
+  // NOMBRE AGNÓSTICO: entityCode (antes vendorCode)
+  entityCode: {
+    field: 'entity_code',
     type: DataTypes.STRING,
     allowNull: false,
   },
   name: DataTypes.STRING,
-  nif: DataTypes.STRING, // Añadido para consistencia
+  nif: DataTypes.STRING,
   email: DataTypes.STRING,
   phone: DataTypes.STRING,
   address: DataTypes.STRING,
@@ -42,31 +33,23 @@ const purchInvoiceSchema = {
     type: DataTypes.STRING
   },
   city: DataTypes.STRING,
-
-  // Configuración y Estado
-  paymentMethod: {
-    field: 'payment_method',
-    type: DataTypes.STRING,
-  },
   status: {
-    type: DataTypes.ENUM('Abierto', 'Pagado'),
+    type: DataTypes.ENUM('Borrador', 'Abierto', 'Pagado', 'Rechazado'),
     allowNull: false,
-    defaultValue: 'Abierto'
+    defaultValue: 'Borrador'
   },
   category: {
     type: DataTypes.ENUM(
-      'Materiales',
-      'Subcontratas',
-      'Personal y Nóminas',
-      'Herramientas y Alquileres',
-      'Vehículos y Movilidad',
-      'Gastos de Oficina y Varios'
+      'Materiales', 'Subcontratas', 'Personal y Nóminas',
+      'Herramientas y Alquileres', 'Vehículos y Movilidad', 'Gastos de Oficina y Varios'
     ),
     allowNull: true,
     defaultValue: 'Gastos de Oficina y Varios'
   },
-
-  // TOTALES NORMALIZADOS A 4 DECIMALES (Consistencia absoluta)
+  paymentMethod: {
+    field: 'payment_method',
+    type: DataTypes.STRING,
+  },
   amountWithoutVAT: {
     field: 'amount_without_vat',
     type: DataTypes.DECIMAL(12, 4),
@@ -82,8 +65,7 @@ const purchInvoiceSchema = {
     type: DataTypes.DECIMAL(12, 4),
     defaultValue: 0.0000
   },
-
-  comments: DataTypes.TEXT, // Añadido para consistencia con el base
+  comments: DataTypes.TEXT,
   username: {
     field: 'user_name',
     type: DataTypes.STRING,
@@ -106,12 +88,12 @@ class purchInvoice extends Model {
   static associate(models) {
     this.belongsTo(models.Vendor, {
       as: 'vendor',
-      foreignKey: 'vendor_code'
+      foreignKey: 'entity_code' // Mapeado a la entidad correspondiente
     });
 
     this.hasMany(models.purchInvoiceLine, {
       as: 'lines',
-      foreignKey: 'codeDocument', // Estandarizado a codeDocument
+      foreignKey: 'codeDocument',
       sourceKey: 'code',
       onDelete: 'CASCADE',
       hooks: true
@@ -123,7 +105,7 @@ class purchInvoice extends Model {
       sequelize,
       tableName: PURCHINVOICE_TABLE,
       modelName: 'purchInvoice',
-      timestamps: false, // Usamos nuestros propios campos de auditoría
+      timestamps: false,
       underscored: true,
       hooks: {
         beforeValidate: async (instance, options) => {

@@ -10,6 +10,8 @@ module.exports = {
         primaryKey: true,
         type: Sequelize.DataTypes.STRING
       },
+      // Nota: code_posting y budget_code no están en el modelo actual,
+      // pero se mantienen si son necesarios para la lógica de BD
       code_posting: {
         type: Sequelize.DataTypes.STRING
       },
@@ -17,19 +19,20 @@ module.exports = {
         type: Sequelize.DataTypes.STRING
       },
       posting_date: {
-        type: Sequelize.DataTypes.DATE, // Sincronizado con DATE del modelo
+        type: Sequelize.DataTypes.DATE,
       },
       due_date: {
-        type: Sequelize.DataTypes.DATE, // Sincronizado con DATE del modelo
+        type: Sequelize.DataTypes.DATE,
       },
-      vendor_code: {
+      // Sincronizado con entityCode del modelo
+      entity_code: {
         allowNull: false,
         type: Sequelize.DataTypes.STRING,
       },
       name: {
         type: Sequelize.DataTypes.STRING,
       },
-      nif: { // Añadido para consistencia con el modelo
+      nif: {
         type: Sequelize.DataTypes.STRING,
       },
       email: {
@@ -51,9 +54,10 @@ module.exports = {
         type: Sequelize.DataTypes.STRING,
       },
       status: {
-        type: Sequelize.DataTypes.ENUM('Abierto', 'Pagado'), // ENUM real en DB
+        // Sincronizado con los ENUM del modelo: 'Borrador', 'Abierto', 'Pagado', 'Rechazado'
+        type: Sequelize.DataTypes.ENUM('Borrador', 'Abierto', 'Pagado', 'Rechazado'),
         allowNull: false,
-        defaultValue: 'Abierto'
+        defaultValue: 'Borrador'
       },
       category: {
         type: Sequelize.DataTypes.ENUM(
@@ -67,7 +71,6 @@ module.exports = {
         allowNull: true,
         defaultValue: 'Gastos de Oficina y Varios'
       },
-      // TOTALES NORMALIZADOS A 4 DECIMALES (12, 4)
       amount_without_vat: {
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         defaultValue: 0.0000
@@ -80,7 +83,7 @@ module.exports = {
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         defaultValue: 0.0000
       },
-      comments: { // Añadido para consistencia
+      comments: {
         type: Sequelize.DataTypes.TEXT,
       },
       user_name: {
@@ -101,5 +104,7 @@ module.exports = {
 
   down: async (queryInterface) => {
     await queryInterface.dropTable(PURCHINVOICE_TABLE);
+    // Nota: Dependiendo del motor de base de datos (ej. PostgreSQL),
+    // a veces es necesario borrar manualmente los tipos ENUM creados.
   }
 };
