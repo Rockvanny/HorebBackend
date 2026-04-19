@@ -3,7 +3,6 @@ const { Company, CompanySchema } = require('./company.model');
 const { Vendor, VendorSchema } = require('./vendor.model');
 const { Customer, CustomerSchema } = require('./customer.model');
 const { Products, ProductSchema } = require('./products.model');
-const { UnitMeasure, UnitMeasureSchema } = require('./unitMeasure.model');
 const { salesBudget, salesBudgetSchema } = require('./salesBudget.model');
 const { salesBudgetLine, salesBudgetLineSchema } = require('./salesBudgetLines.model');
 const { salesInvoice, salesInvoiceSchema } = require('./salesInvoice.model');
@@ -23,7 +22,6 @@ function setupModels(sequelize) {
   Vendor.init(VendorSchema, Vendor.config(sequelize));
   Customer.init(CustomerSchema, Customer.config(sequelize));
   Products.init(ProductSchema, Products.config(sequelize));
-  UnitMeasure.init(UnitMeasureSchema, UnitMeasure.config(sequelize));
   salesBudget.init(salesBudgetSchema, salesBudget.config(sequelize));
   salesBudgetLine.init(salesBudgetLineSchema, salesBudgetLine.config(sequelize));
   salesInvoice.init(salesInvoiceSchema, salesInvoice.config(sequelize));
@@ -41,7 +39,6 @@ function setupModels(sequelize) {
   Vendor.associate(sequelize.models);
   Customer.associate(sequelize.models);
   Products.associate(sequelize.models);
-  UnitMeasure.associate(sequelize.models);
   salesBudget.associate(sequelize.models);
   salesBudgetLine.associate(sequelize.models);
   salesInvoice.associate(sequelize.models);

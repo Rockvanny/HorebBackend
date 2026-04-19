@@ -6,7 +6,6 @@ const companyRouter = require('./company.router');
 const productsRouter = require('./product.router');
 const customersRouter = require('./customers.router');
 const vendorsRouter = require('./vendors.router');
-const unitMeasuresRouter = require('./unitMeasures.router');
 const salesBudgetRouter = require('./salesBudgets.router');
 const salesBudgetLines = require('./salesBudgetLines.router');
 const salesInvoiceRouter = require('./salesInvoices.router');
@@ -32,7 +31,6 @@ function routerApi(app) {
   router.use('/products', productsRouter);
   router.use('/customers', customersRouter);
   router.use('/vendors', vendorsRouter);
-  router.use('/unitMeasures', unitMeasuresRouter);
   router.use('/salesBudgets', salesBudgetRouter);
   router.use('/salesBudgetLines', salesBudgetLines);
   router.use('/salesInvoices', salesInvoiceRouter);
