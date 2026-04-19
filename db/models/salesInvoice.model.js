@@ -4,16 +4,32 @@ const { generateNextCode } = require('../../libs/sequence.handler');
 const SALESINVOICE_TABLE = 'sales_invoices';
 
 const salesInvoiceSchema = {
-  // IDENTIFICADOR (Estandarizado)
   code: {
-    field: 'code',
     allowNull: false,
     primaryKey: true,
     type: DataTypes.STRING
   },
-  // REGISTRO Y FECHAS
   codePosting: {
     field: 'code_posting',
+    type: DataTypes.STRING
+  },
+  // NUEVO: Clasificación para cumplimiento AEAT/Verifactu
+  typeInvoice: {
+    field: 'type_invoice',
+    type: DataTypes.ENUM('F1', 'F2', 'R1', 'R2', 'R3', 'R4', 'R5'),
+    allowNull: false,
+    defaultValue: 'F1',
+    comment: 'F1: Factura, F2: Simplificada, R: Rectificativas'
+  },
+  // NUEVO: Referencia a factura origen (obligatorio para rectificativas)
+  parentCode: {
+    field: 'parent_code',
+    type: DataTypes.STRING,
+    allowNull: true,
+    comment: 'Referencia al código de factura que se rectifica'
+  },
+  budgetCode: {
+    field: 'budget_code',
     type: DataTypes.STRING
   },
   postingDate: {
@@ -24,55 +40,46 @@ const salesInvoiceSchema = {
     field: 'due_date',
     type: DataTypes.DATE,
   },
-  // VÍNCULO CON PRESUPUESTO
-  budgetCode: {
-    field: 'budget_code',
-    type: DataTypes.STRING
-  },
-  // DATOS DEL CLIENTE
   customerCode: {
     field: 'customer_code',
     type: DataTypes.STRING,
+    allowNull: false,
   },
-  name: { // Nombre genérico para la tabla del Front
-    field: 'name',
-    type: DataTypes.STRING,
+  name: DataTypes.STRING,
+  nif: DataTypes.STRING,
+  email: DataTypes.STRING,
+  phone: DataTypes.STRING,
+  address: DataTypes.STRING,
+  postCode: {
+    field: 'post_code',
+    type: DataTypes.STRING
   },
-  email: { field: 'email', type: DataTypes.STRING },
-  phone: { field: 'phone', type: DataTypes.STRING },
-  address: { field: 'address', type: DataTypes.STRING },
-  postCode: { field: 'post_code', type: DataTypes.STRING },
-  city: { field: 'city', type: DataTypes.STRING },
-
-  // CONFIGURACIÓN Y ESTADO
+  city: DataTypes.STRING,
   paymentMethod: {
     field: 'payment_method',
     type: DataTypes.STRING,
   },
   status: {
-    field: 'status',
-    type: DataTypes.STRING,
-    defaultValue: 'Borrador'
+    type: DataTypes.ENUM('Abierto', 'Pagado'),
+    allowNull: false,
+    defaultValue: 'Abierto'
   },
-
-  // TOTALES (Consistencia absoluta)
   amountWithoutVAT: {
-    field: 'amount_without_vat', // Normalizado a minúsculas
-    type: DataTypes.DECIMAL(10, 2),
-    defaultValue: 0.00
+    field: 'amount_without_vat',
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 0.0000
   },
   amountVAT: {
     field: 'amount_vat',
-    type: DataTypes.DECIMAL(10, 2),
-    defaultValue: 0.00
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 0.0000
   },
   amountWithVAT: {
     field: 'amount_with_vat',
-    type: DataTypes.DECIMAL(10, 2),
-    defaultValue: 0.00
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 0.0000
   },
-
-  // AUDITORÍA
+  comments: DataTypes.TEXT,
   username: {
     field: 'user_name',
     type: DataTypes.STRING,
@@ -89,7 +96,7 @@ const salesInvoiceSchema = {
     type: DataTypes.DATE,
     defaultValue: Sequelize.NOW
   }
-}
+};
 
 class salesInvoice extends Model {
   static associate(models) {
@@ -100,7 +107,10 @@ class salesInvoice extends Model {
 
     this.hasMany(models.salesInvoiceLine, {
       as: 'lines',
-      foreignKey: 'codeInvoice'
+      foreignKey: 'codeDocument',
+      sourceKey: 'code',
+      onDelete: 'CASCADE',
+      hooks: true
     });
   }
 
@@ -109,16 +119,16 @@ class salesInvoice extends Model {
       sequelize,
       tableName: SALESINVOICE_TABLE,
       modelName: 'salesInvoice',
-      timestamps: true,
+      timestamps: false,
       underscored: true,
-      hooks: { // CORRECCIÓN: Encapsulado en objeto hooks
+      hooks: {
         beforeValidate: async (instance, options) => {
-          if (instance.isNewRecord) {
+          if (instance.isNewRecord && !instance.code) {
             await generateNextCode(instance, options);
           }
         }
       }
-    }
+    };
   }
 }
 

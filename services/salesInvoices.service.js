@@ -1,48 +1,28 @@
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
 const sequelize = require('../libs/sequelize');
-const { salesPostInvoice } = sequelize.models;
-const { salesPostInvoiceLine } = sequelize.models;
 const seriesNumberService = require('../services/seriesNumber.service');
 
+// Extraemos los modelos correctamente
 const {
   salesInvoice,
   salesInvoiceLine,
+  salesPostInvoice,
+  salesPostInvoiceLine,
   Customer,
-} = sequelize.models
+} = sequelize.models;
 
 class salesInvoiceService {
-
   constructor() {
-    //se inicializa el servicio de números de serie.
     this.seriesNumberService = new seriesNumberService();
   }
 
   async countAll() {
     try {
-      // Sequelize's count() method returns the total number of records
-      const totalCount = await salesInvoice.count();
-      console.log(`Total de facturas venta encontrados: ${totalCount}`);
-      return totalCount;
+      return await salesInvoice.count();
     } catch (error) {
-      console.error('Error al contar los facturas:', error);
-      throw boom.badImplementation('Error al contar los facturas', error); // Usa Boom para errores
+      throw boom.badImplementation('Error al contar las facturas', error);
     }
-  }
-
-  async find(query) {
-    const options = {
-      where: {}
-    }
-
-    const { limit, offset } = query;
-    if (limit && offset) {
-      options.limit = parseInt(limit, 10);
-      options.offset = parseInt(offset, 10);
-    }
-
-    const salesInvoices = await salesInvoice.findAll(options);
-    return salesInvoices;
   }
 
   async findPaginated({ limit, offset, searchTerm }) {
@@ -52,298 +32,216 @@ class salesInvoiceService {
     const options = {
       limit: parsedLimit,
       offset: parsedOffset,
-      order: [['code', 'ASC']],
+      order: [['created_at', 'DESC']], // Estandarizado a fecha de creación
       where: {},
-    }
+    };
 
     if (searchTerm) {
-      if (searchTerm.includes('%')) {
-        options.where[Op.or] = [
-          { code: { [Op.iLike]: `%${searchTerm}%` } },
-          { name: { [Op.iLike]: `%${searchTerm}%` } }
-        ];
-      } else {
-        options.where.code = {
-          [Op.iLike]: `%${searchTerm}`
-        }
-      }
+      options.where[Op.or] = [
+        { code: { [Op.iLike]: `%${searchTerm}%` } },
+        { name: { [Op.iLike]: `%${searchTerm}%` } },
+        { nif: { [Op.iLike]: `%${searchTerm}%` } }
+      ];
     }
 
     try {
       const { count, rows } = await salesInvoice.findAndCountAll(options);
-
       return {
         records: rows,
         hasMore: (parsedOffset + rows.length) < count,
         total: count,
       };
     } catch (error) {
-      console.error('Error en salesInvoiceService.findPaginated: ', error);
-      throw boom.badImplementation('Error al consultar facturas paginados', error);
+      throw boom.badImplementation('Error al consultar facturas paginadas', error);
     }
   }
 
-  async findOne(code, options = {}) { // Usamos un objeto options para mayor flexibilidad
-    const { includeLines = false, includeCustomer = false } = options;
+  async findOne(code, options = {}) {
+    const { includeLines = false } = options;
 
     const queryOptions = {
-      where: {
-        code: code,
-      },
-      include: [] // Inicializamos un array de inclusiones
+      where: { code },
+      include: []
     };
-
-    if (includeCustomer) {
-      queryOptions.include.push({
-        model: Customer,
-        as: 'customer' // Asegúrate de que este alias coincida con salesInvoice.associate
-      });
-    }
 
     if (includeLines) {
       queryOptions.include.push({
         model: salesInvoiceLine,
-        as: 'lines' // Asegúrate de que este alias coincida con salesInvoice.associate
+        as: 'lines',
+        required: false
       });
     }
 
-    // Si no hay inclusiones, eliminamos la propiedad 'include' para evitar errores de Sequelize
-    if (queryOptions.include.length === 0) {
-      delete queryOptions.include;
-    }
+    const record = await salesInvoice.findOne(queryOptions);
+    if (!record) throw boom.notFound('Factura no encontrada');
 
-    const salesInvoiceFound = await salesInvoice.findByPk(code, queryOptions);
-    if (!salesInvoiceFound) {
-      throw boom.notFound('Factura no encontrado');
-    }
-    return salesInvoiceFound;
+    return record.get({ plain: true });
   }
 
+  async findStatuses() {
+    try {
+      const attributes = salesInvoice.getAttributes();
+      if (attributes.status && attributes.status.values) {
+        return attributes.status.values;
+      }
+      return ['Abierto', 'Pagado'];
+    } catch (error) {
+      throw boom.badImplementation('No se pudieron obtener los estados');
+    }
+  }
 
   async create(data) {
-    let transaction;
+    const { lines, ...headerData } = data;
+    const transaction = await sequelize.transaction();
+
     try {
-      transaction = await sequelize.transaction();
-      const newsalesInvoice = await salesInvoice.create(data, { transaction });
+      // 1. Crear cabecera (Genera código vía Hook)
+      const newInvoice = await salesInvoice.create(headerData, { transaction });
 
-      // Preparar los datos para la primera línea vacía
-      // Asegúrate de que estos valores por defecto sean aceptables por tu modelo salesInvoiceLine
-      const emptyItemData = {
-        codeInvoice: newsalesInvoice.code,
-        lineNo: 1,
-        codeItem: '',
-        description: '',
-        quantity: 0,
-        unitMeasure: 'UNIDAD',
-        quantityUnitMeasure: 0,
-        unitPrice: 0.00,
-        vat: 0.00,         // Asumiendo que existe un campo 'vat' en salesInvoiceLine
-        amountLine: 0.00,  // Asumiendo que existe un campo 'amountLine' en salesInvoiceLine
-        username: data.username || 'Sistema',
-      };
+      let totalNeto = 0;
+      let totalIva = 0;
 
-      // Crea la primera línea vacía y vinculada dentro de la misma transacción
-      await salesInvoiceLine.create(emptyItemData, { transaction });
+      // 2. Procesar líneas
+      if (lines && lines.length > 0) {
+        const linesToInsert = lines.map((line, index) => {
+          const qty = parseFloat(line.quantity) || 0;
+          const price = parseFloat(line.unitPrice) || 0;
+          const factor = parseFloat(line.quantityUnitMeasure) || 1;
+          const vatPerc = parseFloat(line.vat) || 0;
 
-      await transaction.commit(); // Si todo fue bien, confirma la transacción
+          const lineAmount = qty * factor * price;
+          const lineVat = lineAmount * (vatPerc / 100);
 
-      const fullBudget = await salesInvoice.findByPk(newsalesInvoice.code, {
-        include: [{
-          model: salesInvoiceLine,
-          as: 'lines'
-        }]
-      });
+          totalNeto += lineAmount;
+          totalIva += lineVat;
 
-      console.log('--- DEBUG: fullBudget devuelto por el servicio ---');
-      console.log(JSON.stringify(fullBudget, null, 2)); // Para ver el objeto completo, con sus anidamientos
-      console.log('--- FIN DEBUG ---');
+          return {
+            ...line,
+            lineNo: line.lineNo || (index + 1),
+            codeDocument: newInvoice.code,
+            amountLine: lineAmount
+          };
+        });
+        await salesInvoiceLine.bulkCreate(linesToInsert, { transaction });
+      } else {
+        // Línea por defecto
+        await salesInvoiceLine.create({
+          codeDocument: newInvoice.code,
+          lineNo: 1,
+          description: 'Nueva línea',
+          quantity: 1,
+          unitPrice: 0,
+          amountLine: 0
+        }, { transaction });
+      }
 
-      return fullBudget;
+      // 3. Actualizar totales
+      await newInvoice.update({
+        amountWithoutVAT: totalNeto,
+        amountVAT: totalIva,
+        amountWithVAT: totalNeto + totalIva
+      }, { transaction });
+
+      await transaction.commit();
+      return await this.findOne(newInvoice.code, { includeLines: true });
+
     } catch (error) {
-      // Solo intenta hacer rollback si la transacción aún está activa (no ha terminado)
-      if (transaction && !transaction.finished) { // <--- CAMBIO CLAVE AQUÍ
-        await transaction.rollback();
-      }
-      console.error('Error en salesInvoiceService.create (con transacción y primera línea): ', error);
-      if (error.name === "SequelizeUniqueConstraintError") {
-        throw boom.conflict(`El código de Factura '${data.code}' ya existe. Intenta otro.`);
-      }
-      throw boom.badImplementation('Error al crear el Factura y su primera línea', error);
+      if (transaction) await transaction.rollback();
+      throw error;
     }
   }
 
   async update(code, changes) {
-    console.log(`\n--- DEBUG: Dentro de salesInvoiceService.update(${code}, changes) ---`);
-    console.log("Cambios recibidos (body):", JSON.stringify(changes, null, 2));
-
     const { lines, ...headerChanges } = changes;
     const transaction = await sequelize.transaction();
 
     try {
-      const salesInvoiceInstance = await salesInvoice.findOne({
-        where: { code },
-        transaction
-      });
+      const instance = await salesInvoice.findOne({ where: { code }, transaction });
+      if (!instance) throw boom.notFound('Factura no encontrada');
 
-      if (!salesInvoiceInstance) {
-        throw boom.notFound('Factura no encontrado');
-      }
+      // Limpieza de seguridad
+      const cleanHeader = { ...headerChanges };
+      delete cleanHeader.id;
+      delete cleanHeader.code;
+      delete cleanHeader.createdAt;
+      delete cleanHeader.updatedAt;
 
-      await salesInvoiceInstance.update(headerChanges, { transaction });
+      await instance.update(cleanHeader, { transaction });
 
-      // Eliminar todas las líneas existentes para este Factura
-      await salesInvoiceLine.destroy({
-        where: { codeInvoice: code },
-        transaction
-      });
+      if (lines) {
+        // Lógica Flush & Fill
+        await salesInvoiceLine.destroy({ where: { codeDocument: code }, transaction });
 
-      // Depuración: Confirma si las líneas se borraron antes de insertar
-      console.log(`DEBUG: Líneas existentes borradas para codeInvoice: ${code}`);
-
-      if (lines && lines.length > 0) {
-        const linesToInsert = lines.map(line => ({
-          ...line,
-          codeInvoice: code
-        }));
-
-        await salesInvoiceLine.bulkCreate(linesToInsert, {
-          transaction,
-
-          updateOnDuplicate: [
-            'item_code',
-            'description',
-            'quantity',
-            'unit_measure',
-            'quantity_unit_measure',
-            'unit_price',
-            'vat',
-            'amount_line',
-            'user_name',
-            'updated_at'
-          ]
-        });
-        console.log("DEBUG: bulkCreate (con updateOnDuplicate) completado exitosamente.");
+        if (lines.length > 0) {
+          const linesToInsert = lines.map((line, index) => {
+            const { id, ...lineData } = line;
+            return {
+              ...lineData,
+              codeDocument: code,
+              lineNo: line.lineNo || (index + 1),
+              username: line.username || cleanHeader.username || 'system'
+            };
+          });
+          await salesInvoiceLine.bulkCreate(linesToInsert, { transaction });
+        }
       }
 
       await transaction.commit();
-
-      const updatedsalesInvoiceWithLines = await this.findOne(code, { includeLines: true });
-
-      console.log("Factura actualizado (con líneas):", JSON.stringify(updatedsalesInvoiceWithLines, null, 2));
-      return updatedsalesInvoiceWithLines;
+      return await this.findOne(code, { includeLines: true });
 
     } catch (error) {
-      await transaction.rollback();
-      console.error("Error al actualizar el Factura y las líneas:", error);
-      // Si el error tiene detalles de Sequelize, imprímelos
-      if (error.errors) {
-        console.error("Detalles del error de Sequelize:", JSON.stringify(error.errors, null, 2));
-      }
+      if (transaction) await transaction.rollback();
       throw error;
     }
   }
 
   async archiveInvoice(invoiceCode) {
-    let transaction;
+    const transaction = await sequelize.transaction();
     try {
-      transaction = await sequelize.transaction();
-
-      // 1. Encontrar la factura original con sus líneas
       const invoice = await salesInvoice.findByPk(invoiceCode, {
-        include: [{
-          model: salesInvoiceLine,
-          as: 'lines' // Asegúrate de que este alias coincide con tu modelo salesInvoice
-        }],
-        transaction: transaction
+        include: [{ model: salesInvoiceLine, as: 'lines' }],
+        transaction
       });
 
-      if (!invoice) {
-        throw boom.notFound(`Factura de venta con código '${invoiceCode}' no encontrada.`);
-      }
+      if (!invoice) throw boom.notFound('Factura no encontrada');
+      if (invoice.status !== 'Pagado') throw boom.badRequest('Solo se pueden archivar facturas "Pagadas"');
 
-      // Validar el estado de la factura antes de archivarla
-      if (invoice.status !== 'Pagada') {
-        throw boom.badRequest('Solo se pueden archivar facturas en estado "Pagada".');
-      }
+      // Obtener nueva numeración histórica
+      const newNumber = await this.seriesNumberService.updateLastUsedSerie('Fact_venta_regist', invoice.codePosting, transaction);
 
-      // 2. Obtener y actualizar el nuevo número de serie usando el servicio
-      const seriesType = 'Fact_venta_regist';
-      const seriesStart = invoice.codePosting;
-      const newNumber = await this.seriesNumberService.updateLastUsedSerie(seriesType, seriesStart, transaction);
-      console.log(`DEBUG: Serie de numeración actualizada a: ${newNumber}`);
-
-      // 3. Asignar el nuevo número a la factura que estoy registrando (la histórica)
       const invoicePostData = invoice.toJSON();
-      invoicePostData.code = newNumber; //Sobre-escribimos el código de la factura
+      invoicePostData.code = newNumber;
       invoicePostData.preInvoice = invoiceCode;
 
-
-      // 4. Copiar la cabecera al histórico
+      // Mover a históricos
       const newInvoicePost = await salesPostInvoice.create(invoicePostData, { transaction });
-      console.log(`DEBUG: Cabecera de factura histórica creada con código: ${newInvoicePost.code}`);
 
-      // 5. Copiar las líneas al histórico
       if (invoice.lines && invoice.lines.length > 0) {
         const linesToCreate = invoice.lines.map(line => {
-          const lineData = line.toJSON();
-
-          lineData.codeInvoice = newInvoicePost.code;
-          return lineData;
+          const l = line.toJSON();
+          l.codeDocument = newInvoicePost.code; // Estandarizado
+          return l;
         });
         await salesPostInvoiceLine.bulkCreate(linesToCreate, { transaction });
-        console.log(`DEBUG: ${linesToCreate.length} líneas históricas creadas.`);
       }
 
-      // 6. Eliminar la factura y sus líneas de las tablas originales
-      await salesInvoiceLine.destroy({
-        where: { codeInvoice: invoiceCode },
-        transaction: transaction
-      });
+      // Limpiar originales (Cascade destroy)
+      await invoice.destroy({ transaction });
 
-      // Luego la cabecera
-      await salesInvoice.destroy({
-        where: { code: invoiceCode },
-        transaction: transaction
-      });
-      console.log(`DEBUG: Cabecera de factura original eliminada para código: ${invoiceCode}`);
-
-      // 7. Confirmar la transacción
       await transaction.commit();
-      console.log('DEBUG: Transacción de archivo completada exitosamente.');
-
-
-      return {
-        message: `${newNumber}`,
-        postInvoice: newInvoicePost // Variable corregida
-      };
+      return { message: newNumber, postInvoice: newInvoicePost };
 
     } catch (error) {
-      if (transaction && !transaction.finished) {
-        await transaction.rollback();
-      }
-      console.error('Error al archivar factura de venta:', error);
-      if (error.isBoom) {
-        throw error; // Re-lanza errores boom personalizados
-      }
-      throw boom.badImplementation('Error interno al archivar la factura de venta.', error);
+      if (transaction) await transaction.rollback();
+      throw error;
     }
   }
 
   async delete(code) {
-    console.log(`\n--- DEBUG: Dentro de salesInvoiceService.delete(${code}) ---`);
-
-    const salesInvoiceToDelete = await salesInvoice.findOne({
-      where: { code }
-    });
-
-    if (!salesInvoiceToDelete) {
-      throw boom.notFound(`Factura con código ${code} no encontrado para eliminar`);
-    }
-
-    await salesInvoiceToDelete.destroy();
-
-    console.log(`Factura ${code} y sus líneas eliminadas correctamente (vía CASCADE).`);
-    return { code, message: 'Eliminado correctamente' };
+    const instance = await salesInvoice.findByPk(code);
+    if (!instance) throw boom.notFound('Factura no encontrada');
+    await instance.destroy();
+    return { code, message: 'Registro eliminado correctamente' };
   }
 }
 

@@ -4,16 +4,18 @@ const { generateNextCode } = require('../../libs/sequence.handler');
 const PURCHINVOICE_TABLE = 'purch_invoices';
 
 const purchInvoiceSchema = {
-  // IDENTIFICADOR ÚNICO (Generado por Hook)
   code: {
-    field: 'code',
     allowNull: false,
     primaryKey: true,
     type: DataTypes.STRING
   },
-  // DATOS DE REGISTRO
+  // Campos específicos de registro
   codePosting: {
     field: 'code_posting',
+    type: DataTypes.STRING
+  },
+  budgetCode: {
+    field: 'budget_code',
     type: DataTypes.STRING
   },
   postingDate: {
@@ -24,38 +26,34 @@ const purchInvoiceSchema = {
     field: 'due_date',
     type: DataTypes.DATE,
   },
-  // VÍNCULOS (Documentos de origen)
-  budgetCode: {
-    field: 'budget_code',
-    type: DataTypes.STRING
-  },
-  // DATOS DEL CONTACTO (Vendor/Customer)
+  // Datos del Proveedor (Igualamos estructura al base)
   vendorCode: {
     field: 'vendor_code',
     type: DataTypes.STRING,
+    allowNull: false,
   },
-  name: { // Nombre genérico para mostrar en tablas
-    field: 'name',
-    type: DataTypes.STRING,
+  name: DataTypes.STRING,
+  nif: DataTypes.STRING, // Añadido para consistencia
+  email: DataTypes.STRING,
+  phone: DataTypes.STRING,
+  address: DataTypes.STRING,
+  postCode: {
+    field: 'post_code',
+    type: DataTypes.STRING
   },
-  email: { field: 'email', type: DataTypes.STRING },
-  phone: { field: 'phone', type: DataTypes.STRING },
-  address: { field: 'address', type: DataTypes.STRING },
-  postCode: { field: 'post_code', type: DataTypes.STRING },
-  city: { field: 'city', type: DataTypes.STRING },
+  city: DataTypes.STRING,
 
-  // CONFIGURACIÓN Y ESTADO
+  // Configuración y Estado
   paymentMethod: {
     field: 'payment_method',
     type: DataTypes.STRING,
   },
   status: {
-    field: 'status',
-    type: DataTypes.STRING,
-    defaultValue: 'Borrador'
+    type: DataTypes.ENUM('Abierto', 'Pagado'),
+    allowNull: false,
+    defaultValue: 'Abierto'
   },
   category: {
-    field: 'category',
     type: DataTypes.ENUM(
       'Materiales',
       'Subcontratas',
@@ -68,24 +66,24 @@ const purchInvoiceSchema = {
     defaultValue: 'Gastos de Oficina y Varios'
   },
 
-  // TOTALES (Estandarizados para el Frontend)
+  // TOTALES NORMALIZADOS A 4 DECIMALES (Consistencia absoluta)
   amountWithoutVAT: {
-    field: 'amount_without_vat', // Corregido: todo en minúsculas
-    type: DataTypes.DECIMAL(10, 2),
-    defaultValue: 0.00
+    field: 'amount_without_vat',
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 0.0000
   },
   amountVAT: {
     field: 'amount_vat',
-    type: DataTypes.DECIMAL(10, 2),
-    defaultValue: 0.00
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 0.0000
   },
   amountWithVAT: {
     field: 'amount_with_vat',
-    type: DataTypes.DECIMAL(10, 2),
-    defaultValue: 0.00
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 0.0000
   },
 
-  // AUDITORÍA
+  comments: DataTypes.TEXT, // Añadido para consistencia con el base
   username: {
     field: 'user_name',
     type: DataTypes.STRING,
@@ -102,18 +100,21 @@ const purchInvoiceSchema = {
     type: DataTypes.DATE,
     defaultValue: Sequelize.NOW
   }
-}
+};
 
 class purchInvoice extends Model {
   static associate(models) {
     this.belongsTo(models.Vendor, {
-      as: 'vendor', // En minúscula para consistencia genérica
+      as: 'vendor',
       foreignKey: 'vendor_code'
     });
 
     this.hasMany(models.purchInvoiceLine, {
       as: 'lines',
-      foreignKey: 'codeInvoice'
+      foreignKey: 'codeDocument', // Estandarizado a codeDocument
+      sourceKey: 'code',
+      onDelete: 'CASCADE',
+      hooks: true
     });
   }
 
@@ -122,12 +123,11 @@ class purchInvoice extends Model {
       sequelize,
       tableName: PURCHINVOICE_TABLE,
       modelName: 'purchInvoice',
-      timestamps: true,
+      timestamps: false, // Usamos nuestros propios campos de auditoría
       underscored: true,
-      // CORRECCIÓN: Los hooks deben ir dentro de su propio objeto
       hooks: {
         beforeValidate: async (instance, options) => {
-          if (instance.isNewRecord) {
+          if (instance.isNewRecord && !instance.code) {
             await generateNextCode(instance, options);
           }
         }

@@ -6,32 +6,41 @@ module.exports = {
   up: async (queryInterface, Sequelize) => {
     await queryInterface.createTable(SALESINVOICE_TABLE, {
       code: {
-        field: 'code',
         allowNull: false,
         primaryKey: true,
         type: Sequelize.DataTypes.STRING
       },
-      code_posting: { // Sequelize underscored: true buscará este nombre
-        field: 'code_posting',
+      code_posting: {
+        type: Sequelize.DataTypes.STRING
+      },
+      // NUEVO: Tipo de factura (Normativa Verifactu)
+      type_invoice: {
+        type: Sequelize.DataTypes.ENUM('F1', 'F2', 'R1', 'R2', 'R3', 'R4', 'R5'),
+        allowNull: false,
+        defaultValue: 'F1'
+      },
+      // NUEVO: Referencia a factura origen (Para rectificativas)
+      parent_code: {
+        type: Sequelize.DataTypes.STRING,
+        allowNull: true
+      },
+      budget_code: {
         type: Sequelize.DataTypes.STRING
       },
       posting_date: {
-        field: 'posting_date',
-        type: Sequelize.DataTypes.DATEONLY,
+        type: Sequelize.DataTypes.DATE,
       },
       due_date: {
-        field: 'due_date',
-        type: Sequelize.DataTypes.DATEONLY,
-      },
-      budget_code: {
-        field: 'budget_code',
-        type: Sequelize.DataTypes.STRING
+        type: Sequelize.DataTypes.DATE,
       },
       customer_code: {
-        field: 'customer_code',
+        allowNull: false,
         type: Sequelize.DataTypes.STRING,
       },
       name: {
+        type: Sequelize.DataTypes.STRING,
+      },
+      nif: {
         type: Sequelize.DataTypes.STRING,
       },
       email: {
@@ -55,40 +64,36 @@ module.exports = {
         type: Sequelize.DataTypes.STRING,
       },
       status: {
-        type: Sequelize.DataTypes.STRING,
-        defaultValue: 'Borrador'
-      },
-      // TOTALES NORMALIZADOS (Coincidiendo con el modelo)
-      amount_without_vat: {
-        field: 'amount_without_vat', // Corregido: sin W mayúscula
-        type: Sequelize.DataTypes.DECIMAL(10, 2),
+        type: Sequelize.DataTypes.ENUM('Abierto', 'Pagado'),
         allowNull: false,
-        defaultValue: 0.00
+        defaultValue: 'Abierto'
+      },
+      // TOTALES NORMALIZADOS A 4 DECIMALES (12, 4)
+      amount_without_vat: {
+        type: Sequelize.DataTypes.DECIMAL(12, 4),
+        defaultValue: 0.0000
       },
       amount_vat: {
-        field: 'amount_vat',
-        type: Sequelize.DataTypes.DECIMAL(10, 2),
-        allowNull: false,
-        defaultValue: 0.00
+        type: Sequelize.DataTypes.DECIMAL(12, 4),
+        defaultValue: 0.0000
       },
       amount_with_vat: {
-        field: 'amount_with_vat',
-        type: Sequelize.DataTypes.DECIMAL(10, 2),
-        allowNull: false,
-        defaultValue: 0.00
+        type: Sequelize.DataTypes.DECIMAL(12, 4),
+        defaultValue: 0.0000
+      },
+      comments: {
+        type: Sequelize.DataTypes.TEXT,
       },
       user_name: {
         field: 'user_name',
         type: Sequelize.DataTypes.STRING,
       },
       created_at: {
-        field: 'created_at',
         allowNull: false,
         type: Sequelize.DataTypes.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
       },
       updated_at: {
-        field: 'updated_at',
         allowNull: false,
         type: Sequelize.DataTypes.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
@@ -98,5 +103,9 @@ module.exports = {
 
   down: async (queryInterface) => {
     await queryInterface.dropTable(SALESINVOICE_TABLE);
+
+    // Opcional: Borrar el tipo ENUM manualmente si usas Postgres y da problemas al revertir
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_invoices_type_invoice";');
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_invoices_status";');
   }
 };

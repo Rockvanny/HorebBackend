@@ -1,31 +1,28 @@
 const Joi = require('joi');
-const { updatePurchInvoiceLineSchema } = require('./purchInvoiceLine.schema');
+// Importamos los esquemas de líneas específicos de compra
+const { createPurchInvoiceLineSchema, updatePurchInvoiceLineSchema } = require('./purchInvoiceLine.schema');
 
-// ===============================================
-// 1. DEFINICIÓN DE ATRIBUTOS INDIVIDUALES
-// ===============================================
+// --- DEFINICIÓN DE TIPOS BASE ---
 const code = Joi.string();
-const codePosting = Joi.string();
+const selectedSerie = Joi.string(); // Necesario para el Hook de serie del backend
+const codePosting = Joi.string().allow('', null);
 const postingDate = Joi.date();
-const dueDate = Joi.date();
-const budgetCode = Joi.string();
-const vendorCode = Joi.string();
-const name = Joi.string().min(3).max(30);
-const email = Joi.string().email();
-const phone = Joi.string();
-const address = Joi.string();
-const postCode = Joi.string();
-const city = Joi.string();
-const paymentMethod = Joi.string();
-const status = Joi.string();
-const amountWithoutVAT = Joi.number().precision(2);
-const amountVAT = Joi.number().precision(2);
-const amountWithVAT = Joi.number().precision(2);
-const username = Joi.string();
+const dueDate = Joi.date().allow(null);
+const budgetCode = Joi.string().allow('', null);
+const vendorCode = Joi.string(); // Identificador del proveedor
+const name = Joi.string().min(3).max(100);
+const nif = Joi.string().min(5).max(20);
+const email = Joi.string().email().allow('', null);
+const phone = Joi.string().allow('', null);
+const address = Joi.string().allow('', null);
+const postCode = Joi.string().allow('', null);
+const city = Joi.string().allow('', null);
+const paymentMethod = Joi.string().allow('', null);
+const status = Joi.string().default('Abierto');
+const comments = Joi.string().allow('', null);
 
 /**
- * AJUSTE: Categorías globales para empresa de reformas.
- * Se utiliza .valid() para restringir los valores a la lista acordada.
+ * Categorías globales para empresa de reformas.
  */
 const category = Joi.string().valid(
   'Materiales',
@@ -36,76 +33,103 @@ const category = Joi.string().valid(
   'Gastos de Oficina y Varios'
 );
 
+// Sincronizado con DECIMAL(12, 4) de la DB
+const money = Joi.number().precision(4).default(0);
+
+const username = Joi.string();
+
+// Esquemas de consulta
 const limit = Joi.number().integer();
 const offset = Joi.number().integer();
 const searchTerm = Joi.string().allow('');
 
-// ===============================================
-// 2. ESQUEMAS DE VALIDACIÓN
-// ===============================================
+// --- ESQUEMAS DE ACCIÓN ---
 
-// Obtener una factura por código
+/**
+ * Esquema para obtener un registro por su PK
+ */
 const getPurchInvoiceSchema = Joi.object({
-  code: code.required(),
+    code: code.required(),
 });
 
-// Crear una nueva factura (Categoría obligatoria)
+/**
+ * Esquema para CREACIÓN
+ */
 const createPurchInvoiceSchema = Joi.object({
-  code: code.required(),
-  codePosting: codePosting.required(),
-  postingDate: postingDate.required(),
-  dueDate: dueDate.required(),
-  budgetCode: budgetCode.optional(),
-  vendorCode: vendorCode.required(),
-  name: name.required(),
-  email: email.required(),
-  phone: phone.required(),
-  address: address.required(),
-  postCode: postCode.required(),
-  city: city.required(),
-  paymentMethod: paymentMethod.required(),
-  status: status.optional(),
-  category: category.required(), // Forzamos la categorización en la entrada
-  amountWithoutVAT: amountWithoutVAT.optional(),
-  amountVAT: amountVAT.optional(),
-  amountWithVAT: amountWithVAT.optional(),
-  username: username.optional(),
+    code: code.optional(),
+    selectedSerie: selectedSerie.optional(),
+    codePosting: codePosting.optional(),
+    budgetCode: budgetCode.optional(),
+
+    postingDate: postingDate.default(() => new Date()),
+    dueDate: dueDate.optional(),
+    vendorCode: vendorCode.required(),
+    name: name.required(),
+    nif: nif.required(),
+    email: email.optional(),
+    phone: phone.optional(),
+    address: address.optional(),
+    postCode: postCode.optional(),
+    city: city.optional(),
+    paymentMethod: paymentMethod.optional(),
+    status: status.optional(),
+    category: category.required(), // Obligatorio en creación
+    comments: comments.optional(),
+
+    // Totales calculados
+    amountWithoutVAT: money.optional(),
+    amountVAT: money.optional(),
+    amountWithVAT: money.optional(),
+
+    username: username.optional(),
+
+    // Inserción masiva de líneas
+    lines: Joi.array().items(createPurchInvoiceLineSchema).optional(),
 });
 
-// Actualizar una factura existente
+/**
+ * Esquema para ACTUALIZACIÓN (PATCH/PUT)
+ * Se elimina vendorCode para evitar errores de campos inmutables en el backend
+ */
 const updatePurchInvoiceSchema = Joi.object({
-  code: code.required(),
-  codePosting: codePosting.required(),
-  dueDate: dueDate.required(),
-  budgetCode: budgetCode.optional(),
-  vendorCode: vendorCode.required(),
-  name: name.required(),
-  email: email.required(),
-  phone: phone.required(),
-  address: address.required(),
-  postCode: postCode.required(),
-  city: city.required(),
-  paymentMethod: paymentMethod.required(),
-  status: status.optional(),
-  category: category.optional(), // Opcional en la edición
-  amountWithoutVAT: amountWithoutVAT.optional(),
-  amountVAT: amountVAT.optional(),
-  amountWithVAT: amountWithVAT.optional(),
-  username: username.optional(),
+    codePosting: codePosting.optional(),
+    budgetCode: budgetCode.optional(),
+    postingDate: postingDate.optional(),
+    dueDate: dueDate.optional(),
+    name: name.optional(),
+    nif: nif.optional().allow(''),
+    email: email.optional(),
+    phone: phone.optional(),
+    address: address.optional(),
+    postCode: postCode.optional(),
+    city: city.optional(),
+    paymentMethod: paymentMethod.optional(),
+    status: status.optional(),
+    category: category.optional(),
+    comments: comments.optional(),
 
-  lines: Joi.array().items(updatePurchInvoiceLineSchema).optional(),
+    amountWithoutVAT: money.optional(),
+    amountVAT: money.optional(),
+    amountWithVAT: money.optional(),
+
+    username: username.optional(),
+
+    // Sincronización de líneas (Flush & Fill)
+    lines: Joi.array().items(updatePurchInvoiceLineSchema).optional(),
 });
 
-// Esquema para consultas de lista (Paginación y búsqueda)
+/**
+ * Esquema para filtrado y paginación
+ */
 const queryPurchInvoiceSchema = Joi.object({
-  limit,
-  offset,
-  searchTerm: searchTerm.optional(),
+    limit,
+    offset,
+    searchTerm: searchTerm.optional(),
 });
 
 module.exports = {
-  getPurchInvoiceSchema,
-  createPurchInvoiceSchema,
-  updatePurchInvoiceSchema,
-  queryPurchInvoiceSchema
+    getPurchInvoiceSchema,
+    createPurchInvoiceSchema,
+    updatePurchInvoiceSchema,
+    queryPurchInvoiceSchema
 };
