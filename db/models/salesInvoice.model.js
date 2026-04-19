@@ -13,7 +13,7 @@ const salesInvoiceSchema = {
     field: 'code_posting',
     type: DataTypes.STRING
   },
-  // NUEVO: Clasificación para cumplimiento AEAT/Verifactu
+  // Clasificación para cumplimiento AEAT/Verifactu
   typeInvoice: {
     field: 'type_invoice',
     type: DataTypes.ENUM('F1', 'F2', 'R1', 'R2', 'R3', 'R4', 'R5'),
@@ -21,12 +21,19 @@ const salesInvoiceSchema = {
     defaultValue: 'F1',
     comment: 'F1: Factura, F2: Simplificada, R: Rectificativas'
   },
-  // NUEVO: Referencia a factura origen (obligatorio para rectificativas)
+  // Referencia a factura origen (obligatorio para rectificativas)
   parentCode: {
     field: 'parent_code',
     type: DataTypes.STRING,
     allowNull: true,
     comment: 'Referencia al código de factura que se rectifica'
+  },
+  // NUEVO: Método de rectificación (S: Sustitución, I: Diferencias)
+  rectificationType: {
+    field: 'rectification_type',
+    type: DataTypes.ENUM('S', 'I'),
+    allowNull: true,
+    comment: 'S: Sustitución, I: Diferencias. Obligatorio para tipos R'
   },
   budgetCode: {
     field: 'budget_code',

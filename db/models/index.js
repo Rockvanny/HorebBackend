@@ -7,7 +7,7 @@ const { UnitMeasure, UnitMeasureSchema } = require('./unitMeasure.model');
 const { salesBudget, salesBudgetSchema } = require('./salesBudget.model');
 const { salesBudgetLine, salesBudgetLineSchema } = require('./salesBudgetLines.model');
 const { salesInvoice, salesInvoiceSchema } = require('./salesInvoice.model');
-const { salesInvoiceLine, salesInvoicetLineSchema } = require('./salesInvoiceLine.model');
+const { salesInvoiceLine, salesInvoiceLineSchema } = require('./salesInvoiceLine.model');
 const { salesPostInvoice, salesPostInvoiceSchema } = require('./salesPostInvoice.model');
 const { salesPostInvoiceLine, salesPostInvoicetLineSchema } = require('./salesPostInvoiceLine.model');
 const { purchInvoice, purchInvoiceSchema } = require('./purchInvoice.model');
@@ -27,7 +27,7 @@ function setupModels(sequelize) {
   salesBudget.init(salesBudgetSchema, salesBudget.config(sequelize));
   salesBudgetLine.init(salesBudgetLineSchema, salesBudgetLine.config(sequelize));
   salesInvoice.init(salesInvoiceSchema, salesInvoice.config(sequelize));
-  salesInvoiceLine.init(salesInvoicetLineSchema, salesInvoiceLine.config(sequelize));
+  salesInvoiceLine.init(salesInvoiceLineSchema, salesInvoiceLine.config(sequelize));
   salesPostInvoice.init(salesPostInvoiceSchema, salesPostInvoice.config(sequelize));
   salesPostInvoiceLine.init(salesPostInvoicetLineSchema, salesPostInvoiceLine.config(sequelize));
   purchInvoice.init(purchInvoiceSchema, purchInvoice.config(sequelize));

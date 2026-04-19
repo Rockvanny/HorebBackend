@@ -10,6 +10,8 @@ const codePosting = Joi.string().allow('', null);
 // NUEVOS: Campos Veri*factu
 const typeInvoice = Joi.string().valid('F1', 'F2', 'R1', 'R2', 'R3', 'R4', 'R5').default('F1');
 const parentCode = Joi.string().allow('', null);
+// NUEVO: Validación del tipo de rectificación
+const rectificationType = Joi.string().valid('S', 'I').allow(null);
 
 const postingDate = Joi.date();
 const dueDate = Joi.date().allow(null);
@@ -23,7 +25,7 @@ const address = Joi.string().allow('', null);
 const postCode = Joi.string().allow('', null);
 const city = Joi.string().allow('', null);
 const paymentMethod = Joi.string().allow('', null);
-const status = Joi.string().valid('Abierto', 'Pagado').default('Abierto'); // Validado contra el ENUM
+const status = Joi.string().valid('Abierto', 'Pagado').default('Abierto');
 const comments = Joi.string().allow('', null);
 
 // Sincronizado con DECIMAL(12, 4)
@@ -52,6 +54,7 @@ const createSalesInvoiceSchema = Joi.object({
     // Integración de nuevos campos
     typeInvoice: typeInvoice.optional(),
     parentCode: parentCode.optional(),
+    rectificationType: rectificationType.optional(), // Agregado
 
     budgetCode: budgetCode.optional(),
     postingDate: postingDate.default(() => new Date()),
@@ -82,9 +85,10 @@ const createSalesInvoiceSchema = Joi.object({
 const updateSalesInvoiceSchema = Joi.object({
     codePosting: codePosting.optional(),
 
-    // Permitir actualizar el tipo o la referencia (mientras sea borrador)
+    // Permitir actualizar el tipo o la referencia
     typeInvoice: typeInvoice.optional(),
     parentCode: parentCode.optional(),
+    rectificationType: rectificationType.optional(), // Agregado
 
     budgetCode: budgetCode.optional(),
     postingDate: postingDate.optional(),

@@ -36,7 +36,7 @@ class salesBudgetLine extends Model {
   static associate(models) {
     this.belongsTo(models.salesBudget, {
       as: 'parentDocument',
-      foreignKey: 'codeDocument', // Usa el nombre del atributo, NO el del field de la DB aquí
+      foreignKey: 'codeDocument',
       targetKey: 'code'
     });
   }
@@ -68,9 +68,17 @@ class salesBudgetLine extends Model {
       timestamps: true,
       underscored: true,
       hooks: {
-        afterSave: async (line, opts) => { if (opts.transaction) await this.updateDocumentTotals(line.codeDocument, opts.transaction); },
-        afterDestroy: async (line, opts) => { if (opts.transaction) await this.updateDocumentTotals(line.codeDocument, opts.transaction); },
-        afterBulkCreate: async (lines, opts) => { if (lines.length > 0 && opts.transaction) await this.updateDocumentTotals(lines[0].codeDocument, opts.transaction); }
+        afterSave: async (line, opts) => {
+          await this.updateDocumentTotals(line.codeDocument, opts.transaction);
+        },
+        afterDestroy: async (line, opts) => {
+          await this.updateDocumentTotals(line.codeDocument, opts.transaction);
+        },
+        afterBulkCreate: async (lines, opts) => {
+          if (lines.length > 0) {
+            await this.updateDocumentTotals(lines[0].codeDocument, opts.transaction);
+          }
+        }
       }
     };
   }

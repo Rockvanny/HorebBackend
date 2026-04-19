@@ -5,8 +5,7 @@ const { SALESINVOICELINE_TABLE } = require('../models/salesInvoiceLine.model');
 module.exports = {
   up: async (queryInterface, Sequelize) => {
     await queryInterface.createTable(SALESINVOICELINE_TABLE, {
-      code_invoice: {
-        field: 'code_invoice',
+      code_document: {
         allowNull: false,
         primaryKey: true,
         type: Sequelize.DataTypes.STRING,
@@ -18,78 +17,68 @@ module.exports = {
         onDelete: 'CASCADE'
       },
       line_no: {
-        field: 'line_no',
-        type: Sequelize.DataTypes.INTEGER,
         allowNull: false,
         primaryKey: true,
+        type: Sequelize.DataTypes.INTEGER,
       },
       item_code: {
-        field: 'item_code',
         type: Sequelize.DataTypes.STRING,
-        allowNull: true, // Cambiado a true para permitir líneas de comentarios/texto
-      },
-      description: {
-        type: Sequelize.DataTypes.TEXT, // Cambiado a TEXT para descripciones largas
         allowNull: true,
       },
-      // Estandarizado a precisión (12, 4) para evitar errores de redondeo fiscal
+      description: {
+        type: Sequelize.DataTypes.TEXT,
+        allowNull: true,
+      },
       quantity: {
-        field: 'quantity',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 0.0000
       },
       unit_measure: {
-        field: 'unit_measure',
         type: Sequelize.DataTypes.STRING,
         allowNull: false,
         defaultValue: 'UNIDAD'
       },
       quantity_unit_measure: {
-        field: 'quantity_unit_measure',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 1.0000 // Importante: valor por defecto 1 para cálculos
+        defaultValue: 1.0000
       },
       unit_price: {
-        field: 'unit_price',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 0.0000
       },
       vat: {
-        field: 'vat',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 21.0000
       },
       amount_line: {
-        field: 'amount_line',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 0.0000
       },
       user_name: {
-        field: 'user_name',
         type: Sequelize.DataTypes.STRING,
         allowNull: true,
       },
       created_at: {
-        field: 'created_at',
         allowNull: false,
         type: Sequelize.DataTypes.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
       },
       updated_at: {
-        field: 'updated_at',
         allowNull: false,
         type: Sequelize.DataTypes.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
       }
     });
+
+    await queryInterface.addIndex(SALESINVOICELINE_TABLE, ['code_document']);
   },
 
-  down: async (queryInterface) => {
+  async down(queryInterface) {
     await queryInterface.dropTable(SALESINVOICELINE_TABLE);
   }
 };

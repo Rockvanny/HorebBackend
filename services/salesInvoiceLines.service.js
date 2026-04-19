@@ -1,4 +1,3 @@
-// services/salesInvoiceLine.service.js
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
 const sequelize = require('../libs/sequelize');
@@ -14,6 +13,7 @@ class salesInvoiceLineService {
     const options = {
       limit: parsedLimit,
       offset: parsedOffset,
+      // Normalizado: Usamos los nombres de columna de la DB o alias del modelo
       order: [['code_document', 'ASC'], ['line_no', 'ASC']],
       where: {},
     };
@@ -34,18 +34,17 @@ class salesInvoiceLineService {
         total: count,
       };
     } catch (error) {
-      throw boom.badImplementation('Error al consultar líneas de factura', error);
+      throw boom.badImplementation('Error al consultar líneas', error);
     }
   }
 
   async findOne({ codeDocument, lineNo }, options = {}) {
-    // Nota: Usamos codeDocument que es el alias en el modelo para code_invoice
     const line = await salesInvoiceLine.findOne({
       where: { codeDocument, lineNo },
       include: options.includeParent ? [{ model: salesInvoice, as: 'parentDocument' }] : []
     });
 
-    if (!line) throw boom.notFound(`Línea ${lineNo} de la factura ${codeDocument} no encontrada`);
+    if (!line) throw boom.notFound(`Línea ${lineNo} del documento ${codeDocument} no encontrada`);
     return line;
   }
 
@@ -57,7 +56,7 @@ class salesInvoiceLineService {
         transaction: t
       });
 
-      if (existingLine) throw boom.conflict(`La línea ${data.lineNo} ya existe en esta factura.`);
+      if (existingLine) throw boom.conflict(`La línea ${data.lineNo} ya existe.`);
 
       const newLine = await salesInvoiceLine.create(data, { transaction: t });
 
@@ -79,7 +78,7 @@ class salesInvoiceLineService {
       return updatedLine;
     } catch (error) {
       if (!transaction) await t.rollback();
-      throw error.isBoom ? error : boom.badImplementation(error);
+      throw error;
     }
   }
 
@@ -93,7 +92,7 @@ class salesInvoiceLineService {
       return { codeDocument, lineNo, message: 'Eliminado correctamente' };
     } catch (error) {
       if (!transaction) await t.rollback();
-      throw error.isBoom ? error : boom.badImplementation(error);
+      throw error;
     }
   }
 }

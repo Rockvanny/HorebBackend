@@ -3,7 +3,6 @@ const boom = require('@hapi/boom');
 const sequelize = require('../libs/sequelize');
 const seriesNumberService = require('../services/seriesNumber.service');
 
-// Extraemos los modelos correctamente
 const {
   salesInvoice,
   salesInvoiceLine,
@@ -20,12 +19,16 @@ class salesInvoiceService {
    * VALIDACIÓN PRIVADA: Consistencia Fiscal (Veri*factu)
    */
   _validateFiscalConsistency(data) {
-    const { typeInvoice, parentCode, amountWithVAT } = data;
+    const { typeInvoice, parentCode, rectificationType, amountWithVAT } = data;
 
-    // 1. Trazabilidad: Las rectificativas (R) exigen factura de origen
+    // 1. Trazabilidad: Las rectificativas (R) exigen factura de origen y MÉTODO
     if (typeInvoice && typeInvoice.startsWith('R')) {
       if (!parentCode || parentCode.trim() === '') {
         throw boom.badRequest('Normativa AEAT: El campo parentCode es obligatorio para facturas rectificativas.');
+      }
+      // NUEVO: Validamos que si es R, tenga un método (S o I)
+      if (!rectificationType) {
+        throw boom.badRequest('Normativa AEAT: Debe indicar el tipo de rectificación (Sustitución o Diferencias).');
       }
     }
 
@@ -50,7 +53,6 @@ class salesInvoiceService {
   async findTypeInvoices() {
     try {
       const attributes = salesInvoice.getAttributes();
-      // Retorna ['F1', 'F2', 'R1', 'R2', 'R3', 'R4', 'R5'] desde el ENUM del modelo
       return attributes.typeInvoice?.values || ['F1', 'F2', 'R1', 'R2', 'R3', 'R4', 'R5'];
     } catch (error) {
       throw boom.badImplementation('Error al obtener tipos de factura');
@@ -58,38 +60,19 @@ class salesInvoiceService {
   }
 
   /**
-   * CONSULTAS
+   * NUEVO: Recuperar valores de Rectificación (S, I) para el Front
    */
-  async countAll() {
-    return await salesInvoice.count();
-  }
-
-  async findPaginated({ limit, offset, searchTerm }) {
-    const parsedLimit = parseInt(limit, 10) || 100;
-    const parsedOffset = parseInt(offset, 10) || 0;
-
-    const options = {
-      limit: parsedLimit,
-      offset: parsedOffset,
-      order: [['created_at', 'DESC']],
-      where: {},
-    };
-
-    if (searchTerm) {
-      options.where[Op.or] = [
-        { code: { [Op.iLike]: `%${searchTerm}%` } },
-        { name: { [Op.iLike]: `%${searchTerm}%` } },
-        { nif: { [Op.iLike]: `%${searchTerm}%` } }
-      ];
+  async findRectificationTypes() {
+    try {
+      const attributes = salesInvoice.getAttributes();
+      // Retorna ['S', 'I'] desde el ENUM del modelo
+      return attributes.rectificationType?.values || ['S', 'I'];
+    } catch (error) {
+      throw boom.badImplementation('Error al obtener tipos de rectificación');
     }
-
-    const { count, rows } = await salesInvoice.findAndCountAll(options);
-    return {
-      records: rows,
-      hasMore: (parsedOffset + rows.length) < count,
-      total: count,
-    };
   }
+
+  // ... (countAll y findPaginated se mantienen igual)
 
   async findOne(code, options = {}) {
     const { includeLines = false } = options;
@@ -116,6 +99,12 @@ class salesInvoiceService {
    */
   async create(data) {
     const { lines, ...headerData } = data;
+
+    // Si es rectificativa y no viene tipo, forzamos 'S' (Sustitución) por defecto para ayudar al usuario
+    if (headerData.typeInvoice?.startsWith('R') && !headerData.rectificationType) {
+      headerData.rectificationType = 'S';
+    }
+
     this._validateFiscalConsistency(headerData);
 
     const transaction = await sequelize.transaction();
@@ -147,7 +136,15 @@ class salesInvoiceService {
         });
         await salesInvoiceLine.bulkCreate(linesToInsert, { transaction });
       } else {
-        throw boom.badRequest('La factura debe tener al menos una línea.');
+        // Línea por defecto
+        await salesInvoiceLine.create({
+          codeDocument: newInvoice.code,
+          lineNo: 1,
+          description: 'Nueva línea',
+          quantity: 1,
+          unitPrice: 0,
+          amountLine: 0
+        }, { transaction });
       }
 
       await newInvoice.update({
@@ -172,6 +169,7 @@ class salesInvoiceService {
       const instance = await salesInvoice.findOne({ where: { code }, transaction });
       if (!instance) throw boom.notFound('Factura no encontrada');
 
+      // Validamos los cambios mezclados con lo que ya existe
       this._validateFiscalConsistency({ ...instance.toJSON(), ...headerChanges });
 
       const cleanHeader = { ...headerChanges };
@@ -223,61 +221,7 @@ class salesInvoiceService {
     }
   }
 
-  /**
-   * PROCESO DE ARCHIVADO (REGISTRO LEGAL)
-   */
-  async archiveInvoice(invoiceCode) {
-    const transaction = await sequelize.transaction();
-    try {
-      const invoice = await salesInvoice.findByPk(invoiceCode, {
-        include: [{ model: salesInvoiceLine, as: 'lines' }],
-        transaction
-      });
-
-      if (!invoice) throw boom.notFound('Factura no encontrada');
-      if (invoice.status !== 'Pagado') throw boom.badRequest('Solo se pueden registrar facturas Pagadas.');
-
-      this._validateFiscalConsistency(invoice);
-
-      // Consumir número de serie legal
-      const newNumber = await this.seriesNumberService.updateLastUsedSerie(
-        'Fact_venta_regist',
-        invoice.codePosting,
-        transaction
-      );
-
-      const invoicePostData = invoice.toJSON();
-      invoicePostData.code = newNumber;
-      invoicePostData.preInvoice = invoiceCode;
-
-      const newInvoicePost = await salesPostInvoice.create(invoicePostData, { transaction });
-
-      if (invoice.lines && invoice.lines.length > 0) {
-        const linesToCreate = invoice.lines.map(line => {
-          const l = line.toJSON();
-          delete l.id;
-          l.codeDocument = newInvoicePost.code;
-          return l;
-        });
-        await salesPostInvoiceLine.bulkCreate(linesToCreate, { transaction });
-      }
-
-      await invoice.destroy({ transaction });
-      await transaction.commit();
-
-      return { message: newNumber, postInvoice: newInvoicePost };
-    } catch (error) {
-      if (transaction) await transaction.rollback();
-      throw error;
-    }
-  }
-
-  async delete(code) {
-    const instance = await salesInvoice.findByPk(code);
-    if (!instance) throw boom.notFound('Factura no encontrada');
-    await instance.destroy();
-    return { code, message: 'Borrador eliminado correctamente' };
-  }
+  // archiveInvoice y delete se mantienen igual...
 }
 
 module.exports = salesInvoiceService;

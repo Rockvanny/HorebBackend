@@ -1,24 +1,17 @@
 const Joi = require('joi');
 
-// Definición de tipos base con precisión 4 para coincidir con DECIMAL(12, 4)
+// Definiciones base (Mejoradas con validaciones de rango)
 const codeDocument = Joi.string();
-const lineNo = Joi.number().integer();
+const lineNo = Joi.number().integer().min(1);
 const codeItem = Joi.string().allow('', null);
 const description = Joi.string().allow('', null);
-const quantity = Joi.number().precision(4);
-const unitMeasure = Joi.string().default('UNIDAD');
-const quantityUnitMeasure = Joi.number().precision(4);
+const quantity = Joi.number().precision(4); // Quitamos min(0) por si hay abonos/devoluciones
+const unitMeasure = Joi.string().allow('', null).default('UNIDAD');
+const quantityUnitMeasure = Joi.number().precision(4).default(1);
 const unitPrice = Joi.number().precision(4);
-const vat = Joi.number().precision(4).default(21);
+const vat = Joi.number().min(0).max(100).precision(4).default(21);
 const amountLine = Joi.number().precision(4);
-const username = Joi.string();
-
-// Parámetros de consulta
-const limit = Joi.number().integer();
-const offset = Joi.number().integer();
-const searchTerm = Joi.string().allow('');
-
-// --- ESQUEMAS PARA LÍNEAS DE FACTURA ---
+const username = Joi.string().allow('', null);
 
 const getSalesInvoiceLineSchema = Joi.object({
   codeDocument: codeDocument.required(),
@@ -26,13 +19,13 @@ const getSalesInvoiceLineSchema = Joi.object({
 });
 
 const createSalesInvoiceLineSchema = Joi.object({
-  codeDocument: codeDocument.required(),
+  codeDocument: codeDocument.optional().allow('', null), // Opcional para inyección desde el Header
   lineNo: lineNo.required(),
   codeItem: codeItem.optional(),
   description: description.required(),
   quantity: quantity.required(),
   unitMeasure: unitMeasure.optional(),
-  quantityUnitMeasure: quantityUnitMeasure.optional().default(1), // Por defecto 1 para cálculos
+  quantityUnitMeasure: quantityUnitMeasure.optional(),
   unitPrice: unitPrice.required(),
   vat: vat.optional(),
   amountLine: amountLine.required(),
@@ -41,7 +34,7 @@ const createSalesInvoiceLineSchema = Joi.object({
 
 const updateSalesInvoiceLineSchema = Joi.object({
   codeDocument: codeDocument.optional(),
-  lineNo: lineNo.required(), // El lineNo es necesario para identificar qué línea actualizar
+  lineNo: lineNo.optional(), // Opcional en update para mayor flexibilidad
   codeItem: codeItem.optional(),
   description: description.optional(),
   quantity: quantity.optional(),
@@ -53,15 +46,13 @@ const updateSalesInvoiceLineSchema = Joi.object({
   username: username.optional(),
 });
 
-const querySalesInvoiceLineSchema = Joi.object({
-  limit,
-  offset,
-  searchTerm: searchTerm.optional(),
-});
-
 module.exports = {
   getSalesInvoiceLineSchema,
   createSalesInvoiceLineSchema,
   updateSalesInvoiceLineSchema,
-  querySalesInvoiceLineSchema
+  querySalesInvoiceLineSchema: Joi.object({
+    limit: Joi.number().integer(),
+    offset: Joi.number().integer(),
+    searchTerm: Joi.string().allow('').optional()
+  })
 };

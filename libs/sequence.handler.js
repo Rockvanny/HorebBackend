@@ -5,11 +5,12 @@ const boom = require('@hapi/boom');
  * MAPEO DE TRADUCCIÓN TÉCNICA
  * Vincula el nombre del modelo de Sequelize con el 'type' de la tabla series_numbers.
  */
-const MODEL_SERIES_MAP = {
-    'salesBudget': 'budget',   // Traducción: Modelo salesBudget -> Serie budget
+const MODEL_SERIES_MAP = {   // Traducción: Modelo salesBudget -> Serie budget
     'Customer': 'customer',
     'Product': 'product',
-    'Vendor': 'vendor'
+    'Vendor': 'vendor',
+    'salesBudget': 'budget',
+    'salesInvoice': 'salesinvoice',
 };
 
 /**
