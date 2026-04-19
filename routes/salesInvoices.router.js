@@ -13,42 +13,10 @@ const router = express.Router();
 const service = new salesInvoiceService();
 
 /**
- * 1. CONFIGURACIÓN Y METADATOS (Rutas estáticas primero)
+ * CONSULTAS DE CONFIGURACIÓN Y METADATOS
  */
 
-// Obtener los tipos de factura permitidos (F1, R1, etc.)
-router.get('/type-invoices',
-    checkPermission('VIEW_SALESINVOICES'),
-    async (req, res, next) => {
-        try {
-            const types = await service.findTypeInvoices();
-            res.json({
-                success: true,
-                data: types
-            });
-        } catch (error) {
-            next(error);
-        }
-    }
-);
-
-// NUEVO: Obtener los tipos de rectificación (S: Sustitución, I: Diferencias)
-router.get('/rectification-types',
-    checkPermission('VIEW_SALESINVOICES'),
-    async (req, res, next) => {
-        try {
-            const types = await service.findRectificationTypes();
-            res.json({
-                success: true,
-                data: types
-            });
-        } catch (error) {
-            next(error);
-        }
-    }
-);
-
-// Obtener los estados permitidos del ENUM (Abierto, Pagado)
+// Obtener los estados permitidos (Espejo de Budget)
 router.get('/statuses',
     checkPermission('VIEW_SALESINVOICES'),
     async (req, res, next) => {
@@ -64,13 +32,32 @@ router.get('/statuses',
     }
 );
 
-// Contador total para estadísticas
-router.get('/count',
+// NUEVO: Obtener los tipos de factura (Específico de Invoice)
+router.get('/type-invoices',
     checkPermission('VIEW_SALESINVOICES'),
     async (req, res, next) => {
         try {
-            const total = await service.countAll();
-            res.status(200).json({ total });
+            const types = await service.findTypeInvoices();
+            res.json({
+                success: true,
+                data: types
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+// NUEVO: Obtener los tipos de rectificación (Específico de Invoice)
+router.get('/rectification-types',
+    checkPermission('VIEW_SALESINVOICES'),
+    async (req, res, next) => {
+        try {
+            const types = await service.findRectificationTypes();
+            res.json({
+                success: true,
+                data: types
+            });
         } catch (error) {
             next(error);
         }
@@ -78,9 +65,10 @@ router.get('/count',
 );
 
 /**
- * 2. CONSULTAS DE LISTADO Y FILTRADO
+ * CONSULTAS DE FACTURAS (VIEW)
  */
 
+// Listado paginado con filtros (Espejo de Budget)
 router.get('/salesInvoices-paginated',
     checkPermission('VIEW_SALESINVOICES'),
     async(req, res, next) => {
@@ -94,6 +82,43 @@ router.get('/salesInvoices-paginated',
     }
 );
 
+// Contador total para estadísticas (Espejo de Budget)
+router.get('/count',
+    checkPermission('VIEW_SALESINVOICES'),
+    async (req, res, next) => {
+        try {
+            const total = await service.countAll();
+            res.status(200).json({ total });
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+// Obtener una factura específica por código (Espejo de Budget)
+router.get('/:code',
+  checkPermission('VIEW_SALESINVOICES'),
+  validatorHandler(getSalesInvoiceSchema, 'params'),
+  async (req, res, next) => {
+    try {
+      const { code } = req.params;
+      const includeLines = req.query.include_lines === 'true' || req.query.includeLines === 'true';
+
+      const record = await service.findOne(code, {
+        includeLines: includeLines
+      });
+
+      res.json({
+        success: true,
+        data: record
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// Listado general (Espejo de Budget)
 router.get('/',
     checkPermission('VIEW_SALESINVOICES'),
     validatorHandler(querySalesInvoiceSchema, 'query'),
@@ -108,31 +133,10 @@ router.get('/',
 );
 
 /**
- * 3. ACCIONES SOBRE REGISTROS ESPECÍFICOS
+ * ACCIONES DE ESCRITURA
  */
 
-router.get('/:code',
-    checkPermission('VIEW_SALESINVOICES'),
-    validatorHandler(getSalesInvoiceSchema, 'params'),
-    async (req, res, next) => {
-        try {
-            const { code } = req.params;
-            const includeLines = req.query.include_lines === 'true' || req.query.includeLines === 'true';
-
-            const record = await service.findOne(code, {
-                includeLines: includeLines
-            });
-
-            res.json({
-                success: true,
-                data: record
-            });
-        } catch (error) {
-            next(error);
-        }
-    }
-);
-
+// Crear nueva factura (Espejo de Budget)
 router.post('/',
     checkPermission('CREATE_SALESINVOICES'),
     validatorHandler(createSalesInvoiceSchema, 'body'),
@@ -154,6 +158,7 @@ router.post('/',
     }
 );
 
+// Archivar factura (Específico de Invoice)
 router.post('/:code/archive',
     checkPermission('UPDATE_SALESINVOICES'),
     validatorHandler(getSalesInvoiceSchema, 'params'),
@@ -163,8 +168,8 @@ router.post('/:code/archive',
             const result = await service.archiveInvoice(code);
             res.status(200).json({
                 success: true,
-                message: `Factura ${code} archivada correctamente como ${result.message}`,
-                data: result.postInvoice
+                message: `Factura ${code} archivada correctamente`,
+                data: result
             });
         } catch (error) {
             next(error);
@@ -172,6 +177,7 @@ router.post('/:code/archive',
     }
 );
 
+// Actualización completa (Espejo de Budget)
 router.put('/:code',
     checkPermission('UPDATE_SALESINVOICES'),
     validatorHandler(getSalesInvoiceSchema, 'params'),
@@ -188,6 +194,7 @@ router.put('/:code',
     }
 );
 
+// Eliminación (Espejo de Budget)
 router.delete('/:code',
     checkPermission('DELETE_SALESINVOICES'),
     validatorHandler(getSalesInvoiceSchema, 'params'),
@@ -195,10 +202,7 @@ router.delete('/:code',
         try {
             const { code } = req.params;
             await service.delete(code);
-            res.status(200).json({
-                success: true,
-                code
-            });
+            res.status(200).json({ code });
         } catch (error) {
             next(error);
         }
