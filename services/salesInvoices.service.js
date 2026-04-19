@@ -9,7 +9,6 @@ const {
   salesInvoiceLine,
   salesPostInvoice,
   salesPostInvoiceLine,
-  Customer,
 } = sequelize.models;
 
 class salesInvoiceService {
@@ -17,12 +16,52 @@ class salesInvoiceService {
     this.seriesNumberService = new seriesNumberService();
   }
 
-  async countAll() {
-    try {
-      return await salesInvoice.count();
-    } catch (error) {
-      throw boom.badImplementation('Error al contar las facturas', error);
+  /**
+   * VALIDACIÓN PRIVADA: Consistencia Fiscal (Veri*factu)
+   */
+  _validateFiscalConsistency(data) {
+    const { typeInvoice, parentCode, amountWithVAT } = data;
+
+    // 1. Trazabilidad: Las rectificativas (R) exigen factura de origen
+    if (typeInvoice && typeInvoice.startsWith('R')) {
+      if (!parentCode || parentCode.trim() === '') {
+        throw boom.badRequest('Normativa AEAT: El campo parentCode es obligatorio para facturas rectificativas.');
+      }
     }
+
+    // 2. Coherencia: F1 no debe ser negativa (en ese caso es R1)
+    if (typeInvoice === 'F1' && amountWithVAT < 0) {
+      throw boom.badRequest('Una factura F1 no puede ser negativa. Cambie el tipo a R1 (Rectificativa).');
+    }
+  }
+
+  /**
+   * METADATOS PARA EL FRONTEND
+   */
+  async findStatuses() {
+    try {
+      const attributes = salesInvoice.getAttributes();
+      return attributes.status?.values || ['Abierto', 'Pagado'];
+    } catch (error) {
+      throw boom.badImplementation('Error al obtener estados');
+    }
+  }
+
+  async findTypeInvoices() {
+    try {
+      const attributes = salesInvoice.getAttributes();
+      // Retorna ['F1', 'F2', 'R1', 'R2', 'R3', 'R4', 'R5'] desde el ENUM del modelo
+      return attributes.typeInvoice?.values || ['F1', 'F2', 'R1', 'R2', 'R3', 'R4', 'R5'];
+    } catch (error) {
+      throw boom.badImplementation('Error al obtener tipos de factura');
+    }
+  }
+
+  /**
+   * CONSULTAS
+   */
+  async countAll() {
+    return await salesInvoice.count();
   }
 
   async findPaginated({ limit, offset, searchTerm }) {
@@ -32,7 +71,7 @@ class salesInvoiceService {
     const options = {
       limit: parsedLimit,
       offset: parsedOffset,
-      order: [['created_at', 'DESC']], // Estandarizado a fecha de creación
+      order: [['created_at', 'DESC']],
       where: {},
     };
 
@@ -44,21 +83,16 @@ class salesInvoiceService {
       ];
     }
 
-    try {
-      const { count, rows } = await salesInvoice.findAndCountAll(options);
-      return {
-        records: rows,
-        hasMore: (parsedOffset + rows.length) < count,
-        total: count,
-      };
-    } catch (error) {
-      throw boom.badImplementation('Error al consultar facturas paginadas', error);
-    }
+    const { count, rows } = await salesInvoice.findAndCountAll(options);
+    return {
+      records: rows,
+      hasMore: (parsedOffset + rows.length) < count,
+      total: count,
+    };
   }
 
   async findOne(code, options = {}) {
     const { includeLines = false } = options;
-
     const queryOptions = {
       where: { code },
       include: []
@@ -74,34 +108,23 @@ class salesInvoiceService {
 
     const record = await salesInvoice.findOne(queryOptions);
     if (!record) throw boom.notFound('Factura no encontrada');
-
     return record.get({ plain: true });
   }
 
-  async findStatuses() {
-    try {
-      const attributes = salesInvoice.getAttributes();
-      if (attributes.status && attributes.status.values) {
-        return attributes.status.values;
-      }
-      return ['Abierto', 'Pagado'];
-    } catch (error) {
-      throw boom.badImplementation('No se pudieron obtener los estados');
-    }
-  }
-
+  /**
+   * ESCRITURA CON RECALCULO DE TOTALES
+   */
   async create(data) {
     const { lines, ...headerData } = data;
-    const transaction = await sequelize.transaction();
+    this._validateFiscalConsistency(headerData);
 
+    const transaction = await sequelize.transaction();
     try {
-      // 1. Crear cabecera (Genera código vía Hook)
       const newInvoice = await salesInvoice.create(headerData, { transaction });
 
       let totalNeto = 0;
       let totalIva = 0;
 
-      // 2. Procesar líneas
       if (lines && lines.length > 0) {
         const linesToInsert = lines.map((line, index) => {
           const qty = parseFloat(line.quantity) || 0;
@@ -124,18 +147,9 @@ class salesInvoiceService {
         });
         await salesInvoiceLine.bulkCreate(linesToInsert, { transaction });
       } else {
-        // Línea por defecto
-        await salesInvoiceLine.create({
-          codeDocument: newInvoice.code,
-          lineNo: 1,
-          description: 'Nueva línea',
-          quantity: 1,
-          unitPrice: 0,
-          amountLine: 0
-        }, { transaction });
+        throw boom.badRequest('La factura debe tener al menos una línea.');
       }
 
-      // 3. Actualizar totales
       await newInvoice.update({
         amountWithoutVAT: totalNeto,
         amountVAT: totalIva,
@@ -144,7 +158,6 @@ class salesInvoiceService {
 
       await transaction.commit();
       return await this.findOne(newInvoice.code, { includeLines: true });
-
     } catch (error) {
       if (transaction) await transaction.rollback();
       throw error;
@@ -159,42 +172,60 @@ class salesInvoiceService {
       const instance = await salesInvoice.findOne({ where: { code }, transaction });
       if (!instance) throw boom.notFound('Factura no encontrada');
 
-      // Limpieza de seguridad
+      this._validateFiscalConsistency({ ...instance.toJSON(), ...headerChanges });
+
       const cleanHeader = { ...headerChanges };
       delete cleanHeader.id;
       delete cleanHeader.code;
-      delete cleanHeader.createdAt;
-      delete cleanHeader.updatedAt;
 
       await instance.update(cleanHeader, { transaction });
 
       if (lines) {
-        // Lógica Flush & Fill
         await salesInvoiceLine.destroy({ where: { codeDocument: code }, transaction });
 
-        if (lines.length > 0) {
-          const linesToInsert = lines.map((line, index) => {
-            const { id, ...lineData } = line;
-            return {
-              ...lineData,
-              codeDocument: code,
-              lineNo: line.lineNo || (index + 1),
-              username: line.username || cleanHeader.username || 'system'
-            };
-          });
-          await salesInvoiceLine.bulkCreate(linesToInsert, { transaction });
-        }
+        let totalNeto = 0;
+        let totalIva = 0;
+
+        const linesToInsert = lines.map((line, index) => {
+          const qty = parseFloat(line.quantity) || 0;
+          const price = parseFloat(line.unitPrice) || 0;
+          const factor = parseFloat(line.quantityUnitMeasure) || 1;
+          const vatPerc = parseFloat(line.vat) || 0;
+
+          const lineAmount = qty * factor * price;
+          const lineVat = lineAmount * (vatPerc / 100);
+
+          totalNeto += lineAmount;
+          totalIva += lineVat;
+
+          return {
+            ...line,
+            codeDocument: code,
+            lineNo: line.lineNo || (index + 1),
+            amountLine: lineAmount
+          };
+        });
+
+        await salesInvoiceLine.bulkCreate(linesToInsert, { transaction });
+
+        await instance.update({
+          amountWithoutVAT: totalNeto,
+          amountVAT: totalIva,
+          amountWithVAT: totalNeto + totalIva
+        }, { transaction });
       }
 
       await transaction.commit();
       return await this.findOne(code, { includeLines: true });
-
     } catch (error) {
       if (transaction) await transaction.rollback();
       throw error;
     }
   }
 
+  /**
+   * PROCESO DE ARCHIVADO (REGISTRO LEGAL)
+   */
   async archiveInvoice(invoiceCode) {
     const transaction = await sequelize.transaction();
     try {
@@ -204,33 +235,37 @@ class salesInvoiceService {
       });
 
       if (!invoice) throw boom.notFound('Factura no encontrada');
-      if (invoice.status !== 'Pagado') throw boom.badRequest('Solo se pueden archivar facturas "Pagadas"');
+      if (invoice.status !== 'Pagado') throw boom.badRequest('Solo se pueden registrar facturas Pagadas.');
 
-      // Obtener nueva numeración histórica
-      const newNumber = await this.seriesNumberService.updateLastUsedSerie('Fact_venta_regist', invoice.codePosting, transaction);
+      this._validateFiscalConsistency(invoice);
+
+      // Consumir número de serie legal
+      const newNumber = await this.seriesNumberService.updateLastUsedSerie(
+        'Fact_venta_regist',
+        invoice.codePosting,
+        transaction
+      );
 
       const invoicePostData = invoice.toJSON();
       invoicePostData.code = newNumber;
       invoicePostData.preInvoice = invoiceCode;
 
-      // Mover a históricos
       const newInvoicePost = await salesPostInvoice.create(invoicePostData, { transaction });
 
       if (invoice.lines && invoice.lines.length > 0) {
         const linesToCreate = invoice.lines.map(line => {
           const l = line.toJSON();
-          l.codeDocument = newInvoicePost.code; // Estandarizado
+          delete l.id;
+          l.codeDocument = newInvoicePost.code;
           return l;
         });
         await salesPostInvoiceLine.bulkCreate(linesToCreate, { transaction });
       }
 
-      // Limpiar originales (Cascade destroy)
       await invoice.destroy({ transaction });
-
       await transaction.commit();
-      return { message: newNumber, postInvoice: newInvoicePost };
 
+      return { message: newNumber, postInvoice: newInvoicePost };
     } catch (error) {
       if (transaction) await transaction.rollback();
       throw error;
@@ -241,7 +276,7 @@ class salesInvoiceService {
     const instance = await salesInvoice.findByPk(code);
     if (!instance) throw boom.notFound('Factura no encontrada');
     await instance.destroy();
-    return { code, message: 'Registro eliminado correctamente' };
+    return { code, message: 'Borrador eliminado correctamente' };
   }
 }
 

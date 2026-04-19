@@ -13,10 +13,27 @@ const router = express.Router();
 const service = new salesInvoiceService();
 
 /**
- * CONSULTAS DE CONFIGURACIÓN Y METADATOS
+ * 1. CONFIGURACIÓN Y METADATOS (Rutas estáticas primero)
+ * Se colocan arriba para que Express no las confunda con el parámetro /:code
  */
 
-// Obtener los estados permitidos del ENUM
+// Obtener los tipos de factura permitidos (F1, R1, etc.) para el selector del Front
+router.get('/type-invoices',
+    checkPermission('VIEW_SALESINVOICES'),
+    async (req, res, next) => {
+        try {
+            const types = await service.findTypeInvoices();
+            res.json({
+                success: true,
+                data: types
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+// Obtener los estados permitidos del ENUM (Abierto, Pagado)
 router.get('/statuses',
     checkPermission('VIEW_SALESINVOICES'),
     async (req, res, next) => {
@@ -32,11 +49,24 @@ router.get('/statuses',
     }
 );
 
+// Contador total para estadísticas en dashboards
+router.get('/count',
+    checkPermission('VIEW_SALESINVOICES'),
+    async (req, res, next) => {
+        try {
+            const total = await service.countAll();
+            res.status(200).json({ total });
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
 /**
- * CONSULTAS DE FACTURAS (VIEW)
+ * 2. CONSULTAS DE LISTADO Y FILTRADO
  */
 
-// Listado paginado con filtros
+// Listado paginado con búsqueda por término
 router.get('/salesInvoices-paginated',
     checkPermission('VIEW_SALESINVOICES'),
     async(req, res, next) => {
@@ -50,20 +80,25 @@ router.get('/salesInvoices-paginated',
     }
 );
 
-// Contador total para estadísticas
-router.get('/count',
+// Listado general (Sincronizado con findPaginated del servicio)
+router.get('/',
     checkPermission('VIEW_SALESINVOICES'),
+    validatorHandler(querySalesInvoiceSchema, 'query'),
     async (req, res, next) => {
         try {
-            const total = await service.countAll();
-            res.status(200).json({ total });
+            const records = await service.findPaginated(req.query);
+            res.json(records);
         } catch (error) {
             next(error);
         }
     }
 );
 
-// Obtener una factura específica por código
+/**
+ * 3. ACCIONES SOBRE REGISTROS ESPECÍFICOS (Rutas con :code)
+ */
+
+// Obtener una factura específica (Borrador)
 router.get('/:code',
     checkPermission('VIEW_SALESINVOICES'),
     validatorHandler(getSalesInvoiceSchema, 'params'),
@@ -86,25 +121,7 @@ router.get('/:code',
     }
 );
 
-// Listado general
-router.get('/',
-    checkPermission('VIEW_SALESINVOICES'),
-    validatorHandler(querySalesInvoiceSchema, 'query'),
-    async (req, res, next) => {
-        try {
-            const records = await service.find(req.query);
-            res.json(records);
-        } catch (error) {
-            next(error);
-        }
-    }
-);
-
-/**
- * ACCIONES DE ESCRITURA Y PROCESADO
- */
-
-// Crear nueva factura
+// Crear nueva factura (Borrador)
 router.post('/',
     checkPermission('CREATE_SALESINVOICES'),
     validatorHandler(createSalesInvoiceSchema, 'body'),
@@ -126,9 +143,9 @@ router.post('/',
     }
 );
 
-// Archivar factura (Pasar a histórico)
+// Archivar factura (Paso a registro legal histórico)
 router.post('/:code/archive',
-    checkPermission('UPDATE_SALESINVOICES'), // O un permiso específico si lo tienes, ej: 'ARCHIVE_SALESINVOICES'
+    checkPermission('UPDATE_SALESINVOICES'),
     validatorHandler(getSalesInvoiceSchema, 'params'),
     async (req, res, next) => {
         try {
@@ -145,7 +162,7 @@ router.post('/:code/archive',
     }
 );
 
-// Actualización de factura
+// Actualizar borrador
 router.put('/:code',
     checkPermission('UPDATE_SALESINVOICES'),
     validatorHandler(getSalesInvoiceSchema, 'params'),
@@ -162,7 +179,7 @@ router.put('/:code',
     }
 );
 
-// Eliminación
+// Eliminar borrador
 router.delete('/:code',
     checkPermission('DELETE_SALESINVOICES'),
     validatorHandler(getSalesInvoiceSchema, 'params'),

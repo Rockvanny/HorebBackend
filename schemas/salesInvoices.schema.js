@@ -1,11 +1,16 @@
 const Joi = require('joi');
-// Importamos los esquemas de líneas (Asegúrate de que los nombres de los archivos coincidan)
+// Importamos los esquemas de líneas
 const { createSalesInvoiceLineSchema, updateSalesInvoiceLineSchema } = require('./salesInvoiceLine.schema');
 
 // --- DEFINICIÓN DE TIPOS BASE ---
 const code = Joi.string();
-const selectedSerie = Joi.string(); // Necesario para el hook de generación de código
+const selectedSerie = Joi.string();
 const codePosting = Joi.string().allow('', null);
+
+// NUEVOS: Campos Veri*factu
+const typeInvoice = Joi.string().valid('F1', 'F2', 'R1', 'R2', 'R3', 'R4', 'R5').default('F1');
+const parentCode = Joi.string().allow('', null);
+
 const postingDate = Joi.date();
 const dueDate = Joi.date().allow(null);
 const budgetCode = Joi.string().allow('', null);
@@ -18,12 +23,11 @@ const address = Joi.string().allow('', null);
 const postCode = Joi.string().allow('', null);
 const city = Joi.string().allow('', null);
 const paymentMethod = Joi.string().allow('', null);
-const status = Joi.string().default('Abierto');
+const status = Joi.string().valid('Abierto', 'Pagado').default('Abierto'); // Validado contra el ENUM
 const comments = Joi.string().allow('', null);
 
-// Sincronizado con DECIMAL(12, 4) de la DB
+// Sincronizado con DECIMAL(12, 4)
 const money = Joi.number().precision(4).default(0);
-
 const username = Joi.string();
 
 // Esquemas de consulta
@@ -33,9 +37,6 @@ const searchTerm = Joi.string().allow('');
 
 // --- ESQUEMAS DE ACCIÓN ---
 
-/**
- * Esquema para obtener un registro por su PK
- */
 const getSalesInvoiceSchema = Joi.object({
     code: code.required(),
 });
@@ -47,13 +48,17 @@ const createSalesInvoiceSchema = Joi.object({
     code: code.optional(),
     selectedSerie: selectedSerie.optional(),
     codePosting: codePosting.optional(),
-    budgetCode: budgetCode.optional(),
 
+    // Integración de nuevos campos
+    typeInvoice: typeInvoice.optional(),
+    parentCode: parentCode.optional(),
+
+    budgetCode: budgetCode.optional(),
     postingDate: postingDate.default(() => new Date()),
     dueDate: dueDate.optional(),
     customerCode: customerCode.required(),
     name: name.required(),
-    nif: nif.required(), // Estandarizado con el base
+    nif: nif.required(),
     email: email.optional(),
     phone: phone.optional(),
     address: address.optional(),
@@ -63,23 +68,24 @@ const createSalesInvoiceSchema = Joi.object({
     status: status.optional(),
     comments: comments.optional(),
 
-    // Totales calculados
     amountWithoutVAT: money.optional(),
     amountVAT: money.optional(),
     amountWithVAT: money.optional(),
 
     username: username.optional(),
-
-    // Inserción masiva de líneas
     lines: Joi.array().items(createSalesInvoiceLineSchema).optional(),
 });
 
 /**
- * Esquema para ACTUALIZACIÓN (PATCH/PUT)
- * IMPORTANTE: No incluimos customerCode para evitar el error 400 "not allowed"
+ * Esquema para ACTUALIZACIÓN
  */
 const updateSalesInvoiceSchema = Joi.object({
     codePosting: codePosting.optional(),
+
+    // Permitir actualizar el tipo o la referencia (mientras sea borrador)
+    typeInvoice: typeInvoice.optional(),
+    parentCode: parentCode.optional(),
+
     budgetCode: budgetCode.optional(),
     postingDate: postingDate.optional(),
     dueDate: dueDate.optional(),
@@ -99,14 +105,9 @@ const updateSalesInvoiceSchema = Joi.object({
     amountWithVAT: money.optional(),
 
     username: username.optional(),
-
-    // Sincronización de líneas (Flush & Fill)
     lines: Joi.array().items(updateSalesInvoiceLineSchema).optional(),
 });
 
-/**
- * Esquema para filtrado y paginación
- */
 const querySalesInvoiceSchema = Joi.object({
     limit,
     offset,
