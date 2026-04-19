@@ -5,7 +5,7 @@ const { SALESINVOICELINE_TABLE } = require('../models/salesInvoiceLine.model');
 module.exports = {
   up: async (queryInterface, Sequelize) => {
     await queryInterface.createTable(SALESINVOICELINE_TABLE, {
-      code_invoice: { // Clave compuesta
+      code_invoice: {
         field: 'code_invoice',
         allowNull: false,
         primaryKey: true,
@@ -26,17 +26,18 @@ module.exports = {
       item_code: {
         field: 'item_code',
         type: Sequelize.DataTypes.STRING,
-        allowNull: false,
+        allowNull: true, // Cambiado a true para permitir líneas de comentarios/texto
       },
       description: {
-        type: Sequelize.DataTypes.STRING,
+        type: Sequelize.DataTypes.TEXT, // Cambiado a TEXT para descripciones largas
         allowNull: true,
       },
+      // Estandarizado a precisión (12, 4) para evitar errores de redondeo fiscal
       quantity: {
         field: 'quantity',
-        type: Sequelize.DataTypes.DECIMAL(10, 2), // Estandarizado a DECIMAL
+        type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 0.00
+        defaultValue: 0.0000
       },
       unit_measure: {
         field: 'unit_measure',
@@ -46,27 +47,27 @@ module.exports = {
       },
       quantity_unit_measure: {
         field: 'quantity_unit_measure',
-        type: Sequelize.DataTypes.DECIMAL(10, 2),
+        type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 0.00
+        defaultValue: 1.0000 // Importante: valor por defecto 1 para cálculos
       },
       unit_price: {
         field: 'unit_price',
-        type: Sequelize.DataTypes.DECIMAL(10, 2),
+        type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 0.00
+        defaultValue: 0.0000
       },
       vat: {
         field: 'vat',
-        type: Sequelize.DataTypes.DECIMAL(10, 2),
+        type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 0.00
+        defaultValue: 21.0000
       },
       amount_line: {
         field: 'amount_line',
-        type: Sequelize.DataTypes.DECIMAL(10, 2),
+        type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 0.00
+        defaultValue: 0.0000
       },
       user_name: {
         field: 'user_name',

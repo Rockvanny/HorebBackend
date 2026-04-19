@@ -1,5 +1,5 @@
 const express = require('express');
-const SalesInvoiceLineService = require('../services/salesInvoiceLines.service');
+const SalesInvoiceLineService = require('../services/salesInvoiceLine.service');
 const validatorHandler = require('../middlewares/validator.handler');
 const { checkPermission } = require('../middlewares/auth.handler');
 
@@ -14,10 +14,10 @@ const router = express.Router();
 const service = new SalesInvoiceLineService();
 
 /**
- * LECTURA DE LÍNEAS
+ * 1. LECTURA DE LÍNEAS (Rutas estáticas arriba)
  */
 
-// GET /paginated - Listado con filtros
+// GET /salesInvoiceLines-paginated - Listado con filtros
 router.get('/salesInvoiceLines-paginated',
   checkPermission('VIEW_SALESINVOICES'),
   validatorHandler(querySalesInvoiceLineSchema, 'query'),
@@ -32,29 +32,14 @@ router.get('/salesInvoiceLines-paginated',
   }
 );
 
-// GET /:codeInvoice/:lineNo - Una línea específica (PK compuesta)
-router.get('/:codeInvoice/:lineNo',
-  checkPermission('VIEW_SALESINVOICES'),
-  validatorHandler(getSalesInvoiceLineSchema, 'params'),
-  async (req, res, next) => {
-    try {
-      const { codeInvoice, lineNo } = req.params;
-      const salesInvoiceLine = await service.findOne({ codeInvoice, lineNo });
-      res.json(salesInvoiceLine);
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-// GET / - Listado general
+// GET / - Listado general (Sincronizado con findPaginated)
 router.get('/',
   checkPermission('VIEW_SALESINVOICES'),
   validatorHandler(querySalesInvoiceLineSchema, 'query'),
   async (req, res, next) => {
     try {
-      const SalesInvoiceLines = await service.find(req.query);
-      res.json(SalesInvoiceLines);
+      const result = await service.findPaginated(req.query);
+      res.json(result.records); // Devolvemos solo los registros para mantener compatibilidad
     } catch (error) {
       next(error);
     }
@@ -62,62 +47,69 @@ router.get('/',
 );
 
 /**
- * ESCRITURA DE LÍNEAS
+ * 2. ACCIONES POR PK COMPUESTA (codeDocument + lineNo)
  */
 
-// POST /:codeInvoice - Añadir una línea a una factura existente
-router.post('/:codeInvoice',
-  checkPermission('UPDATE_SALESINVOICES'), // Usamos UPDATE porque altera una factura existente
+// GET /:codeDocument/:lineNo - Obtener una línea específica
+router.get('/:codeDocument/:lineNo',
+  checkPermission('VIEW_SALESINVOICES'),
   validatorHandler(getSalesInvoiceLineSchema, 'params'),
-  validatorHandler(createSalesInvoiceLineSchema, 'body'),
   async (req, res, next) => {
     try {
-      const { codeInvoice } = req.params;
-      const body = req.body;
-      const newSalesInvoiceLine = await service.create({ ...body, codeInvoice });
-      res.status(201).json(newSalesInvoiceLine);
+      const { codeDocument, lineNo } = req.params;
+      const line = await service.findOne({ codeDocument, lineNo });
+      res.json(line);
     } catch (error) {
-      if (error.name === "SequelizeUniqueConstraintError") {
-        return res.status(409).json({
-          success: false,
-          message: `La línea ${req.body.lineNo} ya existe para la factura ${req.params.codeInvoice}.`,
-          error: error.errors
-        });
-      }
       next(error);
     }
   }
 );
 
-// PATCH /:codeInvoice/:lineNo - Actualización parcial de una línea
-router.patch('/:codeInvoice/:lineNo',
+// POST /:codeDocument - Añadir una línea a una factura existente
+router.post('/:codeDocument',
+  checkPermission('UPDATE_SALESINVOICES'),
+  validatorHandler(createSalesInvoiceLineSchema, 'body'),
+  async (req, res, next) => {
+    try {
+      const { codeDocument } = req.params;
+      const body = req.body;
+      // Forzamos que el codeDocument del body sea el de la URL
+      const newLine = await service.create({ ...body, codeDocument });
+      res.status(201).json(newLine);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// PATCH /:codeDocument/:lineNo - Actualización parcial
+router.patch('/:codeDocument/:lineNo',
   checkPermission('UPDATE_SALESINVOICES'),
   validatorHandler(getSalesInvoiceLineSchema, 'params'),
   validatorHandler(updateSalesInvoiceLineSchema, 'body'),
   async (req, res, next) => {
     try {
-      const { codeInvoice, lineNo } = req.params;
+      const { codeDocument, lineNo } = req.params;
       const body = req.body;
-      const salesInvoiceLine = await service.update({ codeInvoice, lineNo }, body);
-      res.json(salesInvoiceLine);
+      const updatedLine = await service.update({ codeDocument, lineNo }, body);
+      res.json(updatedLine);
     } catch (error) {
       next(error);
     }
   }
 );
 
-// DELETE /:codeInvoice/:lineNo - Eliminar una línea específica
-router.delete('/:codeInvoice/:lineNo',
+// DELETE /:codeDocument/:lineNo - Eliminar línea
+router.delete('/:codeDocument/:lineNo',
   checkPermission('UPDATE_SALESINVOICES'),
   validatorHandler(getSalesInvoiceLineSchema, 'params'),
   async (req, res, next) => {
     try {
-      const { codeInvoice, lineNo } = req.params;
-      await service.delete({ codeInvoice, lineNo });
+      const { codeDocument, lineNo } = req.params;
+      const result = await service.delete({ codeDocument, lineNo });
       res.status(200).json({
-        codeInvoice,
-        lineNo,
-        message: 'Línea de factura eliminada y totales recalculados.'
+        ...result,
+        message: 'Línea de factura eliminada y totales recalculados automáticamente.'
       });
     } catch (error) {
       next(error);
