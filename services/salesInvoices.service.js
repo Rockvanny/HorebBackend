@@ -67,15 +67,37 @@ class salesInvoiceService {
 
   // --- MÉTODOS ESPEJO DE BUDGET ---
 
-  async countAll() {
+  async countAll(filters = {}) {
+    const { filter } = filters;
+    const options = { where: {} };
+
+    // Lógica de filtrado para el contador del Sidebar
+    if (filter === 'overdue') {
+      // 1. Misma fecha normalizada que usamos en el listado
+      const todayStr = new Date().toLocaleDateString('en-CA');
+
+      options.where[Op.and] = [
+        // 2. Mismo cast para asegurar consistencia con la DB
+        sequelize.where(
+          sequelize.cast(sequelize.col('due_date'), 'DATE'),
+          { [Op.lt]: todayStr }
+        ),
+        {
+          status: { [Op.ne]: 'Pagado' }
+        }
+      ];
+    }
+
     try {
-      return await salesInvoice.count();
+      return await salesInvoice.count(options);
     } catch (error) {
-      throw boom.badImplementation('Error al contar los registros', error);
+      // Es buena práctica loguear el error interno para debug
+      console.error('Error en countAll:', error);
+      throw boom.badImplementation('Error al contar los registros');
     }
   }
 
-  async findPaginated({ limit, offset, searchTerm }) {
+  async findPaginated({ limit, offset, searchTerm, filter }) {
     const parsedLimit = parseInt(limit, 10) || 100;
     const parsedOffset = parseInt(offset, 10) || 0;
 
@@ -86,11 +108,32 @@ class salesInvoiceService {
       where: {},
     };
 
+    // 1. Filtro de búsqueda por texto (SearchTerm)
     if (searchTerm) {
       options.where[Op.or] = [
         { code: { [Op.iLike]: `%${searchTerm}%` } },
         { name: { [Op.iLike]: `%${searchTerm}%` } },
         { nif: { [Op.iLike]: `%${searchTerm}%` } }
+      ];
+    }
+
+    // 2. Filtro de modo (Overdue / Vencidas)
+    console.log('Aplicando filtro de facturas vencidas', filter);
+    if (filter === 'overdue') {
+      // 1. Obtenemos "Hoy" en formato YYYY-MM-DD
+      // El formato 'en-CA' (Canadá) devuelve exactamente "2026-04-21"
+      const todayStr = new Date().toLocaleDateString('en-CA');
+
+      options.where[Op.and] = [
+        // 2. Comparamos la columna de la BD (convertida a DATE puro)
+        // contra el texto de hoy que enviamos desde Node
+        sequelize.where(
+          sequelize.cast(sequelize.col('due_date'), 'DATE'),
+          { [Op.lt]: todayStr }
+        ),
+        {
+          status: { [Op.ne]: 'Pagado' }
+        }
       ];
     }
 

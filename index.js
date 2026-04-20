@@ -1,3 +1,7 @@
+// --- 0. CONFIGURACIÓN DE ZONA HORARIA ---
+// Esto debe ser lo PRIMERO que se ejecute en toda la aplicación
+process.env.TZ = 'Europe/Madrid';
+
 const express = require('express');
 const cors = require('cors');
 const passport = require('passport');
