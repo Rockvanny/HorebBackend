@@ -5,48 +5,92 @@ const PURCHINVOICE_TABLE = 'purch_invoices';
 
 const purchInvoiceSchema = {
   code: {
+    field: 'code',
     allowNull: false,
     primaryKey: true,
     type: DataTypes.STRING
   },
+  codePosting: {
+    field: 'code_posting', // Sincronizado con el campo de la migración
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  budgetCode: {
+    field: 'budget_code', // Sincronizado con el campo de la migración
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   postingDate: {
     field: 'posting_date',
     type: DataTypes.DATE,
+    allowNull: false // Obligatorio según migración y ley
   },
   dueDate: {
     field: 'due_date',
     type: DataTypes.DATE,
+    allowNull: true
   },
-  // NOMBRE AGNÓSTICO: entityCode (antes vendorCode)
   entityCode: {
     field: 'entity_code',
     type: DataTypes.STRING,
     allowNull: false,
   },
-  name: DataTypes.STRING,
-  nif: DataTypes.STRING,
-  email: DataTypes.STRING,
-  phone: DataTypes.STRING,
-  address: DataTypes.STRING,
+  name: {
+    field: 'name',
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  nif: {
+    field: 'nif',
+    type: DataTypes.STRING,
+    allowNull: false
+  },
+  email: {
+    field: 'email',
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  phone: {
+    field: 'phone',
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  address: {
+    field: 'address',
+    type: DataTypes.STRING,
+    allowNull: false
+  },
   postCode: {
     field: 'post_code',
-    type: DataTypes.STRING
+    type: DataTypes.STRING,
+    allowNull: true
   },
-  city: DataTypes.STRING,
+  city: {
+    field: 'city',
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   status: {
+    field: 'status',
     type: DataTypes.ENUM('Abierto', 'Pagado'),
     allowNull: false,
     defaultValue: 'Abierto'
   },
   category: {
+    field: 'category',
     type: DataTypes.ENUM(
-      'Materiales', 'Subcontratas', 'Personal y Nóminas',
-      'Herramientas y Alquileres', 'Vehículos y Movilidad', 'Gastos de Oficina y Varios'
+      'Materiales',
+      'Subcontratas',
+      'Personal y Nóminas',
+      'Herramientas y Alquileres',
+      'Vehículos y Movilidad',
+      'Gastos de Oficina y Varios'
     ),
-    allowNull: true,
+    allowNull: false,
     defaultValue: 'Gastos de Oficina y Varios'
   },
   paymentMethod: {
+    field: 'payment_method',
     type: DataTypes.ENUM('Tarjeta', 'Efectivo', 'Transferencia'),
     allowNull: false,
     defaultValue: 'Tarjeta'
@@ -54,22 +98,30 @@ const purchInvoiceSchema = {
   amountWithoutVAT: {
     field: 'amount_without_vat',
     type: DataTypes.DECIMAL(12, 4),
+    allowNull: false,
     defaultValue: 0.0000
   },
   amountVAT: {
     field: 'amount_vat',
     type: DataTypes.DECIMAL(12, 4),
+    allowNull: false,
     defaultValue: 0.0000
   },
   amountWithVAT: {
     field: 'amount_with_vat',
     type: DataTypes.DECIMAL(12, 4),
+    allowNull: false,
     defaultValue: 0.0000
   },
-  comments: DataTypes.TEXT,
+  comments: {
+    field: 'comments',
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
   username: {
     field: 'user_name',
     type: DataTypes.STRING,
+    allowNull: true
   },
   createdAt: {
     field: 'created_at',
@@ -89,7 +141,7 @@ class purchInvoice extends Model {
   static associate(models) {
     this.belongsTo(models.Vendor, {
       as: 'vendor',
-      foreignKey: 'entity_code' // Mapeado a la entidad correspondiente
+      foreignKey: 'entity_code'
     });
 
     this.hasMany(models.purchInvoiceLine, {

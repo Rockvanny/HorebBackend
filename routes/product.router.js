@@ -10,7 +10,7 @@ const service = new ProductsService();
 // --- RUTAS DE LECTURA ---
 
 // Mantenemos esta ruta EXACTAMENTE igual para tu frontend
-router.get('/products-paginated', async(req, res, next) => {
+router.get('/products-paginated', async (req, res, next) => {
   try {
     const { limit, offset, searchTerm } = req.query;
     const result = await service.findPaginated({ limit, offset, searchTerm });
@@ -67,6 +67,14 @@ router.post('/',
       const newProduct = await service.create(body, user);
       res.status(201).json(newProduct);
     } catch (error) {
+      console.error("--- ERROR DETALLADO DE BASE DE DATOS ---");
+      console.error("Mensaje:", error.message);
+      if (error.parent) {
+        console.error("Código DB:", error.parent.code);
+        console.error("Detalle DB:", error.parent.detail);
+        console.error("Query ejecutada:", error.parent.sql);
+      }
+
       if (error.name === "SequelizeUniqueConstraintError") {
         return res.status(409).json({
           success: false,

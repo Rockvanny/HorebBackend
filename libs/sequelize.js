@@ -8,19 +8,16 @@ const URI = `postgres://${USER}:${PASSWORD}@${config.dbHost}:${config.dbPort}/${
 
 const sequelize = new Sequelize(URI, {
   dialect: 'postgres',
-  logging: true,
-  /**
-   * CONFIGURACIÓN DE HOOKS GLOBALES
-   * Estos hooks se ejecutarán en TODOS los modelos definidos.
-   */
+  // SOLUCIÓN AL WARNING [SEQUELIZE0002]:
+  // Cambiamos 'true' por una función anónima para que use la nueva sintaxis.
+  logging: (msg) => console.log(msg),
+
   define: {
     hooks: {
-      // beforeSave cubre tanto 'beforeCreate' como 'beforeUpdate'
       beforeSave: (instance, options) => {
-        // 'userExecutor' es una propiedad que pasaremos en las opciones del query
         if (options.userExecutor) {
-          // Asignamos el nombre del usuario al campo 'username' del modelo
-          // Asegúrate de que tus modelos tengan este campo definido.
+          // IMPORTANTE: Asegúrate de que el modelo tenga 'username' definido
+          // o usa instance.set('username', value) para mayor seguridad.
           instance.username = options.userExecutor;
         }
       }

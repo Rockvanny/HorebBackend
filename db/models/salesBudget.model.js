@@ -5,6 +5,7 @@ const SALESBUDGET_TABLE = 'sales_budgets';
 
 const salesBudgetSchema = {
   code: {
+    field: 'code',
     allowNull: false,
     primaryKey: true,
     type: DataTypes.STRING
@@ -17,44 +18,67 @@ const salesBudgetSchema = {
     field: 'due_date',
     type: DataTypes.DATE,
   },
-  customerCode: {
-    field: 'customer_code',
+  entityCode: {
+    field: 'entity_code',
     type: DataTypes.STRING,
     allowNull: false,
   },
-  name: DataTypes.STRING,
-  nif: DataTypes.STRING,
-  email: DataTypes.STRING,
-  phone: DataTypes.STRING,
-  address: DataTypes.STRING,
+  name: {
+    field: 'name',
+    type: DataTypes.STRING
+  },
+  nif: {
+    field: 'nif',
+    type: DataTypes.STRING
+  },
+  email: {
+    field: 'email',
+    type: DataTypes.STRING
+  },
+  phone: {
+    field: 'phone',
+    type: DataTypes.STRING
+  },
+  address: {
+    field: 'address',
+    type: DataTypes.STRING
+  },
   postCode: {
     field: 'post_code',
     type: DataTypes.STRING
   },
-  city: DataTypes.STRING,
-
+  city: {
+    field: 'city',
+    type: DataTypes.STRING
+  },
   status: {
-    type: DataTypes.ENUM('Borrador','Enviado','Aprobado','Rechazado'),
+    field: 'status',
+    type: DataTypes.ENUM('Borrador', 'Enviado', 'Aprobado', 'Rechazado'),
     allowNull: false,
     defaultValue: 'Borrador'
   },
-  // TOTALES NORMALIZADOS A 4 DECIMALES
   amountWithoutVAT: {
     field: 'amount_without_vat',
     type: DataTypes.DECIMAL(12, 4),
+    allowNull: false,
     defaultValue: 0.0000
   },
   amountVAT: {
     field: 'amount_vat',
     type: DataTypes.DECIMAL(12, 4),
+    allowNull: false,
     defaultValue: 0.0000
   },
   amountWithVAT: {
     field: 'amount_with_vat',
     type: DataTypes.DECIMAL(12, 4),
+    allowNull: false,
     defaultValue: 0.0000
   },
-  comments: DataTypes.TEXT,
+  comments: {
+    field: 'comments',
+    type: DataTypes.TEXT
+  },
   username: {
     field: 'user_name',
     type: DataTypes.STRING,
@@ -94,7 +118,7 @@ class salesBudget extends Model {
       sequelize,
       tableName: SALESBUDGET_TABLE,
       modelName: 'salesBudget',
-      timestamps: false, // Ya definimos nosotros created_at y updated_at
+      timestamps: false,
       underscored: true,
       hooks: {
         beforeValidate: async (instance, options) => {

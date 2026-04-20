@@ -5,70 +5,95 @@ const SALESINVOICE_TABLE = 'sales_invoices';
 
 const salesInvoiceSchema = {
   code: {
+    field: 'code',
     allowNull: false,
     primaryKey: true,
     type: DataTypes.STRING
   },
   codePosting: {
     field: 'code_posting',
-    type: DataTypes.STRING
+    type: DataTypes.STRING,
+    allowNull: true
   },
-  // Clasificación para cumplimiento AEAT/Verifactu
   typeInvoice: {
     field: 'type_invoice',
     type: DataTypes.ENUM('F1', 'F2', 'R1', 'R2', 'R3', 'R4', 'R5'),
     allowNull: false,
-    defaultValue: 'F1',
-    comment: 'F1: Factura, F2: Simplificada, R: Rectificativas'
+    defaultValue: 'F1'
   },
-  // Referencia a factura origen (obligatorio para rectificativas)
   parentCode: {
     field: 'parent_code',
     type: DataTypes.STRING,
-    allowNull: true,
-    comment: 'Referencia al código de factura que se rectifica'
+    allowNull: true
   },
-  // NUEVO: Método de rectificación (S: Sustitución, I: Diferencias)
   rectificationType: {
     field: 'rectification_type',
     type: DataTypes.ENUM('S', 'I'),
-    allowNull: true,
-    comment: 'S: Sustitución, I: Diferencias. Obligatorio para tipos R'
+    allowNull: true
   },
   budgetCode: {
     field: 'budget_code',
-    type: DataTypes.STRING
+    type: DataTypes.STRING,
+    allowNull: true
   },
   postingDate: {
     field: 'posting_date',
     type: DataTypes.DATE,
+    allowNull: false // Requisito legal
   },
   dueDate: {
     field: 'due_date',
     type: DataTypes.DATE,
+    allowNull: true
   },
-  customerCode: {
-    field: 'customer_code',
+  entityCode: {
+    field: 'entity_code',
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: false
   },
-  name: DataTypes.STRING,
-  nif: DataTypes.STRING,
-  email: DataTypes.STRING,
-  phone: DataTypes.STRING,
-  address: DataTypes.STRING,
+  name: {
+    field: 'name',
+    type: DataTypes.STRING,
+    allowNull: false // Requisito legal (Razón Social)
+  },
+  nif: {
+    field: 'nif',
+    type: DataTypes.STRING,
+    allowNull: false // Requisito legal
+  },
+  email: {
+    field: 'email',
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  phone: {
+    field: 'phone',
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  address: {
+    field: 'address',
+    type: DataTypes.STRING,
+    allowNull: false // Requisito legal (Domicilio Fiscal)
+  },
   postCode: {
     field: 'post_code',
-    type: DataTypes.STRING
+    type: DataTypes.STRING,
+    allowNull: true
   },
-  city: DataTypes.STRING,
-
+  city: {
+    field: 'city',
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   status: {
+    field: 'status',
     type: DataTypes.ENUM('Abierto', 'Pagado'),
     allowNull: false,
     defaultValue: 'Abierto'
   },
   paymentMethod: {
+    field: 'payment_method',
     type: DataTypes.ENUM('Tarjeta', 'Efectivo', 'Transferencia'),
     allowNull: false,
     defaultValue: 'Tarjeta'
@@ -76,22 +101,30 @@ const salesInvoiceSchema = {
   amountWithoutVAT: {
     field: 'amount_without_vat',
     type: DataTypes.DECIMAL(12, 4),
+    allowNull: false,
     defaultValue: 0.0000
   },
   amountVAT: {
     field: 'amount_vat',
     type: DataTypes.DECIMAL(12, 4),
+    allowNull: false,
     defaultValue: 0.0000
   },
   amountWithVAT: {
     field: 'amount_with_vat',
     type: DataTypes.DECIMAL(12, 4),
+    allowNull: false,
     defaultValue: 0.0000
   },
-  comments: DataTypes.TEXT,
+  comments: {
+    field: 'comments',
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
   username: {
-    field: 'user_name',
+    field: 'user_name', // Mapeo correcto a la columna de DB
     type: DataTypes.STRING,
+    allowNull: true
   },
   createdAt: {
     field: 'created_at',

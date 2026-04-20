@@ -1,101 +1,92 @@
 'use strict';
-
 const { PURCHINVOICE_TABLE } = require('../models/purchInvoice.model');
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
     await queryInterface.createTable(PURCHINVOICE_TABLE, {
       code: {
+        field: 'code',
         allowNull: false,
         primaryKey: true,
         type: Sequelize.DataTypes.STRING
       },
-      // Nota: code_posting y budget_code no están en el modelo actual,
-      // pero se mantienen si son necesarios para la lógica de BD
-      code_posting: {
+      codePosting: {
+        field: 'code_posting',
         type: Sequelize.DataTypes.STRING
       },
-      budget_code: {
+      budgetCode: {
+        field: 'budget_code',
         type: Sequelize.DataTypes.STRING
       },
-      posting_date: {
+      postingDate: {
+        field: 'posting_date',
         type: Sequelize.DataTypes.DATE,
       },
-      due_date: {
+      dueDate: {
+        field: 'due_date',
         type: Sequelize.DataTypes.DATE,
       },
-      // Sincronizado con entityCode del modelo
-      entity_code: {
+      entityCode: {
+        field: 'entity_code',
         allowNull: false,
         type: Sequelize.DataTypes.STRING,
       },
-      name: {
-        type: Sequelize.DataTypes.STRING,
-      },
-      nif: {
-        type: Sequelize.DataTypes.STRING,
-      },
-      email: {
-        type: Sequelize.DataTypes.STRING,
-      },
-      phone: {
-        type: Sequelize.DataTypes.STRING,
-      },
-      address: {
-        type: Sequelize.DataTypes.STRING,
-      },
-      post_code: {
-        type: Sequelize.DataTypes.STRING,
-      },
-      city: {
-        type: Sequelize.DataTypes.STRING,
-      },
+      name: { field: 'name', type: Sequelize.DataTypes.STRING },
+      nif: { field: 'nif', type: Sequelize.DataTypes.STRING },
+      email: { field: 'email', type: Sequelize.DataTypes.STRING },
+      phone: { field: 'phone', type: Sequelize.DataTypes.STRING },
+      address: { field: 'address', type: Sequelize.DataTypes.STRING },
+      postCode: { field: 'post_code', type: Sequelize.DataTypes.STRING },
+      city: { field: 'city', type: Sequelize.DataTypes.STRING },
       paymentMethod: {
+        field: 'payment_method',
         type: Sequelize.DataTypes.ENUM('Tarjeta', 'Efectivo', 'Transferencia'),
         allowNull: false,
         defaultValue: 'Tarjeta'
       },
       status: {
+        field: 'status',
         type: Sequelize.DataTypes.ENUM('Abierto', 'Pagado'),
         allowNull: false,
         defaultValue: 'Abierto'
       },
       category: {
+        field: 'category',
         type: Sequelize.DataTypes.ENUM(
-          'Materiales',
-          'Subcontratas',
-          'Personal y Nóminas',
-          'Herramientas y Alquileres',
-          'Vehículos y Movilidad',
-          'Gastos de Oficina y Varios'
+          'Materiales', 'Subcontratas', 'Personal y Nóminas',
+          'Herramientas y Alquileres', 'Vehículos y Movilidad', 'Gastos de Oficina y Varios'
         ),
-        allowNull: true,
+        allowNull: false,
         defaultValue: 'Gastos de Oficina y Varios'
       },
-      amount_without_vat: {
+      amountWithoutVAT: {
+        field: 'amount_without_vat',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
+        allowNull: false,
         defaultValue: 0.0000
       },
-      amount_vat: {
+      amountVAT: {
+        field: 'amount_vat',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
+        allowNull: false,
         defaultValue: 0.0000
       },
-      amount_with_vat: {
+      amountWithVAT: {
+        field: 'amount_with_vat',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
+        allowNull: false,
         defaultValue: 0.0000
       },
-      comments: {
-        type: Sequelize.DataTypes.TEXT,
-      },
-      user_name: {
-        type: Sequelize.DataTypes.STRING,
-      },
-      created_at: {
+      comments: { field: 'comments', type: Sequelize.DataTypes.TEXT },
+      username: { field: 'user_name', type: Sequelize.DataTypes.STRING },
+      createdAt: {
+        field: 'created_at',
         allowNull: false,
         type: Sequelize.DataTypes.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
       },
-      updated_at: {
+      updatedAt: {
+        field: 'updated_at',
         allowNull: false,
         type: Sequelize.DataTypes.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
@@ -105,7 +96,8 @@ module.exports = {
 
   down: async (queryInterface) => {
     await queryInterface.dropTable(PURCHINVOICE_TABLE);
-    // Nota: Dependiendo del motor de base de datos (ej. PostgreSQL),
-    // a veces es necesario borrar manualmente los tipos ENUM creados.
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_purch_invoices_payment_method";');
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_purch_invoices_status";');
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_purch_invoices_category";');
   }
 };

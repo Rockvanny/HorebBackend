@@ -1,69 +1,54 @@
-const express = require('express');
-const seriesNumberService = require('../services/seriesNumber.service');
-const validatorHandler = require('../middlewares/validator.handler');
-const {
+const Joi = require('joi');
+
+const type = Joi.string();
+const startSerie = Joi.string();
+const description = Joi.string().min(3);
+const prefix = Joi.string().uppercase();
+const lastNumber = Joi.number().integer().min(0);
+const digits = Joi.number().integer().min(1).max(10);
+const fromDate = Joi.date();
+const toDate = Joi.date();
+const username = Joi.string();
+
+const limit = Joi.number().integer();
+const offset = Joi.number().integer();
+
+const getSeriesNumberSchema = Joi.object({
+  type: type.required(),
+  startSerie: startSerie.required(),
+});
+
+const createSeriesNumberSchema = Joi.object({
+  type: type.required(),
+  startSerie: startSerie.required(),
+  description: description.required(),
+  prefix: prefix.required(),
+  lastNumber: lastNumber.default(0),
+  digits: digits.default(4),
+  fromDate: fromDate.required(),
+  toDate: toDate.required(),
+  username: username.optional()
+});
+
+const updateSeriesNumberSchema = Joi.object({
+  description: description.optional(),
+  prefix: prefix.optional(),
+  lastNumber: lastNumber.optional(),
+  digits: digits.optional(),
+  fromDate: fromDate.optional(),
+  toDate: toDate.optional(),
+  username: username.optional()
+});
+
+const querySeriesNumberSchema = Joi.object({
+  limit,
+  offset,
+  type: type.optional()
+});
+
+module.exports = {
+  getSeriesNumberSchema,
   createSeriesNumberSchema,
   updateSeriesNumberSchema,
-  getSeriesNumberSchema,
   querySeriesNumberSchema
-} = require('../schemas/seriesNumber.schema');
-
-const router = express.Router();
-const service = new seriesNumberService();
-
-// LISTADO PAGINADO
-router.get('/',
-  validatorHandler(querySeriesNumberSchema, 'query'),
-  async (req, res, next) => {
-    try {
-      const result = await service.findPaginated(req.query);
-      res.json(result);
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-// OBTENER UNA
-router.get('/:type/:startSerie',
-  validatorHandler(getSeriesNumberSchema, 'params'),
-  async (req, res, next) => {
-    try {
-      const { type, startSerie } = req.params;
-      const serie = await service.findOne(type, startSerie);
-      res.json(serie);
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-// CREAR (Aquí es donde el administrador define el prefijo, ceros y fechas)
-router.post('/',
-  validatorHandler(createSeriesNumberSchema, 'body'),
-  async (req, res, next) => {
-    try {
-      const newSerie = await service.create(req.body);
-      res.status(201).json(newSerie);
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-// ACTUALIZAR
-router.patch('/:type/:startSerie',
-  validatorHandler(getSeriesNumberSchema, 'params'),
-  validatorHandler(updateSeriesNumberSchema, 'body'),
-  async (req, res, next) => {
-    try {
-      const { type, startSerie } = req.params;
-      const updated = await service.update(type, startSerie, req.body);
-      res.json(updated);
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-module.exports = router;
+};
