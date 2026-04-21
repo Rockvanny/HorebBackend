@@ -1,177 +1,92 @@
-const { Model, DataTypes, Sequelize } = require('sequelize');
-const { generateNextCode } = require('../../libs/sequence.handler');
+const express = require('express');
+const SalesPostInvoiceService = require('../services/salesPostInvoice.service');
+const validatorHandler = require('../middlewares/validator.handler');
+const { checkPermission } = require('../middlewares/auth.handler');
+const {
+    getSalesPostInvoiceSchema,
+    createSalesPostInvoiceSchema,
+    querySalesPostInvoiceSchema
+} = require('../schemas/salesPostInvoice.schema');
 
-const SALESPOSTINVOICE_TABLE = 'sales_post_invoices';
+const router = express.Router();
+const service = new SalesPostInvoiceService();
 
-const salesPostInvoiceSchema = {
-  code: {
-    field: 'code',
-    allowNull: false,
-    primaryKey: true,
-    type: DataTypes.STRING
-  },
-  preInvoice: {
-    field: 'pre_invoice', // Normalizado a snake_case
-    allowNull: false,
-    type: DataTypes.STRING
-  },
-  typeInvoice: {
-    field: 'type_invoice',
-    type: DataTypes.ENUM('F1', 'F2', 'R1', 'R2', 'R3', 'R4', 'R5'),
-    allowNull: false,
-    defaultValue: 'F1'
-  },
-  parentCode: {
-    field: 'parent_code',
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-  rectificationType: {
-    field: 'rectification_type',
-    type: DataTypes.ENUM('S', 'I'),
-    allowNull: true
-  },
-  budgetCode: {
-    field: 'budget_code',
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-  postingDate: {
-    field: 'posting_date',
-    type: DataTypes.DATE,
-    allowNull: false // Requisito legal
-  },
-  dueDate: {
-    field: 'due_date',
-    type: DataTypes.DATE,
-    allowNull: true
-  },
-  entityCode: { // Mantengo customer_code pero alineado con entity_code del borrador
-    field: 'entity_code',
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  name: {
-    field: 'name',
-    type: DataTypes.STRING,
-    allowNull: false // Requisito legal
-  },
-  nif: { // Añadido para igualar borrador
-    field: 'nif',
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  email: {
-    field: 'email',
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-  phone: {
-    field: 'phone',
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-  address: {
-    field: 'address',
-    type: DataTypes.STRING,
-    allowNull: false // Requisito legal
-  },
-  postCode: {
-    field: 'post_code',
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-  city: {
-    field: 'city',
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-  status: {
-    field: 'status',
-    type: DataTypes.ENUM('Abierto', 'Pagado'), // Tipado como ENUM igual que el borrador
-    allowNull: false,
-    defaultValue: 'Abierto'
-  },
-  paymentMethod: {
-    field: 'payment_method',
-    type: DataTypes.ENUM('Tarjeta', 'Efectivo', 'Transferencia'), // Tipado como ENUM
-    allowNull: false,
-    defaultValue: 'Tarjeta'
-  },
-  amountWithoutVAT: {
-    field: 'amount_without_vat',
-    type: DataTypes.DECIMAL(12, 4), // Aumentada precisión a 12,4
-    allowNull: false,
-    defaultValue: 0.0000
-  },
-  amountVAT: {
-    field: 'amount_vat',
-    type: DataTypes.DECIMAL(12, 4),
-    allowNull: false,
-    defaultValue: 0.0000
-  },
-  amountWithVAT: {
-    field: 'amount_with_vat',
-    type: DataTypes.DECIMAL(12, 4),
-    allowNull: false,
-    defaultValue: 0.0000
-  },
-  comments: { // Añadido para igualar borrador
-    field: 'comments',
-    type: DataTypes.TEXT,
-    allowNull: true
-  },
-  username: {
-    field: 'user_name',
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-  createdAt: {
-    field: 'created_at',
-    allowNull: false,
-    type: DataTypes.DATE,
-    defaultValue: Sequelize.NOW
-  },
-  updatedAt: {
-    field: 'updated_at',
-    allowNull: false,
-    type: DataTypes.DATE,
-    defaultValue: Sequelize.NOW
-  }
-};
+/**
+ * CONSULTAS (READ-ONLY)
+ */
 
-class salesPostInvoice extends Model {
-  static associate(models) {
-    this.belongsTo(models.Customer, {
-      as: 'customer',
-      foreignKey: 'entity_code'
-    });
-
-    this.hasMany(models.salesPostInvoiceLine, {
-      as: 'lines',
-      foreignKey: 'codeDocument', // Cambiado a codeDocument para consistencia con líneas de borrador
-      sourceKey: 'code',
-      onDelete: 'CASCADE',
-      hooks: true
-    });
-  }
-
-  static config(sequelize) {
-    return {
-      sequelize,
-      tableName: SALESPOSTINVOICE_TABLE,
-      modelName: 'salesPostInvoice',
-      timestamps: false, // Se gestionan manualmente en el esquema igual que el borrador
-      underscored: true,
-      hooks: {
-        beforeValidate: async (instance, options) => {
-          if (instance.isNewRecord && !instance.code) {
-            await generateNextCode(instance, options);
-          }
+// Listado paginado
+router.get('/salesPostInvoices-paginated',
+    checkPermission('VIEW_SALESPOSTINVOICES'),
+    async(req, res, next) => {
+        try {
+            const { limit, offset, searchTerm } = req.query;
+            const result = await service.findPaginated({ limit, offset, searchTerm });
+            res.json(result);
+        } catch (error) {
+            next(error);
         }
-      }
-    };
-  }
-}
+    }
+);
 
-module.exports = { salesPostInvoice, salesPostInvoiceSchema, SALESPOSTINVOICE_TABLE };
+// Estadísticas / Contador
+router.get('/count',
+    checkPermission('VIEW_SALESPOSTINVOICES'),
+    async (req, res, next) => {
+        try {
+            const total = await service.countAll();
+            res.status(200).json({ total });
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+// Obtener una factura específica
+router.get('/:code',
+  checkPermission('VIEW_SALESPOSTINVOICES'),
+  validatorHandler(getSalesPostInvoiceSchema, 'params'),
+  async (req, res, next) => {
+    try {
+      const { code } = req.params;
+      const includeLines = req.query.include_lines === 'true';
+
+      const record = await service.findOne(code, { includeLines });
+
+      res.json({
+        success: true,
+        data: record
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * ACCIONES DE REGISTRO (SOLO CREACIÓN)
+ */
+
+// Registrar factura (Acción irreversible)
+router.post('/',
+    checkPermission('CREATE_SALESPOSTINVOICES'),
+    validatorHandler(createSalesPostInvoiceSchema, 'body'),
+    async (req, res, next) => {
+        try {
+            const body = req.body;
+            const newInvoice = await service.create(body);
+            res.status(201).json(newInvoice);
+        } catch (error) {
+            if (error.name === "SequelizeUniqueConstraintError") {
+                return res.status(409).json({
+                    success: false,
+                    message: `La factura con código '${req.body.code}' ya está registrada y no puede ser modificada.`,
+                    error: error.errors
+                });
+            }
+            next(error);
+        }
+    }
+);
+
+module.exports = router;

@@ -2,105 +2,96 @@ const { Model, DataTypes, Sequelize } = require('sequelize');
 
 const SALESPOSTINVOICELINE_TABLE = 'sales_post_invoice_lines';
 
-const salesPostInvoicetLineSchema = {
-   codeInvoice: {
-    field: 'code_invoice',
+const salesPostInvoiceLineSchema = {
+  // CLAVE COMPUESTA NORMALIZADA
+  codeDocument: {
+    field: 'code_document', // Igualamos el nombre al del borrador
     allowNull: false,
     primaryKey: true,
     type: DataTypes.STRING,
-
     references: {
       model: 'sales_post_invoices',
       key: 'code'
     },
-
     onUpdate: 'CASCADE',
     onDelete: 'CASCADE'
   },
-
   lineNo: {
     field: 'line_no',
     allowNull: false,
-    primaryKey: true, // Parte de la clave primaria compuesta
+    primaryKey: true,
     type: DataTypes.INTEGER,
   },
-
+  // CAMPOS NORMALIZADOS (Precisión 12, 4)
   codeItem: {
     field: 'item_code',
-    allowNull: false,
     type: DataTypes.STRING,
+    allowNull: true
   },
-
   description: {
     field: 'description',
-    allowNull: true, // Asumo que la descripción puede ser opcional
-    type: DataTypes.STRING
+    type: DataTypes.TEXT // Cambiado a TEXT como el borrador para descripciones largas
   },
-
   quantity: {
     field: 'quantity',
+    type: DataTypes.DECIMAL(12, 4),
     allowNull: false,
-    type: DataTypes.INTEGER,
+    defaultValue: 0
   },
-
   unitMeasure: {
     field: 'unit_measure',
-    allowNull: false,
     type: DataTypes.STRING,
-  },
-
-  quantityUnitMeasure: {
-    field:'quantity_unit_measure',
     allowNull: false,
-    type: DataTypes.INTEGER,
+    defaultValue: 'UNIDAD'
   },
-
+  quantityUnitMeasure: {
+    field: 'quantity_unit_measure',
+    type: DataTypes.DECIMAL(12, 4),
+    allowNull: false,
+    defaultValue: 1
+  },
   unitPrice: {
     field: 'unit_price',
+    type: DataTypes.DECIMAL(12, 4),
     allowNull: false,
-    type: DataTypes.DECIMAL(10, 2),
-    defaultValue: 0.00
+    defaultValue: 0
   },
-
   vat: {
     field: 'vat',
+    type: DataTypes.DECIMAL(12, 4),
     allowNull: false,
-    type: DataTypes.DECIMAL(10, 2),
-    defaultValue: 0.00
+    defaultValue: 21
   },
-
   amountLine: {
     field: 'amount_line',
+    type: DataTypes.DECIMAL(12, 4),
     allowNull: false,
-    type: DataTypes.DECIMAL(10, 2),
-    defaultValue: 0.00
+    defaultValue: 0
   },
-
   username: {
     field: 'user_name',
-    type: DataTypes.STRING,
+    type: DataTypes.STRING
   },
-
   createdAt: {
     field: 'created_at',
     allowNull: false,
     type: DataTypes.DATE,
-    defaultValue: Sequelize.NOW,
+    defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
   },
-
   updatedAt: {
     field: 'updated_at',
     allowNull: false,
     type: DataTypes.DATE,
-    defaultValue: Sequelize.NOW
+    defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
   }
 };
 
 class salesPostInvoiceLine extends Model {
   static associate(models) {
     this.belongsTo(models.salesPostInvoice, {
-      as: 'invoice',
-      foreignKey: 'code_invoice'
+      as: 'parentDocument', // Alias igualado al borrador para consistencia
+      foreignKey: 'codeDocument',
+      targetKey: 'code'
     });
   }
 
@@ -110,11 +101,9 @@ class salesPostInvoiceLine extends Model {
       tableName: SALESPOSTINVOICELINE_TABLE,
       modelName: 'salesPostInvoiceLine',
       timestamps: true,
-      underscored: true,
-      id: false,
-      primaryKey: ['code_invoice', 'line_no']
+      underscored: true
     };
   }
 }
 
-module.exports = { salesPostInvoiceLine, salesPostInvoicetLineSchema, SALESPOSTINVOICELINE_TABLE };
+module.exports = { salesPostInvoiceLine, salesPostInvoiceLineSchema, SALESPOSTINVOICELINE_TABLE };

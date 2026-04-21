@@ -1,28 +1,15 @@
-// services/salesPostInvoiceLine.service.js
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
-
 const sequelize = require('../libs/sequelize');
 
-const { salesPostInvoiceLine, salesPostInvoice } = sequelize.models; // También necesitas salesPostInvoice si asocias con él
+const { salesPostInvoiceLine, salesPostInvoice } = sequelize.models;
 
 class salesPostInvoiceLineService {
-
   constructor() { }
 
-  async find(query) {
-    const options = {
-      where: {}
-    }
-    const { limit, offset } = query;
-    if (limit && offset) {
-      options.limit = parseInt(limit, 10);
-      options.offset = parseInt(offset, 10);
-    }
-    const lines = await salesPostInvoiceLine.findAll(options);
-    return lines;
-  }
-
+  /**
+   * Consulta paginada de líneas (Read-only)
+   */
   async findPaginated({ limit, offset, searchTerm }) {
     const parsedLimit = parseInt(limit, 10) || 100;
     const parsedOffset = parseInt(offset, 10) || 0;
@@ -30,13 +17,14 @@ class salesPostInvoiceLineService {
     const options = {
       limit: parsedLimit,
       offset: parsedOffset,
-      order: [['codeInvoice', 'ASC'], ['lineNo', 'ASC']], // Ordenar por PK compuesta
+      // Orden por Documento y luego por número de línea
+      order: [['code_document', 'ASC'], ['line_no', 'ASC']],
       where: {},
-    }
+    };
 
     if (searchTerm) {
       options.where[Op.or] = [
-        { codeInvoice: { [Op.iLike]: `%${searchTerm}%` } },
+        { codeDocument: { [Op.iLike]: `%${searchTerm}%` } },
         { codeItem: { [Op.iLike]: `%${searchTerm}%` } },
         { description: { [Op.iLike]: `%${searchTerm}%` } }
       ];
@@ -45,94 +33,72 @@ class salesPostInvoiceLineService {
     try {
       const { count, rows } = await salesPostInvoiceLine.findAndCountAll(options);
       return {
-        salesPostInvoiceLines: rows,
+        records: rows,
         hasMore: (parsedOffset + rows.length) < count,
         total: count,
       };
     } catch (error) {
-      console.error('Error en salesPostInvoiceLineService.findPaginated: ', error);
-      throw boom.badImplementation('Error al consultar líneas de facturas paginadas', error);
+      throw boom.badImplementation('Error al consultar líneas de facturas registradas', error);
     }
   }
 
-
-  async findOne({ codeInvoice, lineNo }, options = {}) {
+  /**
+   * Buscar una línea específica (PK Compuesta)
+   */
+  async findOne({ codeDocument, lineNo }, options = {}) {
     const queryOptions = {
-      where: {
-        codeInvoice: codeInvoice,
-        lineNo: lineNo
-      },
-
+      where: { codeDocument, lineNo },
       include: []
-    }
-    if (options.includeInvoice) { // Añade una opción para incluir el facturas padre
+    };
+
+    if (options.includeParent) {
       queryOptions.include.push({
         model: salesPostInvoice,
-        as: 'budget' // Alias definido en salesPostInvoiceLine.associate
+        as: 'parentDocument'
       });
     }
 
-    const line = await salesPostInvoiceLine.findOne(queryOptions); // Usar findOne en lugar de findByPk para PKs compuestas
+    const line = await salesPostInvoiceLine.findOne(queryOptions);
     if (!line) {
-      throw boom.notFound(`Línea de facturas con codeInvoice '${codeInvoice}' y lineNo '${lineNo}' no encontrada`);
+      throw boom.notFound(`Línea ${lineNo} del documento registrado ${codeDocument} no encontrada`);
     }
     return line;
   }
 
-  async create(data) {
-    let transaction;
+  /**
+   * Creación de línea (Atómica e Inalterable)
+   */
+  async create(data, transaction = null) {
+    const t = transaction || await sequelize.transaction();
     try {
-      // Verificar si ya existe una línea con el mismo codeInvoice y lineNo
+      // Verificación de duplicados antes de insertar
       const existingLine = await salesPostInvoiceLine.findOne({
         where: {
-          codeInvoice: data.codeInvoice,
+          codeDocument: data.codeDocument,
           lineNo: data.lineNo
-        }
+        },
+        transaction: t
       });
+
       if (existingLine) {
-        throw boom.conflict(`Una línea con codeInvoice '${data.codeInvoice}' y lineNo '${data.lineNo}' ya existe.`);
+        throw boom.conflict(`La línea ${data.lineNo} ya está registrada en el documento ${data.codeDocument}`);
       }
 
-      transaction = await sequelize.transaction();
-      const newsalesPostInvoiceLine = await salesPostInvoiceLine.create(data, { transaction });
-      await transaction.commit();
-      return newsalesPostInvoiceLine;
+      const newLine = await salesPostInvoiceLine.create(data, { transaction: t });
+
+      if (!transaction) await t.commit();
+      return newLine;
     } catch (error) {
-      if (transaction) {
-        await transaction.rollback();
-      }
-      console.error('Error en salesPostInvoiceLineService.create: ', error);
-      // El boom.conflict ya maneja la duplicidad, otros errores son badImplementation
-      if (error.isBoom) throw error; // Re-lanza errores boom
-      throw boom.badImplementation('Error al crear la línea de facturas', error);
+      if (!transaction && t) await t.rollback();
+      if (error.isBoom) throw error;
+      throw boom.badImplementation('Error al registrar la línea de factura', error);
     }
   }
 
-  // *** update corregido para aceptar la clave primaria compuesta ***
-  async update({ codeInvoice, lineNo }, changes) {
-    console.log(`\n--- DEBUG: Dentro de salesPostInvoiceLineService.update(${codeInvoice}-${lineNo}, changes) ---`);
-    const line = await this.findOne({ codeInvoice, lineNo }); // Buscar la línea por su PK compuesta
-
-    const updatedLine = await line.update(changes);
-    return updatedLine;
-  }
-
-  // *** delete corregido para aceptar la clave primaria compuesta ***
-  async delete({ codeInvoice, lineNo }) {
-    const lineToDelete = await this.findOne({ codeInvoice, lineNo }); // Buscar la línea por su PK compuesta
-    if (!lineToDelete) {
-      throw boom.notFound(`Línea de facturas con codeInvoice '${codeInvoice}' y lineNo '${lineNo}' no encontrada`);
-    }
-
-    await salesPostInvoiceLine.destroy({
-      where: {
-        codeInvoice: codeInvoice,
-        lineNo: lineNo
-      }
-    });
-
-    return { codeInvoice, lineNo, message: 'Línea eliminada' };
-  }
+  /**
+   * NOTA: Los métodos update() y delete() han sido eliminados.
+   * Una línea de factura registrada es un documento legal inalterable.
+   */
 }
 
 module.exports = salesPostInvoiceLineService;
