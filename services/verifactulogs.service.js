@@ -9,43 +9,30 @@ class VerifactuService {
   constructor() {}
 
   async createLog(invoiceCode, isTest = false, transaction = null) {
-    // Si no viene transacción, creamos una, si viene, usamos la del padre
     const t = transaction || await sequelize.transaction();
-
     try {
-      const invoice = await salesPostInvoice.findOne({
-        where: { code: invoiceCode },
-        transaction: t
-      });
+      const invoice = await salesPostInvoice.findOne({ where: { code: invoiceCode }, transaction: t });
+      if (!invoice) throw boom.notFound('Factura no encontrada para Veri*factu');
 
-      if (!invoice) throw boom.notFound('Factura no encontrada para registro Veri*factu');
-
-      // Obtenemos el último log para encadenar la huella
-      const lastLog = await VerifactuLog.findOne({
-        order: [['id', 'DESC']],
-        transaction: t
-      });
-
+      const lastLog = await VerifactuLog.findOne({ order: [['id', 'DESC']], transaction: t });
       const prevFingerprint = lastLog ? lastLog.fingerprint : null;
-
-      // Generamos la huella digital usando tu librería en /libs
       const fingerprint = generateVerifactuHash(invoice, prevFingerprint);
 
-      // Preparamos el Payload que se usará para el envío futuro
+      const dateStr = invoice.postingDate instanceof Date ? invoice.postingDate.toISOString().split('T')[0] : invoice.postingDate;
+
       const payload = {
-        emisor: { nif: invoice.nif, nombre: invoice.name },
+        emisor: { nif: (invoice.nif || '').trim().toUpperCase(), nombre: (invoice.name || '').trim() },
         factura: {
           numero: invoice.code,
-          fecha: invoice.postingDate,
-          tipo: invoice.typeInvoice || 'F1', // F1 es el estándar para facturas ordinarias
-          total: parseFloat(invoice.amountWithVAT).toFixed(2),
-          cuota_iva: parseFloat(invoice.amountVAT).toFixed(2)
+          fecha: dateStr,
+          tipo: invoice.typeInvoice || 'F1',
+          total: parseFloat(invoice.amountWithVAT || 0).toFixed(2),
+          cuota_iva: parseFloat(invoice.amountVAT || 0).toFixed(2)
         },
         timestamp: new Date().toISOString(),
-        test: isTest
+        isTest
       };
 
-      // Guardamos el registro de trazabilidad
       const newLog = await VerifactuLog.create({
         invoiceCode: invoice.code,
         fingerprint,
@@ -54,21 +41,40 @@ class VerifactuService {
         isTest
       }, { transaction: t });
 
-      // Solo hacemos commit si la transacción se inició en este servicio
       if (!transaction) await t.commit();
-
       return newLog;
-
     } catch (error) {
-      // Solo hacemos rollback si la transacción se inició aquí
       if (!transaction && t) await t.rollback();
-
-      // Propagamos el error para que el servicio padre también se entere
       throw error.isBoom ? error : boom.badImplementation(error);
     }
   }
 
-  // ... (findOne, findPaginated, etc)
+  async getTraceability(invoiceCode) {
+    const log = await VerifactuLog.findOne({
+      where: { invoiceCode },
+      include: [{ model: salesPostInvoice, as: 'invoice' }]
+    });
+    if (!log) throw boom.notFound('No hay registro Veri*factu para esta factura');
+    return log;
+  }
+
+  async findPaginated(query) {
+    const { limit, offset, isTest, invoiceCode } = query;
+    const where = {};
+
+    // Filtros dinámicos
+    if (isTest !== undefined) where.isTest = isTest;
+    if (invoiceCode) where.invoiceCode = invoiceCode;
+
+    const options = {
+      limit: parseInt(limit, 10) || 50,
+      offset: parseInt(offset, 10) || 0,
+      where,
+      order: [['id', 'DESC']]
+    };
+    const { count, rows } = await VerifactuLog.findAndCountAll(options);
+    return { records: rows, total: count };
+  }
 }
 
 module.exports = VerifactuService;

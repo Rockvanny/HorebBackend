@@ -1,15 +1,18 @@
 const express = require('express');
-const VerifactuService = require('../services/verifactu.service');
+const VerifactuService = require('../services/verifactulogs.service'); 
 const validatorHandler = require('../middlewares/validator.handler');
 const { checkPermission } = require('../middlewares/auth.handler');
-const Joi = require('joi');
+const {
+  getVerifactuLogSchema,
+  queryVerifactuLogSchema
+} = require('../schemas/verifactuLog.schema');
 
 const router = express.Router();
 const service = new VerifactuService();
 
-// GET /logs - Ver historial de registros (Para auditoría)
 router.get('/',
-  checkPermission('ADMIN_VERIFACTU'), // Permiso especial de alto nivel
+  checkPermission('ADMIN_VERIFACTU'),
+  validatorHandler(queryVerifactuLogSchema, 'query'),
   async (req, res, next) => {
     try {
       const logs = await service.findPaginated(req.query);
@@ -18,10 +21,9 @@ router.get('/',
   }
 );
 
-// GET /logs/:invoiceCode - Ver el "sello" de una factura específica
 router.get('/:invoiceCode',
   checkPermission('VIEW_SALESPOSTINVOICES'),
-  validatorHandler(Joi.object({ invoiceCode: Joi.string().required() }), 'params'),
+  validatorHandler(getVerifactuLogSchema, 'params'),
   async (req, res, next) => {
     try {
       const { invoiceCode } = req.params;
@@ -31,15 +33,14 @@ router.get('/:invoiceCode',
   }
 );
 
-// POST /generate/:invoiceCode
-// Generalmente esto se llama internamente desde SalesPostInvoiceService,
-// pero tener una ruta manual (solo para admins) puede ser útil en caso de error en el proceso.
 router.post('/generate/:invoiceCode',
   checkPermission('ADMIN_VERIFACTU'),
+  validatorHandler(getVerifactuLogSchema, 'params'),
   async (req, res, next) => {
     try {
       const { invoiceCode } = req.params;
-      const log = await service.createLog(invoiceCode);
+      const isTest = process.env.NODE_ENV !== 'production';
+      const log = await service.createLog(invoiceCode, isTest);
       res.status(201).json(log);
     } catch (error) { next(error); }
   }
