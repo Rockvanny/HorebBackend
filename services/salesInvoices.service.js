@@ -33,38 +33,6 @@ class salesInvoiceService {
     }
   }
 
-  // --- MÉTODOS DE METADATOS (RECUPERADOS) ---
-
-  async findStatuses() {
-    try {
-      const attributes = salesInvoice.getAttributes();
-      if (attributes.status && attributes.status.values) {
-        return attributes.status.values;
-      }
-      return ['Abierto', 'Pagado', 'Anulado'];
-    } catch (error) {
-      throw boom.badImplementation('No se pudieron obtener los estados');
-    }
-  }
-
-  async findTypeInvoices() {
-    try {
-      const attributes = salesInvoice.getAttributes();
-      return attributes.typeInvoice?.values || ['F1', 'F2', 'R1', 'R2', 'R3', 'R4', 'R5'];
-    } catch (error) {
-      throw boom.badImplementation('Error al obtener tipos de factura');
-    }
-  }
-
-  async findRectificationTypes() {
-    try {
-      const attributes = salesInvoice.getAttributes();
-      return attributes.rectificationType?.values || ['S', 'I'];
-    } catch (error) {
-      throw boom.badImplementation('Error al obtener tipos de rectificación');
-    }
-  }
-
   // --- MÉTODOS ESPEJO DE BUDGET ---
 
   async countAll(filters = {}) {

@@ -22,8 +22,18 @@ router.get('/purchInvoices-paginated',
     checkPermission('VIEW_PURCHINVOICES'),
     async(req, res, next) => {
         try {
-            const { limit, offset, searchTerm } = req.query;
-            const result = await service.findPaginated({ limit, offset, searchTerm });
+            const { limit, offset, searchTerm, overdue } = req.query;
+
+            // Si 'overdue' viene como 'true' (string), asignamos 'overdue' a la variable filter
+            const filter = overdue === 'true' ? 'overdue' : null;
+
+            const result = await service.findPaginated({
+              limit,
+              offset,
+              searchTerm,
+              filter
+            });
+
             res.json(result);
         } catch (error) {
             next(error);
@@ -36,7 +46,14 @@ router.get('/count',
     checkPermission('VIEW_PURCHINVOICES'),
     async (req, res, next) => {
         try {
-            const total = await service.countAll();
+            // 1. Capturamos tanto 'filter' como 'overdue' por si acaso
+            const { filter, overdue } = req.query;
+
+            // 2. Normalizamos: Si viene overdue=true, asignamos 'overdue'
+            // Esto asegura que el service.countAll reciba el string correcto
+            const activeFilter = overdue === 'true' ? 'overdue' : filter;
+
+            const total = await service.countAll({ filter: activeFilter });
             res.status(200).json({ total });
         } catch (error) {
             next(error);
