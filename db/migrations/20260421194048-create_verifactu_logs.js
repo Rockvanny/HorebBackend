@@ -1,6 +1,6 @@
 'use strict';
 
-const { VERIFACTU_LOG_TABLE } = require('../models/verifactuLog.model');
+const { VERIFACTU_LOG_TABLE } = require('../models/verifactuLogs.model');
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
