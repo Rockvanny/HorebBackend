@@ -17,6 +17,6 @@ trim_trailing_whitespace = false
 
 
 # para generar migraciones
-# -> Para crear el archivo de migracion: npx sequelize-cli migration:generate --name create_new_table
+# -> Para crear el archivo de migracion: migracion: npx sequelize-cli migration:generate --name create_new_table
 # -> Para aplicar la migracion: npx sequelize-cli db:migrate
 # -> Para revertir una migracion npx sequelize-cli db:migrate:undo

@@ -15,6 +15,7 @@ const purchInvoiceRouter = require('./purchInvoice.router');
 const purchInvoiceLinesRouter = require('./purchInvoiceLines.router');
 const purchPostInvoiceRouter = require('./purchPostInvoice.router');
 const seiresNumberRouter = require('./seriesNumber.router');
+const verifactuLogsRouter = require('./verifactuLogs.router');
 const config = require('./config.router');
 
 //Rutas internas que no apuntan a tablas
@@ -40,6 +41,7 @@ function routerApi(app) {
   router.use('/purchInvoiceLines', purchInvoiceLinesRouter);
   router.use('/purchPostInvoices', purchPostInvoiceRouter);
   router.use('/seriesNumber', seiresNumberRouter);
+  router.use('/verifactuLogs', verifactuLogsRouter);
   router.use('/config', config);
   router.use('/stats', statsRouter);
   router.use('/enums', enumsRouter);

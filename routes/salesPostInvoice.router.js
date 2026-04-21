@@ -1,132 +1,82 @@
 const express = require('express');
-
-const salesPostInvoiceService = require('../services/salesPostInvoice.service');
+const SalesPostInvoiceService = require('../services/SalesPostInvoice.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { createSalesPostInvoiceSchema, getSalesPostInvoiceSchema, updateSalesPostInvoiceSchema, querySalesPostInvoiceSchema} = require('../schemas/salesPostInvoice.schema');
+const { checkPermission } = require('../middlewares/auth.handler');
+const {
+  createSalesPostInvoiceSchema,
+  getSalesPostInvoiceSchema,
+  querySalesPostInvoiceSchema
+} = require('../schemas/salesPostInvoice.schema');
 
 const router = express.Router();
-const service = new salesPostInvoiceService();
+const service = new SalesPostInvoiceService();
 
-router.get('/data/:budgetCode', async (req, res, next) => {
-    const { budgetCode } = req.params;
-    try {
-        const totalFacturado = await service.getTotalByBudget(budgetCode);
-
-        const data = {
-            totalFacturado: totalFacturado
-        };
-
-        res.json(data);
-    } catch (error) {
-        next(boom.badImplementation('Error al obtener los datos para el gráfico', error));
-    }
-});
-
-router.get('/salesPostInvoices-paginated', async(req, res, next) => {
-  try {
-    const { limit, offset, searchTerm } = req.query;
-    const result = await service.findPaginated({ limit, offset, searchTerm });
-
-    res.json(result);
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.get('/count',
-  async (req, res, next) => {
-    try {
-      const totalPostSalesInvoice = await service.countAll(); // Llama al nuevo método del servicio
-      res.status(200).json({ totalPostSalesInvoice });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-router.get('/:code',
-  validatorHandler(getSalesPostInvoiceSchema, 'params'),
-
-  async (req, res, next) => {
-    console.time(`Tiempo de consulta para el presupuesto ID ${req.params.code}`);
-     try {
-      const { code } = req.params;
-
-      const includeCustomer = req.query.include_customer === 'true' || req.query.include_customer === '1';
-      const includeLines = req.query.include_lines === 'true' || req.query.include_lines === '1';
-
-      // Llamar al servicio, pasando el objeto de opciones
-      const salesPostInvoice = await service.findOne(code, {
-        includeCustomer,
-        includeLines
-      });
-
-      console.timeEnd(`Tiempo de consulta para el presupuesto ID ${code}`);
-      res.json(salesPostInvoice);
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
+/**
+ * GET / - Listado paginado de facturas registradas
+ */
 router.get('/',
+  checkPermission('VIEW_SALESPOSTINVOICES'),
   validatorHandler(querySalesPostInvoiceSchema, 'query'),
   async (req, res, next) => {
-    console.time("Tiempo de consulta a presupuestos");
     try {
-      const salesPostInvoice = await service.find(req.query);
-      console.timeEnd("Tiempo de consulta a presupuestos");
-      res.json(salesPostInvoice);
+      const result = await service.findPaginated(req.query);
+      res.json(result);
     } catch (error) {
       next(error);
     }
   }
 );
 
+/**
+ * GET /:code - Detalle de una factura específica con sus líneas
+ */
+router.get('/:code',
+  checkPermission('VIEW_SALESPOSTINVOICES'),
+  validatorHandler(getSalesPostInvoiceSchema, 'params'),
+  async (req, res, next) => {
+    try {
+      const { code } = req.params;
+      const invoice = await service.findOne(code, { includeLines: true });
+      res.json(invoice);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST / - Registro oficial de factura (Acción irreversible)
+ * Este es el endpoint que dispara el flujo: Factura -> Líneas -> Verifactu
+ */
 router.post('/',
+  checkPermission('CREATE_SALESPOSTINVOICES'),
   validatorHandler(createSalesPostInvoiceSchema, 'body'),
   async (req, res, next) => {
     try {
-      const body = req.body;
-      const newSalesPostInvoice = await service.create(body);
-      res.status(201).json(newSalesPostInvoice);
-    } catch (error) {
-      //Manejo explícito de errores de clave única
-      if (error.name === "SequelizeUniqueConstraintError") {
-        return res.status(409).json({
-          success: false,
-          message: `El código de presupuesto '${req.body.code}' ya existe. Intenta otro.`,
-          error: error.errors
-        });
-      }
-      next(error); // Otros errores seguirán su flujo normal
-    }
-  }
-);
+      // Inyectamos el usuario de la sesión para la trazabilidad
+      const data = {
+        ...req.body,
+        username: req.user.username
+      };
 
-router.patch('/:code',
-  validatorHandler(getSalesPostInvoiceSchema, 'params'),
-  validatorHandler(updateSalesPostInvoiceSchema, 'body'),
-  async (req, res, next) => {
-    try {
-      console.log('Consulta PATCH')
-      const { code } = req.params;
-      const body = req.body;
-      const salesPostInvoice = await service.update(code, body);
-      res.json(salesPostInvoice);
+      const result = await service.create(data);
+      res.status(201).json(result);
     } catch (error) {
       next(error);
     }
   }
 );
 
-router.delete('/:code',
-  validatorHandler(getSalesPostInvoiceSchema, 'params'),
+/**
+ * GET /stats/budget/:budgetCode - Utilidad para ver el total facturado de un presupuesto
+ */
+router.get('/stats/budget/:budgetCode',
+  checkPermission('VIEW_SALESPOSTINVOICES'),
   async (req, res, next) => {
     try {
-      const { code } = req.params;
-      await service.delete(code);
-      res.status(201).json({ code });
+      const { budgetCode } = req.params;
+      const total = await service.getTotalByBudget(budgetCode);
+      res.json({ budgetCode, total });
     } catch (error) {
       next(error);
     }
