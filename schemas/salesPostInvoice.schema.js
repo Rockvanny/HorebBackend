@@ -14,8 +14,8 @@ const postingDate = Joi.date();
 const dueDate = Joi.date().allow(null);
 const budgetCode = Joi.string().allow('', null);
 
-// Sincronizado con el modelo de factura registrada (customerCode)
-const customerCode = Joi.string();
+// Sincronizado con el modelo de factura registrada (entityCode)
+const entityCode = Joi.string();
 const name = Joi.string().min(3).max(100);
 const nif = Joi.string().min(5).max(20);
 const email = Joi.string().email().allow('', null);

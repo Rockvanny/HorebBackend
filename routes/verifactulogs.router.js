@@ -1,11 +1,8 @@
 const express = require('express');
-const VerifactuService = require('../services/verifactulogs.service'); 
+const VerifactuService = require('../services/verifactulogs.service');
 const validatorHandler = require('../middlewares/validator.handler');
 const { checkPermission } = require('../middlewares/auth.handler');
-const {
-  getVerifactuLogSchema,
-  queryVerifactuLogSchema
-} = require('../schemas/verifactuLog.schema');
+const { getVerifactuLogSchema, queryVerifactuLogSchema } = require('../schemas/verifactuLogs.schema');
 
 const router = express.Router();
 const service = new VerifactuService();

@@ -49,8 +49,8 @@ module.exports = {
         type: Sequelize.DataTypes.STRING,
         allowNull: true
       },
-      customerCode: {
-        field: 'customer_code',
+      entityCode: {
+        field: 'entity_code',
         type: Sequelize.DataTypes.STRING,
         allowNull: false,
       },
