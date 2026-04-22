@@ -1,5 +1,6 @@
 const express = require('express');
-const Joi = require('joi'); // Importante para la validación del codeDocument en POST
+const passport = require('passport'); // 1. Importar Passport
+const Joi = require('joi');
 const PurchInvoiceLineService = require('../services/purchInvoiceLine.service');
 const validatorHandler = require('../middlewares/validator.handler');
 const { checkPermission } = require('../middlewares/auth.handler');
@@ -18,7 +19,8 @@ const service = new PurchInvoiceLineService();
  */
 
 router.get('/paginated',
-  checkPermission('VIEW_PURCHINVOICES'), // Protegido
+  passport.authenticate('jwt', { session: false }), // 2. Autenticación obligatoria
+  checkPermission('allowPurchases'), // 3. Permiso unificado
   validatorHandler(queryPurchInvoiceLineSchema, 'query'),
   async (req, res, next) => {
     try {
@@ -29,7 +31,8 @@ router.get('/paginated',
 );
 
 router.get('/:codeDocument/:lineNo',
-  checkPermission('VIEW_PURCHINVOICES'), // Protegido
+  passport.authenticate('jwt', { session: false }),
+  checkPermission('allowPurchases'),
   validatorHandler(getPurchInvoiceLineSchema, 'params'),
   async (req, res, next) => {
     try {
@@ -45,38 +48,42 @@ router.get('/:codeDocument/:lineNo',
  */
 
 router.post('/:codeDocument',
-  checkPermission('UPDATE_PURCHINVOICES'), // Crear líneas es parte de editar la compra
+  passport.authenticate('jwt', { session: false }),
+  checkPermission('allowPurchases'), // Crear líneas es parte de la gestión de compras
   validatorHandler(Joi.object({ codeDocument: Joi.string().required() }), 'params'),
   validatorHandler(createPurchInvoiceLineSchema, 'body'),
   async (req, res, next) => {
     try {
       const { codeDocument } = req.params;
-      const newLine = await service.create({ ...req.body, codeDocument });
+      // Ahora puedes usar req.user.userId con seguridad
+      const newLine = await service.create({ ...req.body, codeDocument }, req.user.userId);
       res.status(201).json(newLine);
     } catch (error) { next(error); }
   }
 );
 
 router.patch('/:codeDocument/:lineNo',
-  checkPermission('UPDATE_PURCHINVOICES'), // Protegido
+  passport.authenticate('jwt', { session: false }),
+  checkPermission('allowPurchases'),
   validatorHandler(getPurchInvoiceLineSchema, 'params'),
   validatorHandler(updatePurchInvoiceLineSchema, 'body'),
   async (req, res, next) => {
     try {
       const { codeDocument, lineNo } = req.params;
-      const line = await service.update({ codeDocument, lineNo }, req.body);
+      const line = await service.update({ codeDocument, lineNo }, req.body, req.user.userId);
       res.json(line);
     } catch (error) { next(error); }
   }
 );
 
 router.delete('/:codeDocument/:lineNo',
-  checkPermission('UPDATE_PURCHINVOICES'), // Borrar una línea suele requerir permiso de edición
+  passport.authenticate('jwt', { session: false }),
+  checkPermission('allowPurchases'),
   validatorHandler(getPurchInvoiceLineSchema, 'params'),
   async (req, res, next) => {
     try {
       const { codeDocument, lineNo } = req.params;
-      const result = await service.delete({ codeDocument, lineNo });
+      const result = await service.delete({ codeDocument, lineNo }, req.user.userId);
       res.json(result);
     } catch (error) { next(error); }
   }

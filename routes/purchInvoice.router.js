@@ -1,4 +1,5 @@
 const express = require('express');
+const passport = require('passport'); // 1. Importar Passport
 const PurchInvoiceService = require('../services/purchInvoice.service');
 const validatorHandler = require('../middlewares/validator.handler');
 const { checkPermission } = require('../middlewares/auth.handler');
@@ -12,19 +13,17 @@ const {
 const router = express.Router();
 const service = new PurchInvoiceService();
 
-
 /**
  * CONSULTAS DE FACTURAS DE COMPRA (VIEW)
  */
 
 // Listado paginado con filtros
 router.get('/purchInvoices-paginated',
-    checkPermission('VIEW_PURCHINVOICES'),
+    passport.authenticate('jwt', { session: false }), // 2. Inyectar Passport antes del permiso
+    checkPermission('allowPurchases'), // 3. Usar el nombre de permiso del UserService
     async(req, res, next) => {
         try {
             const { limit, offset, searchTerm, overdue } = req.query;
-
-            // Si 'overdue' viene como 'true' (string), asignamos 'overdue' a la variable filter
             const filter = overdue === 'true' ? 'overdue' : null;
 
             const result = await service.findPaginated({
@@ -43,14 +42,11 @@ router.get('/purchInvoices-paginated',
 
 // Contador total para estadísticas rápidos
 router.get('/count',
-    checkPermission('VIEW_PURCHINVOICES'),
+    passport.authenticate('jwt', { session: false }), // <--- CRÍTICO para el Dashboard
+    checkPermission('allowPurchases'),
     async (req, res, next) => {
         try {
-            // 1. Capturamos tanto 'filter' como 'overdue' por si acaso
             const { filter, overdue } = req.query;
-
-            // 2. Normalizamos: Si viene overdue=true, asignamos 'overdue'
-            // Esto asegura que el service.countAll reciba el string correcto
             const activeFilter = overdue === 'true' ? 'overdue' : filter;
 
             const total = await service.countAll({ filter: activeFilter });
@@ -61,19 +57,18 @@ router.get('/count',
     }
 );
 
-// Obtener una factura específica por código (con inclusiones opcionales)
+// Obtener una factura específica por código
 router.get('/:code',
-  checkPermission('VIEW_PURCHINVOICES'),
+  passport.authenticate('jwt', { session: false }),
+  checkPermission('allowPurchases'),
   validatorHandler(getPurchInvoiceSchema, 'params'),
   async (req, res, next) => {
     try {
       const { code } = req.params;
-
-      // Capturamos el parámetro y lo convertimos a booleano real
       const includeLines = req.query.include_lines === 'true' || req.query.includeLines === 'true';
 
       const record = await service.findOne(code, {
-        includeLines: includeLines // Pasamos solo las líneas
+        includeLines: includeLines
       });
 
       res.json({
@@ -86,9 +81,10 @@ router.get('/:code',
   }
 );
 
-// Listado general (Query params validados)
+// Listado general
 router.get('/',
-    checkPermission('VIEW_PURCHINVOICES'),
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowPurchases'),
     validatorHandler(queryPurchInvoiceSchema, 'query'),
     async (req, res, next) => {
         try {
@@ -104,17 +100,18 @@ router.get('/',
  * ACCIONES DE ESCRITURA
  */
 
-// Crear nueva factura de compra (Cabecera + Líneas)
+// Crear nueva factura
 router.post('/',
-    checkPermission('CREATE_PURCHINVOICES'),
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowPurchases'),
     validatorHandler(createPurchInvoiceSchema, 'body'),
     async (req, res, next) => {
         try {
             const body = req.body;
-            const newInvoice = await service.create(body);
+            // Opcional: pasar req.user.userId al create para auditoría
+            const newInvoice = await service.create(body, req.user.userId);
             res.status(201).json(newInvoice);
         } catch (error) {
-            // Sincronizado con la lógica de error de ofertas
             if (error.name === "SequelizeUniqueConstraintError") {
                 return res.status(409).json({
                     success: false,
@@ -127,16 +124,17 @@ router.post('/',
     }
 );
 
-// Actualización completa (Cabecera y Sincronización de Líneas)
+// Actualización completa
 router.put('/:code',
-    checkPermission('UPDATE_PURCHINVOICES'),
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowPurchases'),
     validatorHandler(getPurchInvoiceSchema, 'params'),
     validatorHandler(updatePurchInvoiceSchema, 'body'),
     async (req, res, next) => {
         try {
             const { code } = req.params;
             const body = req.body;
-            const record = await service.update(code, body);
+            const record = await service.update(code, body, req.user.userId);
             res.json(record);
         } catch (error) {
             next(error);
@@ -144,9 +142,10 @@ router.put('/:code',
     }
 );
 
-// Eliminación (Borrado físico con CASCADE en líneas)
+// Eliminación
 router.delete('/:code',
-    checkPermission('DELETE_PURCHINVOICES'),
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowGestion'), // Normalmente borrar facturas requiere permisos de admin/settings
     validatorHandler(getPurchInvoiceSchema, 'params'),
     async (req, res, next) => {
         try {

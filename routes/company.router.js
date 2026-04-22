@@ -1,13 +1,21 @@
 const express = require('express');
+const passport = require('passport'); // 1. Importamos passport
 const CompanyService = require('../services/company.service');
 const validatorHandler = require('./../middlewares/validator.handler');
-const {createCompanySchema, getCompanySchema, updateCompanySchema} = require('../schemas/company.schema');
+const { checkPermission } = require('../middlewares/auth.handler'); // 2. Importamos el verificador de permisos
+const { createCompanySchema, getCompanySchema, updateCompanySchema } = require('../schemas/company.schema');
 
 const router = express.Router();
 const service = new CompanyService();
 
+/**
+ * RUTAS DE EMPRESA PROTEGIDAS
+ */
 
+// Obtener datos de la empresa
 router.get('/',
+  passport.authenticate('jwt', { session: false }), // 3. Primero autenticamos
+  checkPermission('allowGestion'),
   validatorHandler(getCompanySchema, 'query'),
   async (req, res, next) => {
     console.time("Tiempo de consulta a empresa");
@@ -21,15 +29,17 @@ router.get('/',
   }
 );
 
+// Crear empresa (Generalmente solo el Maestro o Admin)
 router.post('/',
+  passport.authenticate('jwt', { session: false }),
+  checkPermission('allowGestion'), // Solo usuarios con permiso de configuración
   validatorHandler(createCompanySchema, 'body'),
   async (req, res, next) => {
     try {
       const body = req.body;
-      const newComapny = await service.create(body);
-      res.status(201).json(newComapny);
+      const newCompany = await service.create(body);
+      res.status(201).json(newCompany);
     } catch (error) {
-      //Manejo explícito de errores de clave única
       if (error.name === "SequelizeUniqueConstraintError") {
         return res.status(409).json({
           success: false,
@@ -37,17 +47,19 @@ router.post('/',
           error: error.errors
         });
       }
-      next(error); // Otros errores seguirán su flujo normal
+      next(error);
     }
   }
 );
 
+// Actualizar datos de la empresa
 router.patch('/:id',
+  passport.authenticate('jwt', { session: false }),
+  checkPermission('allowGestion'),
   validatorHandler(getCompanySchema, 'params'),
   validatorHandler(updateCompanySchema, 'body'),
   async (req, res, next) => {
     try {
-      console.log('Consulta PATCH')
       const { id } = req.params;
       const body = req.body;
       const company = await service.update(id, body);
@@ -58,13 +70,16 @@ router.patch('/:id',
   }
 );
 
+// Eliminar datos de empresa
 router.delete('/:id',
+  passport.authenticate('jwt', { session: false }),
+  checkPermission('allowGestion'),
   validatorHandler(getCompanySchema, 'params'),
   async (req, res, next) => {
     try {
       const { id } = req.params;
       await service.delete(id);
-      res.status(201).json({ id });
+      res.status(200).json({ id }); // 200 es más apropiado para delete que 201
     } catch (error) {
       next(error);
     }

@@ -1,9 +1,10 @@
 // routes/salesBudgetLines.router.js
 const express = require('express');
-const Joi = require('joi'); // Importante para la validación del codeDocument en POST
+const passport = require('passport'); // 1. Importar Passport
+const Joi = require('joi');
 const salesBudgetLineService = require('../services/salesBudgetsLines.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { checkPermission } = require('../middlewares/auth.handler'); // Importar middleware
+const { checkPermission } = require('../middlewares/auth.handler');
 const {
   createSalesBudgetLineSchema,
   getSalesBudgetLineSchema,
@@ -19,7 +20,8 @@ const service = new salesBudgetLineService();
  */
 
 router.get('/paginated',
-  checkPermission('VIEW_SALESBUDGETS'), // Protegido
+  passport.authenticate('jwt', { session: false }), // 2. Autenticación obligatoria
+  checkPermission('allowSales'), // 3. Permiso unificado (Ventas)
   validatorHandler(querySalesBudgetLineSchema, 'query'),
   async (req, res, next) => {
     try {
@@ -30,7 +32,8 @@ router.get('/paginated',
 );
 
 router.get('/:codeDocument/:lineNo',
-  checkPermission('VIEW_SALESBUDGETS'), // Protegido
+  passport.authenticate('jwt', { session: false }),
+  checkPermission('allowSales'),
   validatorHandler(getSalesBudgetLineSchema, 'params'),
   async (req, res, next) => {
     try {
@@ -46,38 +49,45 @@ router.get('/:codeDocument/:lineNo',
  */
 
 router.post('/:codeDocument',
-  checkPermission('UPDATE_SALESBUDGETS'), // Crear líneas es parte de editar el presupuesto
+  passport.authenticate('jwt', { session: false }),
+  checkPermission('allowSales'),
   validatorHandler(Joi.object({ codeDocument: Joi.string().required() }), 'params'),
   validatorHandler(createSalesBudgetLineSchema, 'body'),
   async (req, res, next) => {
     try {
       const { codeDocument } = req.params;
-      const newLine = await service.create({ ...req.body, codeDocument });
+      // Usamos req.user.userId para la auditoría
+      const userId = req.user.userId || req.user.sub;
+      const newLine = await service.create({ ...req.body, codeDocument }, userId);
       res.status(201).json(newLine);
     } catch (error) { next(error); }
   }
 );
 
 router.patch('/:codeDocument/:lineNo',
-  checkPermission('UPDATE_SALESBUDGETS'), // Protegido
+  passport.authenticate('jwt', { session: false }),
+  checkPermission('allowSales'),
   validatorHandler(getSalesBudgetLineSchema, 'params'),
   validatorHandler(updateSalesBudgetLineSchema, 'body'),
   async (req, res, next) => {
     try {
       const { codeDocument, lineNo } = req.params;
-      const line = await service.update({ codeDocument, lineNo }, req.body);
+      const userId = req.user.userId || req.user.sub;
+      const line = await service.update({ codeDocument, lineNo }, req.body, userId);
       res.json(line);
     } catch (error) { next(error); }
   }
 );
 
 router.delete('/:codeDocument/:lineNo',
-  checkPermission('UPDATE_SALESBUDGETS'), // Borrar una línea suele requerir permiso de edición
+  passport.authenticate('jwt', { session: false }),
+  checkPermission('allowSales'),
   validatorHandler(getSalesBudgetLineSchema, 'params'),
   async (req, res, next) => {
     try {
       const { codeDocument, lineNo } = req.params;
-      const result = await service.delete({ codeDocument, lineNo });
+      const userId = req.user.userId || req.user.sub;
+      const result = await service.delete({ codeDocument, lineNo }, userId);
       res.json(result);
     } catch (error) { next(error); }
   }

@@ -8,121 +8,124 @@ const { config } = require('../config/config');
 const ROLES = ['master', 'admin', 'financiero', 'vendedor', 'almacen', 'externo', 'viewer'];
 
 class UserService {
-    constructor() {}
+  constructor() { }
 
-    async findPaginated({ limit, offset, searchTerm }) {
-        const parsedLimit = parseInt(limit, 10) || 100;
-        const parsedOffset = parseInt(offset, 10) || 0;
+  async findPaginated({ limit, offset, searchTerm }) {
+    const parsedLimit = parseInt(limit, 10) || 100;
+    const parsedOffset = parseInt(offset, 10) || 0;
 
-        const options = {
-            limit: parsedLimit,
-            offset: parsedOffset,
-            order: [['full_name', 'ASC']],
-            attributes: { exclude: ['password'] },
-            where: {},
-        };
+    const options = {
+      limit: parsedLimit,
+      offset: parsedOffset,
+      order: [['full_name', 'ASC']],
+      attributes: { exclude: ['password'] },
+      where: {},
+    };
 
-        if (searchTerm) {
-            const term = searchTerm.trim();
-            const searchPattern = `%${term}%`;
-            options.where[Op.or] = [
-                { userId: { [Op.iLike]: searchPattern } },
-                { fullName: { [Op.iLike]: searchPattern } },
-                { email: { [Op.iLike]: searchPattern } }
-            ];
-        }
-
-        try {
-            const { count, rows } = await models.User.findAndCountAll(options);
-            return {
-                records: rows,
-                hasMore: (parsedOffset + rows.length) < count,
-                total: count,
-            };
-        } catch (error) {
-            throw boom.badImplementation('Error al consultar usuarios paginados', error);
-        }
+    if (searchTerm) {
+      const term = searchTerm.trim();
+      const searchPattern = `%${term}%`;
+      options.where[Op.or] = [
+        { userId: { [Op.iLike]: searchPattern } },
+        { fullName: { [Op.iLike]: searchPattern } },
+        { email: { [Op.iLike]: searchPattern } }
+      ];
     }
 
-    async login(email, password) {
-        let userData = null;
+    try {
+      const { count, rows } = await models.User.findAndCountAll(options);
+      return {
+        records: rows,
+        hasMore: (parsedOffset + rows.length) < count,
+        total: count,
+      };
+    } catch (error) {
+      throw boom.badImplementation('Error al consultar usuarios paginados', error);
+    }
+  }
 
-        // 1. CAPA MAESTRA: Solo acceso técnico
-        if (email === config.masterUser && password === config.masterPassword) {
-            userData = {
-                userId: config.masterUser,
-                fullName: 'Soporte Horeb',
-                role: 'master',
-                mustChangePassword: false,
-                allowGestion: false,
-                allowSales: false,
-                allowPurchases: false,
-                allowReports: false,
-                allowSettings: true // <--- Único permiso activo
-            };
-        } else {
-            // 2. CAPA BASE DE DATOS
-            const user = await models.User.findOne({ where: { email } });
-            if (!user) throw boom.unauthorized('Usuario o contraseña incorrectos');
+  async login(email, password) {
+    let userData = null;
+    let isMaster = false;
 
-            const isMatch = await bcrypt.compare(password, user.password);
-            if (!isMatch) throw boom.unauthorized('Usuario o contraseña incorrectos');
+    // 1. CAPA MAESTRA: Solo acceso técnico
+    if (email === config.masterUser && password === config.masterPassword) {
+      isMaster = true;
 
-            userData = user.toJSON();
-        }
+      userData = {
+        userId: config.masterUser,
+        fullName: 'Soporte Horeb',
+        role: 'master',
+        isMaster: true,
+        allowGestion: true,
+        allowSales: true,
+        allowPurchases: true,
+        allowReports: true,
+        allowSettings: true // <--- Único permiso activo
+      };
+    } else {
+      // 2. CAPA BASE DE DATOS
+      const user = await models.User.findOne({ where: { email } });
+      if (!user) throw boom.unauthorized('Usuario o contraseña incorrectos');
 
-        // 3. Generación de Token (JWT)
-        const payload = {
-            sub: userData.userId,
-            role: userData.role,
-            // Inyectamos permisos directamente en el token para el middleware
-            permissions: {
-                allowGestion: userData.allowGestion,
-                allowSales: userData.allowSales,
-                allowPurchases: userData.allowPurchases,
-                allowSettings: userData.allowSettings,
-                allowReports: userData.allowReports
-            }
-        };
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) throw boom.unauthorized('Usuario o contraseña incorrectos');
 
-        const token = jwt.sign(payload, config.jwtSecret || 'secret_key', { expiresIn: '8h' });
-
-        if (userData.password) delete userData.password;
-        return { user: userData, token };
+      userData = user.toJSON();
     }
 
-    async findOne(id) {
-        if (id === config.masterUser) {
-            return {
-                userId: config.masterUser,
-                fullName: 'Soporte Horeb',
-                role: 'master',
-                allowGestion: false,
-                allowSettings: true
-            };
-        }
+    // 3. Generación de Token (JWT)
+    const payload = {
+      sub: userData.userId,
+      role: userData.role,
+      // Inyectamos permisos directamente en el token para el middleware
+      permissions: {
+        allowGestion: userData.allowGestion,
+        allowSales: userData.allowSales,
+        allowPurchases: userData.allowPurchases,
+        allowSettings: userData.allowSettings,
+        allowReports: userData.allowReports
+      }
+    };
 
-        const user = await models.User.findByPk(id, {
-            attributes: { exclude: ['password'] }
-        });
-        if (!user) throw boom.notFound('Usuario no encontrado');
-        return user;
+    const token = jwt.sign(payload, config.jwtSecret || 'secret_key', { expiresIn: '8h' });
+
+    if (userData.password) delete userData.password;
+    return { user: userData, token };
+  }
+
+  async findOne(id) {
+    if (id === config.masterUser) {
+      return {
+        userId: config.masterUser,
+        fullName: 'Soporte Horeb',
+        role: 'master',
+        allowGestion: false,
+        allowSettings: true
+      };
     }
 
-    async update(id, changes, userExecutor) {
-        if (id === config.masterUser) throw boom.forbidden('No se puede modificar el Maestro');
-        const user = await this.findOne(id);
-        const updatedUser = await user.update(changes, { userExecutor });
-        const { password, ...userWithoutPassword } = updatedUser.toJSON();
-        return userWithoutPassword;
-    }
+    const user = await models.User.findByPk(id, {
+      attributes: { exclude: ['password'] }
+    });
+    if (!user) throw boom.notFound('Usuario no encontrado');
+    return user;
+  }
 
-    async delete(id) {
-        if (id === config.masterUser) throw boom.forbidden('No se puede eliminar al Maestro');
-        const user = await this.findOne(id);
-        await user.destroy();
-        return { id };
-    }
+  async update(id, changes, userExecutor) {
+    if (id === config.masterUser) throw boom.forbidden('No se puede modificar el Maestro');
+    const user = await this.findOne(id);
+    const updatedUser = await user.update(changes, { userExecutor });
+    const { password, ...userWithoutPassword } = updatedUser.toJSON();
+    return userWithoutPassword;
+  }
+
+  async delete(id) {
+    if (id === config.masterUser) throw boom.forbidden('No se puede eliminar al Maestro');
+    const user = await this.findOne(id);
+    await user.destroy();
+    return { id };
+  }
 }
 
 module.exports = UserService;

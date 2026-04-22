@@ -1,4 +1,5 @@
 const express = require('express');
+const passport = require('passport'); // 1. Importar Passport
 const VendorService = require('../services/vendors.service');
 const validatorHandler = require('../middlewares/validator.handler');
 const { checkPermission } = require('../middlewares/auth.handler');
@@ -12,8 +13,12 @@ const {
 const router = express.Router();
 const service = new VendorService();
 
+/**
+ * LISTADO PAGINADO
+ */
 router.get('/vendors-paginated',
-  checkPermission('allowGestion'),
+  passport.authenticate('jwt', { session: false }), // 2. Autenticación obligatoria
+  checkPermission('allowGestion'), // 3. Permiso unificado
   validatorHandler(queryVendorSchema, 'query'),
   async (req, res, next) => {
     try {
@@ -26,11 +31,15 @@ router.get('/vendors-paginated',
   }
 );
 
+/**
+ * BÚSQUEDA RÁPIDA (Selectores)
+ */
 router.get('/search',
+  passport.authenticate('jwt', { session: false }),
   checkPermission('allowGestion'),
   async (req, res, next) => {
     try {
-      const { searchTerm } = req.query; // Cambiado 'term' a 'searchTerm' para igualar Customer
+      const { searchTerm } = req.query;
       const vendors = await service.search(searchTerm);
       res.json(vendors);
     } catch (error) {
@@ -39,7 +48,11 @@ router.get('/search',
   }
 );
 
+/**
+ * DETALLE DE PROVEEDOR
+ */
 router.get('/:code',
+  passport.authenticate('jwt', { session: false }),
   checkPermission('allowGestion'),
   validatorHandler(getVendorSchema, 'params'),
   async (req, res, next) => {
@@ -54,13 +67,18 @@ router.get('/:code',
   }
 );
 
+/**
+ * CREACIÓN
+ */
 router.post('/',
+  passport.authenticate('jwt', { session: false }),
   checkPermission('allowGestion'),
   validatorHandler(createVendorSchema, 'body'),
   async (req, res, next) => {
     try {
-      // Usamos el código de usuario de la sesión para auditoría
-      const newVendor = await service.create(req.body, req.user.code);
+      // Ahora req.user.userId es accesible con seguridad para la auditoría
+      const userId = req.user.userId || req.user.sub;
+      const newVendor = await service.create(req.body, userId);
       res.status(201).json(newVendor);
     } catch (error) {
       if (error.name === "SequelizeUniqueConstraintError") {
@@ -75,14 +93,19 @@ router.post('/',
   }
 );
 
+/**
+ * ACTUALIZACIÓN
+ */
 router.patch('/:code',
+  passport.authenticate('jwt', { session: false }),
   checkPermission('allowGestion'),
   validatorHandler(getVendorSchema, 'params'),
   validatorHandler(updateVendorSchema, 'body'),
   async (req, res, next) => {
     try {
       const { code } = req.params;
-      const vendor = await service.update(code, req.body, req.user.userId);
+      const userId = req.user.userId || req.user.sub;
+      const vendor = await service.update(code, req.body, userId);
       res.json(vendor);
     } catch (error) {
       next(error);
@@ -90,13 +113,18 @@ router.patch('/:code',
   }
 );
 
+/**
+ * ELIMINACIÓN
+ */
 router.delete('/:code',
-  checkPermission('allowSettings'),
+  passport.authenticate('jwt', { session: false }),
+  checkPermission('allowGestion'), // El borrado de maestros suele limitarse a administración
   validatorHandler(getVendorSchema, 'params'),
   async (req, res, next) => {
     try {
       const { code } = req.params;
-      await service.delete(code, req.user.userId);
+      const userId = req.user.userId || req.user.sub;
+      await service.delete(code, userId);
       res.status(200).json({ code });
     } catch (error) {
       next(error);

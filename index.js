@@ -1,12 +1,12 @@
 // --- 0. CONFIGURACIÓN DE ZONA HORARIA ---
 // Esto debe ser lo PRIMERO que se ejecute en toda la aplicación
 process.env.TZ = 'Europe/Madrid';
+require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
 const passport = require('passport');
 const path = require('path');
-require('dotenv').config();
 
 // Importación de librerías internas
 const sequelize = require('./libs/sequelize');
@@ -28,10 +28,12 @@ const port = process.env.PORT || 3000;
 
 // --- 1. CONFIGURACIÓN DE SEGURIDAD (PASSPORT) ---
 passport.use(JwtStrategy);
+app.use(passport.initialize());
+
 
 // --- 2. MIDDLEWARES GLOBALES ---
 // Configuración de CORS (para las rutas REST)
-const whitelist = ['http://localhost:8080', 'https://myapp.co'];
+const whitelist = ['http://localhost:8080'];
 const corsOptions = {
   origin: (origin, callback) => {
     if (whitelist.includes(origin) || !origin) {
@@ -45,7 +47,6 @@ const corsOptions = {
 app.use(cors(corsOptions));
 // Esto permite recibir cuerpos de mensaje grandes (ej: imágenes de productos o facturas)
 app.use(express.json({ limit: '50mb' }));
-
 
 // --- 3. RUTAS DE LA API ---
 routerApi(app);

@@ -1,9 +1,9 @@
 const express = require('express');
+const passport = require('passport'); // 1. Importar Passport
 const SalesPostInvoiceLineService = require('../services/salesPostInvoiceLines.service');
 const validatorHandler = require('../middlewares/validator.handler');
 const { checkPermission } = require('../middlewares/auth.handler');
 
-// Esquemas normalizados (usando codeDocument como el borrador)
 const {
   getSalesPostInvoiceLineSchema,
   querySalesPostInvoiceLineSchema
@@ -16,9 +16,10 @@ const service = new SalesPostInvoiceLineService();
  * CONSULTAS DE LÍNEAS REGISTRADAS (SÓLO LECTURA)
  */
 
-// Listado paginado de todas las líneas (útil para auditorías o informes)
+// Listado paginado de todas las líneas
 router.get('/salesPostInvoiceLines-paginated',
-  checkPermission('VIEW_SALESPOSTINVOICES'),
+  passport.authenticate('jwt', { session: false }), // 2. Autenticación obligatoria
+  checkPermission('allowSales'), // 3. Permiso unificado (Ventas)
   validatorHandler(querySalesPostInvoiceLineSchema, 'query'),
   async (req, res, next) => {
     try {
@@ -31,9 +32,9 @@ router.get('/salesPostInvoiceLines-paginated',
 );
 
 // Obtener una línea específica por su clave primaria compuesta
-// Normalizado a :codeDocument/:lineNo para coincidir con el borrador
 router.get('/:codeDocument/:lineNo',
-  checkPermission('VIEW_SALESPOSTINVOICES'),
+  passport.authenticate('jwt', { session: false }),
+  checkPermission('allowSales'),
   validatorHandler(getSalesPostInvoiceLineSchema, 'params'),
   async (req, res, next) => {
     try {
@@ -46,9 +47,10 @@ router.get('/:codeDocument/:lineNo',
   }
 );
 
-// Listado general por filtros (Query params)
+// Listado general por filtros
 router.get('/',
-  checkPermission('VIEW_SALESPOSTINVOICES'),
+  passport.authenticate('jwt', { session: false }),
+  checkPermission('allowSales'),
   validatorHandler(querySalesPostInvoiceLineSchema, 'query'),
   async (req, res, next) => {
     try {
@@ -59,11 +61,5 @@ router.get('/',
     }
   }
 );
-
-/**
- * NOTA: No existen rutas POST, PATCH ni DELETE.
- * Las líneas de facturas registradas se crean únicamente
- * a través del proceso de registro de la cabecera (atómico).
- */
 
 module.exports = router;

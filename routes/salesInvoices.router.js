@@ -1,4 +1,5 @@
 const express = require('express');
+const passport = require('passport'); // 1. Importar Passport
 const salesInvoiceService = require('../services/salesInvoices.service');
 const validatorHandler = require('../middlewares/validator.handler');
 const { checkPermission } = require('../middlewares/auth.handler');
@@ -12,27 +13,24 @@ const {
 const router = express.Router();
 const service = new salesInvoiceService();
 
-
 /**
  * CONSULTAS DE FACTURAS (VIEW)
  */
 
-// Listado paginado con filtros (Espejo de Budget)
+// Listado paginado con filtros
 router.get('/salesInvoices-paginated',
-    checkPermission('VIEW_SALESINVOICES'),
+    passport.authenticate('jwt', { session: false }), // 2. Autenticación obligatoria
+    checkPermission('allowSales'), // 3. Permiso unificado
     async(req, res, next) => {
         try {
-            // CAMBIO AQUÍ: Capturamos 'overdue' de req.query
             const { limit, offset, searchTerm, overdue } = req.query;
-
-            // Si 'overdue' viene como 'true' (string), asignamos 'overdue' a la variable filter
             const filter = overdue === 'true' ? 'overdue' : null;
 
             const result = await service.findPaginated({
                 limit,
                 offset,
                 searchTerm,
-                filter // Ahora sí, filter ya no será undefined
+                filter
             });
 
             res.json(result);
@@ -42,20 +40,16 @@ router.get('/salesInvoices-paginated',
     }
 );
 
-// Contador total para estadísticas (Espejo de Budget)
+// Contador total para estadísticas (Dashboard)
 router.get('/count',
-    checkPermission('VIEW_SALESINVOICES'),
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowSales'),
     async (req, res, next) => {
         try {
-            // 1. Capturamos tanto 'filter' como 'overdue' por si acaso
             const { filter, overdue } = req.query;
-
-            // 2. Normalizamos: Si viene overdue=true, asignamos 'overdue'
-            // Esto asegura que el service.countAll reciba el string correcto
             const activeFilter = overdue === 'true' ? 'overdue' : filter;
 
             const total = await service.countAll({ filter: activeFilter });
-
             res.status(200).json({ total });
         } catch (error) {
             next(error);
@@ -63,37 +57,24 @@ router.get('/count',
     }
 );
 
-// Obtener una factura específica por código (Espejo de Budget)
+// Obtener una factura específica
 router.get('/:code',
-  checkPermission('VIEW_SALESINVOICES'),
-  validatorHandler(getSalesInvoiceSchema, 'params'),
-  async (req, res, next) => {
-    try {
-      const { code } = req.params;
-      const includeLines = req.query.include_lines === 'true' || req.query.includeLines === 'true';
-
-      const record = await service.findOne(code, {
-        includeLines: includeLines
-      });
-
-      res.json({
-        success: true,
-        data: record
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-// Listado general (Espejo de Budget)
-router.get('/',
-    checkPermission('VIEW_SALESINVOICES'),
-    validatorHandler(querySalesInvoiceSchema, 'query'),
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowSales'),
+    validatorHandler(getSalesInvoiceSchema, 'params'),
     async (req, res, next) => {
         try {
-            const records = await service.findPaginated(req.query);
-            res.json(records);
+            const { code } = req.params;
+            const includeLines = req.query.include_lines === 'true' || req.query.includeLines === 'true';
+
+            const record = await service.findOne(code, {
+                includeLines: includeLines
+            });
+
+            res.json({
+                success: true,
+                data: record
+            });
         } catch (error) {
             next(error);
         }
@@ -104,14 +85,16 @@ router.get('/',
  * ACCIONES DE ESCRITURA
  */
 
-// Crear nueva factura (Espejo de Budget)
+// Crear nueva factura
 router.post('/',
-    checkPermission('CREATE_SALESINVOICES'),
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowSales'),
     validatorHandler(createSalesInvoiceSchema, 'body'),
     async (req, res, next) => {
         try {
             const body = req.body;
-            const newInvoice = await service.create(body);
+            const userId = req.user.userId || req.user.sub;
+            const newInvoice = await service.create(body, userId);
             res.status(201).json(newInvoice);
         } catch (error) {
             if (error.name === "SequelizeUniqueConstraintError") {
@@ -126,14 +109,16 @@ router.post('/',
     }
 );
 
-// Archivar factura (Específico de Invoice)
+// Archivar factura (Acción irreversible que genera una SalesPostInvoice)
 router.post('/:code/archive',
-    checkPermission('UPDATE_SALESINVOICES'),
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowSales'),
     validatorHandler(getSalesInvoiceSchema, 'params'),
     async (req, res, next) => {
         try {
             const { code } = req.params;
-            const result = await service.archiveInvoice(code);
+            const userId = req.user.userId || req.user.sub;
+            const result = await service.archiveInvoice(code, userId); // Pasamos userId para la auditoría
             res.status(200).json({
                 success: true,
                 message: `Factura ${code} archivada correctamente`,
@@ -145,16 +130,18 @@ router.post('/:code/archive',
     }
 );
 
-// Actualización completa (Espejo de Budget)
+// Actualización completa
 router.put('/:code',
-    checkPermission('UPDATE_SALESINVOICES'),
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowSales'),
     validatorHandler(getSalesInvoiceSchema, 'params'),
     validatorHandler(updateSalesInvoiceSchema, 'body'),
     async (req, res, next) => {
         try {
             const { code } = req.params;
             const body = req.body;
-            const record = await service.update(code, body);
+            const userId = req.user.userId || req.user.sub;
+            const record = await service.update(code, body, userId);
             res.json(record);
         } catch (error) {
             next(error);
@@ -162,14 +149,16 @@ router.put('/:code',
     }
 );
 
-// Eliminación (Espejo de Budget)
+// Eliminación
 router.delete('/:code',
-    checkPermission('DELETE_SALESINVOICES'),
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowSettings'), // Borrar facturas suele ser restringido
     validatorHandler(getSalesInvoiceSchema, 'params'),
     async (req, res, next) => {
         try {
             const { code } = req.params;
-            await service.delete(code);
+            const userId = req.user.userId || req.user.sub;
+            await service.delete(code, userId);
             res.status(200).json({ code });
         } catch (error) {
             next(error);

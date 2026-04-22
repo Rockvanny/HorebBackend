@@ -1,4 +1,5 @@
 const express = require('express');
+const passport = require('passport'); // 1. Importamos Passport
 const SalesPostInvoiceService = require('../services/salesPostInvoice.service');
 const validatorHandler = require('../middlewares/validator.handler');
 const { checkPermission } = require('../middlewares/auth.handler');
@@ -17,7 +18,8 @@ const service = new SalesPostInvoiceService();
 
 // Listado paginado
 router.get('/salesPostInvoices-paginated',
-    checkPermission('VIEW_SALESPOSTINVOICES'),
+    passport.authenticate('jwt', { session: false }), // 2. Autenticación obligatoria
+    checkPermission('allowSales'), // 3. Permiso unificado con el token
     async(req, res, next) => {
         try {
             const { limit, offset, searchTerm } = req.query;
@@ -29,9 +31,10 @@ router.get('/salesPostInvoices-paginated',
     }
 );
 
-// Estadísticas / Contador
+// Estadísticas / Contador (Ruta que suele llamar el Dashboard)
 router.get('/count',
-    checkPermission('VIEW_SALESPOSTINVOICES'),
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowSales'),
     async (req, res, next) => {
         try {
             const total = await service.countAll();
@@ -44,7 +47,8 @@ router.get('/count',
 
 // Obtener una factura específica
 router.get('/:code',
-  checkPermission('VIEW_SALESPOSTINVOICES'),
+  passport.authenticate('jwt', { session: false }),
+  checkPermission('allowSales'),
   validatorHandler(getSalesPostInvoiceSchema, 'params'),
   async (req, res, next) => {
     try {
@@ -69,12 +73,15 @@ router.get('/:code',
 
 // Registrar factura (Acción irreversible)
 router.post('/',
-    checkPermission('CREATE_SALESPOSTINVOICES'),
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowSales'),
     validatorHandler(createSalesPostInvoiceSchema, 'body'),
     async (req, res, next) => {
         try {
             const body = req.body;
-            const newInvoice = await service.create(body);
+            // Usamos req.user.userId para la auditoría de quién registró la factura
+            const userId = req.user.userId || req.user.sub;
+            const newInvoice = await service.create(body, userId);
             res.status(201).json(newInvoice);
         } catch (error) {
             if (error.name === "SequelizeUniqueConstraintError") {

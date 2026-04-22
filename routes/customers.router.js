@@ -1,4 +1,5 @@
 const express = require('express');
+const passport = require('passport');
 const CustomerService = require('../services/customers.service');
 const validatorHandler = require('../middlewares/validator.handler');
 const { checkPermission } = require('../middlewares/auth.handler');
@@ -13,10 +14,14 @@ const router = express.Router();
 const service = new CustomerService();
 
 /**
- * GET PAGINADO (El que usa tu tabla)
- * Recuperamos el endpoint que faltaba.
+ * APLICAR AUTENTICACIÓN A TODAS LAS RUTAS
+ * Para no repetir la línea en cada ruta, podrías usar:
+ * router.use(passport.authenticate('jwt', { session: false }));
+ * Pero lo pondré individualmente para mantener tu estilo actual.
  */
+
 router.get('/customers-paginated',
+  passport.authenticate('jwt', { session: false }),
   checkPermission('allowGestion'),
   validatorHandler(queryCustomerSchema, 'query'),
   async (req, res, next) => {
@@ -30,10 +35,8 @@ router.get('/customers-paginated',
   }
 );
 
-/**
- * BUSQUEDA RAPIDA
- */
 router.get('/search',
+  passport.authenticate('jwt', { session: false }), // <--- Faltaba
   checkPermission('allowGestion'),
   async (req, res, next) => {
     try {
@@ -46,17 +49,14 @@ router.get('/search',
   }
 );
 
-/**
- * OBTENER UNO POR CODIGO
- */
 router.get('/:code',
+  passport.authenticate('jwt', { session: false }), // <--- Faltaba
   checkPermission('allowGestion'),
   validatorHandler(getCustomerSchema, 'params'),
   async (req, res, next) => {
     try {
       const { code } = req.params;
       const includeDocuments = req.query.include_docs === 'true' || req.query.include_docs === '1';
-
       const customer = await service.findOne(code, includeDocuments);
       res.json(customer);
     } catch (error) {
@@ -65,10 +65,8 @@ router.get('/:code',
   }
 );
 
-/**
- * LISTADO SIMPLE (Opcional)
- */
 router.get('/',
+  passport.authenticate('jwt', { session: false }), // <--- Faltaba
   checkPermission('allowGestion'),
   validatorHandler(queryCustomerSchema, 'query'),
   async (req, res, next) => {
@@ -81,17 +79,15 @@ router.get('/',
   }
 );
 
-/**
- * CREAR CLIENTE
- */
 router.post('/',
+  passport.authenticate('jwt', { session: false }), // <--- Faltaba
   checkPermission('allowGestion'),
   validatorHandler(createCustomerSchema, 'body'),
   async (req, res, next) => {
     try {
       const body = req.body;
-      // Pasamos userId para la auditoría
-      const newCustomer = await service.create(body, req.user.code);
+      // Ahora req.user existe gracias a Passport
+      const newCustomer = await service.create(body, req.user.userId || req.user.sub);
       res.status(201).json(newCustomer);
     } catch (error) {
       if (error.name === "SequelizeUniqueConstraintError") {
@@ -106,10 +102,8 @@ router.post('/',
   }
 );
 
-/**
- * ACTUALIZAR CLIENTE
- */
 router.patch('/:code',
+  passport.authenticate('jwt', { session: false }), // <--- Faltaba
   checkPermission('allowGestion'),
   validatorHandler(getCustomerSchema, 'params'),
   validatorHandler(updateCustomerSchema, 'body'),
@@ -117,7 +111,7 @@ router.patch('/:code',
     try {
       const { code } = req.params;
       const body = req.body;
-      const customer = await service.update(code, body, req.user.userId);
+      const customer = await service.update(code, body, req.user.userId || req.user.sub);
       res.json(customer);
     } catch (error) {
       next(error);
@@ -125,16 +119,14 @@ router.patch('/:code',
   }
 );
 
-/**
- * ELIMINAR CLIENTE
- */
 router.delete('/:code',
-  checkPermission('allowSettings'),
+  passport.authenticate('jwt', { session: false }), // <--- Faltaba
+  checkPermission('allowGestion'),
   validatorHandler(getCustomerSchema, 'params'),
   async (req, res, next) => {
     try {
       const { code } = req.params;
-      await service.delete(code, req.user.userId);
+      await service.delete(code, req.user.userId || req.user.sub);
       res.status(200).json({ code });
     } catch (error) {
       next(error);

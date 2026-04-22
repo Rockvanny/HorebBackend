@@ -1,9 +1,11 @@
 const express = require('express');
+const passport = require('passport'); // 1. Importar Passport
 const UserService = require('./../services/user.service');
 const validatorHandler = require('./../middlewares/validator.handler');
 
-// Importamos la lógica centralizada de acceso
+// Lógica de acceso
 const { ROLES_LIST, checkPermission: validateAction } = require('../config/access-manager');
+const { checkPermission } = require('../middlewares/auth.handler');
 const { updateUserSchema, createUserSchema, getUserSchema, loginUserSchema } = require('./../schemas/user.schema');
 
 const router = express.Router();
@@ -11,38 +13,50 @@ const service = new UserService();
 
 // --- NUEVOS ENDPOINTS DE CONFIGURACIÓN Y ACCESO ---
 
-// 1. Obtener lista de roles (Para el select del formulario)
-router.get('/roles/list', (req, res) => {
-  console.log("Roles detectados:", ROLES_LIST);
-    res.json({ success: true, data: ROLES_LIST });
-});
+// 1. Obtener lista de roles
+router.get('/roles/list',
+    passport.authenticate('jwt', { session: false }), // Protegido: solo usuarios logueados ven roles
+    (req, res) => {
+        res.json({ success: true, data: ROLES_LIST });
+    }
+);
 
 // 2. Validación masiva de permisos (Para syncUI en el frontend)
-router.post('/permissions/check', async (req, res, next) => {
-    try {
-        const { permissions } = req.body; // Array de strings: ["CREATE_USERS", "VIEW_SALES"...]
+router.post('/permissions/check',
+    passport.authenticate('jwt', { session: false }), // Obligatorio para tener req.user
+    async (req, res, next) => {
+        try {
+            const { permissions } = req.body;
 
-        // Asumimos que la sesión del usuario está en req.user (inyectada por tu middleware de auth)
-        const userRole = req.user?.role;
-        const userModules = req.user?.modules || {};
+            // req.user ya viene inyectado por Passport
+            const userRole = req.user?.role;
+            const userModules = {
+                allowSales: req.user?.allowSales,
+                allowPurchases: req.user?.allowPurchases,
+                allowGestion: req.user?.allowGestion,
+                allowSettings: req.user?.allowSettings,
+            };
 
-        const results = {};
-        if (Array.isArray(permissions)) {
-            permissions.forEach(p => {
-                results[p] = validateAction(userRole, userModules, p);
-            });
+            const results = {};
+            if (Array.isArray(permissions)) {
+                permissions.forEach(p => {
+                    results[p] = validateAction(userRole, userModules, p);
+                });
+            }
+
+            res.json({ success: true, data: results });
+        } catch (error) {
+            next(error);
         }
-
-        res.json({ success: true, data: results });
-    } catch (error) {
-        next(error);
     }
-});
+);
 
-// --- ENDPOINTS EXISTENTES AJUSTADOS ---
+// --- ENDPOINTS DE USUARIOS ---
 
 // 1. LISTADO PAGINADO
 router.get('/users-paginated',
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowSettings'), // Solo administradores gestionan usuarios
     async (req, res, next) => {
         try {
             const { limit, offset, searchTerm } = req.query;
@@ -54,20 +68,7 @@ router.get('/users-paginated',
     }
 );
 
-// 2. BÚSQUEDA RÁPIDA
-router.get('/search',
-    async (req, res, next) => {
-        try {
-            const { searchTerm } = req.query;
-            const users = await service.search(searchTerm);
-            res.json(users);
-        } catch (error) {
-            next(error);
-        }
-    }
-);
-
-// 3. LOGIN
+// 2. LOGIN (¡DEBE SER ABIERTO!)
 router.post('/login',
     validatorHandler(loginUserSchema, 'body'),
     async (req, res, next) => {
@@ -80,8 +81,10 @@ router.post('/login',
     }
 );
 
-// 4. CRUD OPERACIONES
+// 3. CRUD OPERACIONES
 router.get('/:id',
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowSettings'),
     validatorHandler(getUserSchema, 'params'),
     async (req, res, next) => {
         try {
@@ -94,7 +97,8 @@ router.get('/:id',
 );
 
 router.post('/',
-    // Aquí podrías usar una validación directa: validateAction(req.user.role, req.user.modules, 'CREATE_USERS')
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowSettings'),
     validatorHandler(createUserSchema, 'body'),
     async (req, res, next) => {
         try {
@@ -107,6 +111,8 @@ router.post('/',
 );
 
 router.patch('/:id',
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowSettings'),
     validatorHandler(getUserSchema, 'params'),
     validatorHandler(updateUserSchema, 'body'),
     async (req, res, next) => {
@@ -121,6 +127,8 @@ router.patch('/:id',
 );
 
 router.delete('/:id',
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowSettings'),
     validatorHandler(getUserSchema, 'params'),
     async (req, res, next) => {
         try {

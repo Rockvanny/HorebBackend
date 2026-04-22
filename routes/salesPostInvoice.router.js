@@ -1,4 +1,5 @@
 const express = require('express');
+const passport = require('passport'); // 1. Importar Passport
 const SalesPostInvoiceService = require('../services/SalesPostInvoice.service');
 const validatorHandler = require('../middlewares/validator.handler');
 const { checkPermission } = require('../middlewares/auth.handler');
@@ -15,7 +16,8 @@ const service = new SalesPostInvoiceService();
  * GET / - Listado paginado de facturas registradas
  */
 router.get('/',
-  checkPermission('VIEW_SALESPOSTINVOICES'),
+  passport.authenticate('jwt', { session: false }), // 2. Autenticación obligatoria
+  checkPermission('allowSales'), // 3. Permiso unificado (Ventas)
   validatorHandler(querySalesPostInvoiceSchema, 'query'),
   async (req, res, next) => {
     try {
@@ -31,7 +33,8 @@ router.get('/',
  * GET /:code - Detalle de una factura específica con sus líneas
  */
 router.get('/:code',
-  checkPermission('VIEW_SALESPOSTINVOICES'),
+  passport.authenticate('jwt', { session: false }),
+  checkPermission('allowSales'),
   validatorHandler(getSalesPostInvoiceSchema, 'params'),
   async (req, res, next) => {
     try {
@@ -46,17 +49,19 @@ router.get('/:code',
 
 /**
  * POST / - Registro oficial de factura (Acción irreversible)
- * Este es el endpoint que dispara el flujo: Factura -> Líneas -> Verifactu
+ * Inyectamos Passport para asegurar que req.user esté disponible
  */
 router.post('/',
-  checkPermission('CREATE_SALESPOSTINVOICES'),
+  passport.authenticate('jwt', { session: false }),
+  checkPermission('allowSales'),
   validatorHandler(createSalesPostInvoiceSchema, 'body'),
   async (req, res, next) => {
     try {
-      // Inyectamos el usuario de la sesión para la trazabilidad
+      // Ahora req.user existe con total seguridad
       const data = {
         ...req.body,
-        username: req.user.username
+        username: req.user.username,
+        userId: req.user.userId || req.user.sub // Trazabilidad completa
       };
 
       const result = await service.create(data);
@@ -68,10 +73,11 @@ router.post('/',
 );
 
 /**
- * GET /stats/budget/:budgetCode - Utilidad para ver el total facturado de un presupuesto
+ * GET /stats/budget/:budgetCode - Total facturado de un presupuesto
  */
 router.get('/stats/budget/:budgetCode',
-  checkPermission('VIEW_SALESPOSTINVOICES'),
+  passport.authenticate('jwt', { session: false }),
+  checkPermission('allowSales'),
   async (req, res, next) => {
     try {
       const { budgetCode } = req.params;

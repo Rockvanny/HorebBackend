@@ -1,4 +1,5 @@
 const boom = require('@hapi/boom');
+const { config } = require('../config/config');
 
 function checkRole(...roles) {
   return (req, res, next) => {
