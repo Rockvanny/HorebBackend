@@ -1,5 +1,5 @@
 const express = require('express');
-const passport = require('passport'); // 1. Importar Passport
+const passport = require('passport');
 const seriesNumberService = require('../services/seriesNumber.service');
 const validatorHandler = require('../middlewares/validator.handler');
 const { checkPermission } = require('../middlewares/auth.handler');
@@ -15,11 +15,12 @@ const router = express.Router();
 const service = new seriesNumberService();
 
 /**
- * BUSCAR POR TIPO (Para selectores de Clientes, Facturas, etc.)
- * IMPORTANTE: Cualquier usuario autenticado debe poder listar series para trabajar.
+ * BUSCAR POR TIPO
+ * Ajuste: Añadido validatorHandler para el query param 'type'
  */
 router.get('/by-type',
-    passport.authenticate('jwt', { session: false }), // 2. Autenticación obligatoria
+    passport.authenticate('jwt', { session: false }),
+    validatorHandler(querySeriesNumberSchema, 'query'), // <-- Validación añadida
     async (req, res, next) => {
         try {
             const { type } = req.query;
@@ -39,7 +40,7 @@ router.get('/by-type',
  */
 router.get('/',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowGestion'), // Solo administradores
+    checkPermission('allowGestion'),
     validatorHandler(querySeriesNumberSchema, 'query'),
     async (req, res, next) => {
         try {
@@ -53,6 +54,7 @@ router.get('/',
 
 /**
  * CREAR NUEVA SERIE
+ * Ajuste: Asegurar que el campo de auditoría coincida con el schema (username)
  */
 router.post('/',
     passport.authenticate('jwt', { session: false }),
@@ -60,10 +62,10 @@ router.post('/',
     validatorHandler(createSeriesNumberSchema, 'body'),
     async (req, res, next) => {
         try {
-            // Usamos req.user.username o sub para la auditoría
             const data = {
                 ...req.body,
-                user_name: req.user.username || req.user.sub
+                // Si en el modelo de Sequelize el atributo se llama 'username'
+                username: req.user.username || req.user.sub
             };
             const newSerie = await service.create(data);
             res.status(201).json(newSerie);
@@ -75,6 +77,7 @@ router.post('/',
 
 /**
  * ACTUALIZAR SERIE
+ * Nota: Aquí el validatorHandler de params ya cubre 'type' y 'startSerie'
  */
 router.patch('/:type/:startSerie',
     passport.authenticate('jwt', { session: false }),

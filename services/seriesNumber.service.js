@@ -5,23 +5,45 @@ const { Op } = require('sequelize');
 class seriesNumberService {
   constructor() {}
 
-  // NUEVO MÉTODO: Para el selector del Frontend
+  // Busca series activas por tipo (Borradores y Registros)
   async findByType(type) {
-    const today = new Date().toISOString().split('T')[0]; // Fecha actual YYYY-MM-DD
+    const today = new Date().toISOString().split('T')[0];
 
     return await models.seriesNumber.findAll({
       where: {
         type: type,
-        from_date: { [Op.lte]: today }, // from_date <= hoy
-        to_date: { [Op.gte]: today }    // to_date >= hoy
+        fromDate: { [Op.lte]: today },
+        toDate: { [Op.gte]: today }
       },
+      // Incluimos postingSerie explícitamente para que el front lo capture en el dataset
+      attributes: [
+        'type',
+        'startSerie',
+        'postingSerie',
+        'description',
+        'prefix',
+        'lastNumber',
+        'digits'
+      ],
       order: [['startSerie', 'ASC']]
     });
   }
 
-  // ... (resto de métodos: findPaginated, create, etc., se mantienen igual)
-  async findPaginated({ limit, offset, serieNoStart, serieNoType }) {
-    // Tu código actual...
+  async findPaginated({ limit, offset, type }) {
+    const options = {
+      where: {},
+      limit: limit ? parseInt(limit) : undefined,
+      offset: offset ? parseInt(offset) : undefined,
+      order: [['createdAt', 'DESC']]
+    };
+
+    if (type) options.where.type = type;
+
+    const { count, rows } = await models.seriesNumber.findAndCountAll(options);
+    return {
+      total: count,
+      series: rows
+    };
   }
 
   async findOne(type, startSerie) {
@@ -33,18 +55,28 @@ class seriesNumberService {
   }
 
   async create(data) {
+    // Sequelize se encargará de mapear postingSerie al campo posting_serie de la BD
     return await models.seriesNumber.create(data);
   }
 
   async update(type, startSerie, changes) {
-    const model = await this.findOne(type, startSerie);
-    return await model.update(changes);
+    // Al no usar "this", llamamos directamente al modelo para localizarlo
+    const serie = await models.seriesNumber.findOne({
+      where: { type, startSerie }
+    });
+    if (!serie) throw boom.notFound('Serie no encontrada');
+
+    return await serie.update(changes);
   }
 
   async delete(type, startSerie) {
-    const model = await this.findOne(type, startSerie);
-    await model.destroy();
-    return { message: 'Serie eliminada correctamente' };
+    const serie = await models.seriesNumber.findOne({
+      where: { type, startSerie }
+    });
+    if (!serie) throw boom.notFound('Serie no encontrada');
+
+    await serie.destroy();
+    return { type, startSerie, message: 'Serie eliminada correctamente' };
   }
 }
 

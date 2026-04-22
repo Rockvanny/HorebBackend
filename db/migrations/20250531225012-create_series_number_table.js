@@ -18,6 +18,11 @@ module.exports = {
         primaryKey: true,
         type: Sequelize.DataTypes.STRING
       },
+      postingSerie: {
+        field: 'posting_serie',
+        allowNull: true,
+        type: Sequelize.DataTypes.STRING
+      },
       description: {
         field: 'description',
         type: Sequelize.DataTypes.STRING,

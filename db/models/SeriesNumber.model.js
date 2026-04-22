@@ -17,6 +17,11 @@ const seriesNumberSchema = {
     primaryKey: true,
     type: DataTypes.STRING
   },
+  postingSerie: {
+    field: 'posting_serie',
+    type: DataTypes.STRING,
+    allowNull: true, // Null para las que ya son definitivas
+  },
   description: {
     field: 'description',
     type: DataTypes.STRING,

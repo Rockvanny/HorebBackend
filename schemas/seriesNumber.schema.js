@@ -2,6 +2,7 @@ const Joi = require('joi');
 
 const type = Joi.string();
 const startSerie = Joi.string();
+const postingSerie = Joi.string().allow(null, ''); // Nuevo: permite null o vacío
 const description = Joi.string().min(3);
 const prefix = Joi.string().uppercase();
 const lastNumber = Joi.number().integer().min(0);
@@ -21,6 +22,7 @@ const getSeriesNumberSchema = Joi.object({
 const createSeriesNumberSchema = Joi.object({
   type: type.required(),
   startSerie: startSerie.required(),
+  postingSerie: postingSerie.optional(), // Relación opcional con la serie definitiva
   description: description.required(),
   prefix: prefix.required(),
   lastNumber: lastNumber.default(0),
@@ -31,6 +33,8 @@ const createSeriesNumberSchema = Joi.object({
 });
 
 const updateSeriesNumberSchema = Joi.object({
+  // Permitimos actualizar la relación si se equivoca al crearla
+  postingSerie: postingSerie.optional(),
   description: description.optional(),
   prefix: prefix.optional(),
   lastNumber: lastNumber.optional(),
