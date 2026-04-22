@@ -1,23 +1,31 @@
 'use strict';
-const { DataTypes } = require("sequelize");
-
 const { SERIESNUMBER_TABLE } = require('../models/SeriesNumber.model');
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
     await queryInterface.createTable(SERIESNUMBER_TABLE, {
+      // Ahora es INTEGER para manejar los IDs internos (1: customer, 5: salesinvoice, etc.)
       type: {
         field: 'type',
         allowNull: false,
         primaryKey: true,
-        type: Sequelize.DataTypes.STRING
+        type: Sequelize.DataTypes.INTEGER
       },
-      startSerie: {
-        field: 'start_series',
+      // Identificador de la serie (PK compuesta con type)
+      code: {
+        field: 'code',
         allowNull: false,
         primaryKey: true,
         type: Sequelize.DataTypes.STRING
       },
+      // Valor alfanumérico actual (ej: 'FV0001')
+      lastValue: {
+        field: 'last_value',
+        type: Sequelize.DataTypes.STRING,
+        allowNull: false,
+        defaultValue: ''
+      },
+      // Referencia al 'code' de la serie de registro
       postingSerie: {
         field: 'posting_serie',
         allowNull: true,
@@ -28,27 +36,6 @@ module.exports = {
         type: Sequelize.DataTypes.STRING,
         allowNull: false,
       },
-      // Nuevo: Prefijo alfanumérico (ej: 'CL')
-      prefix: {
-        field: 'prefix',
-        type: Sequelize.DataTypes.STRING,
-        allowNull: false,
-      },
-      // Nuevo: El contador real
-      lastNumber: {
-        field: 'last_number',
-        type: Sequelize.DataTypes.INTEGER,
-        allowNull: false,
-        defaultValue: 0
-      },
-      // Nuevo: Longitud de ceros (ej: 4)
-      digits: {
-        field: 'digits',
-        type: Sequelize.DataTypes.INTEGER,
-        allowNull: false,
-        defaultValue: 4
-      },
-      // Nuevo: Vigencia temporal
       fromDate: {
         field: 'from_date',
         allowNull: false,

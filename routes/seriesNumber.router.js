@@ -14,37 +14,17 @@ const {
 const router = express.Router();
 const service = new seriesNumberService();
 
-/**
- * BUSCAR POR TIPO
- * Ajuste: Añadido validatorHandler para el query param 'type'
- */
-router.get('/by-type',
-    passport.authenticate('jwt', { session: false }),
-    validatorHandler(querySeriesNumberSchema, 'query'), // <-- Validación añadida
-    async (req, res, next) => {
-        try {
-            const { type } = req.query;
-            const series = await service.findByType(type);
-            res.json({
-                success: true,
-                data: series
-            });
-        } catch (error) {
-            next(error);
-        }
-    }
-);
+// Middleware de autenticación para todas las rutas
+router.use(passport.authenticate('jwt', { session: false }));
 
-/**
- * LISTADO GENERAL (Configuración)
- */
-router.get('/',
-    passport.authenticate('jwt', { session: false }),
+// 1. Obtener series paginadas para el Explorer
+router.get('/series-paginated',
     checkPermission('allowGestion'),
     validatorHandler(querySeriesNumberSchema, 'query'),
     async (req, res, next) => {
         try {
-            const result = await service.findPaginated(req.query);
+            const { limit, offset, type, searchTerm } = req.query;
+            const result = await service.findPaginated({ limit, offset, type, searchTerm });
             res.json(result);
         } catch (error) {
             next(error);
@@ -52,22 +32,28 @@ router.get('/',
     }
 );
 
-/**
- * CREAR NUEVA SERIE
- * Ajuste: Asegurar que el campo de auditoría coincida con el schema (username)
- */
+// 2. Obtener series por tipo (para llenar Selectores/Dropdowns)
+router.get('/by-type',
+    validatorHandler(querySeriesNumberSchema, 'query'),
+    async (req, res, next) => {
+        try {
+            const { type } = req.query;
+            const series = await service.findByType(type);
+            res.json(series);
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+// 3. Crear una nueva serie
 router.post('/',
-    passport.authenticate('jwt', { session: false }),
     checkPermission('allowGestion'),
     validatorHandler(createSeriesNumberSchema, 'body'),
     async (req, res, next) => {
         try {
-            const data = {
-                ...req.body,
-                // Si en el modelo de Sequelize el atributo se llama 'username'
-                username: req.user.username || req.user.sub
-            };
-            const newSerie = await service.create(data);
+            const executor = req.user.userId || req.user.sub;
+            const newSerie = await service.create(req.body, executor);
             res.status(201).json(newSerie);
         } catch (error) {
             next(error);
@@ -76,18 +62,20 @@ router.post('/',
 );
 
 /**
- * ACTUALIZAR SERIE
- * Nota: Aquí el validatorHandler de params ya cubre 'type' y 'startSerie'
+ * IMPORTANTE: Las rutas de PATCH y DELETE ahora usan /:type/:code
+ * ya que son tu clave primaria compuesta.
  */
-router.patch('/:type/:startSerie',
-    passport.authenticate('jwt', { session: false }),
+
+// 4. Actualizar serie
+router.patch('/:type/:code',
     checkPermission('allowGestion'),
     validatorHandler(getSeriesNumberSchema, 'params'),
     validatorHandler(updateSeriesNumberSchema, 'body'),
     async (req, res, next) => {
         try {
-            const { type, startSerie } = req.params;
-            const updated = await service.update(type, startSerie, req.body);
+            const { type, code } = req.params;
+            const executor = req.user.userId || req.user.sub;
+            const updated = await service.update(type, code, req.body, executor);
             res.json(updated);
         } catch (error) {
             next(error);
@@ -95,17 +83,15 @@ router.patch('/:type/:startSerie',
     }
 );
 
-/**
- * ELIMINAR SERIE
- */
-router.delete('/:type/:startSerie',
-    passport.authenticate('jwt', { session: false }),
+// 5. Eliminar serie
+router.delete('/:type/:code',
     checkPermission('allowGestion'),
     validatorHandler(getSeriesNumberSchema, 'params'),
     async (req, res, next) => {
         try {
-            const { type, startSerie } = req.params;
-            const result = await service.delete(type, startSerie);
+            const { type, code } = req.params;
+            const executor = req.user.userId || req.user.sub;
+            const result = await service.delete(type, code, executor);
             res.json(result);
         } catch (error) {
             next(error);

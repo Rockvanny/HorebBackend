@@ -2,56 +2,49 @@ const { Model, DataTypes, Sequelize } = require('sequelize');
 
 const SERIESNUMBER_TABLE = 'series_numbers';
 
+// Diccionario centralizado de tipos (Lógica interna y visual)
+const SERIES_TYPES = {
+  customer:     { id: 1, label: 'Cliente' },
+  vendor:       { id: 2, label: 'Proveedor' },
+  product:      { id: 3, label: 'Producto' },
+  budget:       { id: 4, label: 'Presupuesto' },
+  salesinvoice: { id: 5, label: 'Factura de Venta' },
+  purchinvoice: { id: 6, label: 'Factura de Compra' }
+};
+
 const seriesNumberSchema = {
-  // Ej: 'CUSTOMER', 'INVOICE'
   type: {
     field: 'type',
     allowNull: false,
     primaryKey: true,
-    type: DataTypes.STRING
+    type: DataTypes.INTEGER // Identificador numérico (1, 2, 3...)
   },
-  // Ej: '2026', 'GEN'
-  startSerie: {
-    field: 'start_series',
+  code: {
+    field: 'code',
     allowNull: false,
     primaryKey: true,
-    type: DataTypes.STRING
+    type: DataTypes.STRING // Ej: 'FV2026-B'
+  },
+  lastValue: {
+    field: 'last_value',
+    type: DataTypes.STRING,
+    allowNull: false,
+    defaultValue: '' // Ej: 'FV000'
   },
   postingSerie: {
     field: 'posting_serie',
     type: DataTypes.STRING,
-    allowNull: true, // Null para las que ya son definitivas
+    allowNull: true, // Código de la serie de registro vinculada
   },
   description: {
     field: 'description',
     type: DataTypes.STRING,
     allowNull: false,
   },
-  // Prefijo para el formato alfanumérico (ej: 'CL')
-  prefix: {
-    field: 'prefix',
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  // Contador numérico
-  lastNumber: {
-    field: 'last_number',
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    defaultValue: 0
-  },
-  // Cantidad de ceros (ej: 4 para '0001')
-  digits: {
-    field: 'digits',
-    type: DataTypes.INTEGER,
-    allowNull: false,
-    defaultValue: 4
-  },
-  // --- CONTROL DE VIGENCIA ---
   fromDate: {
     field: 'from_date',
     allowNull: false,
-    type: DataTypes.DATEONLY // Solo fecha, sin hora
+    type: DataTypes.DATEONLY
   },
   toDate: {
     field: 'to_date',
@@ -77,16 +70,33 @@ const seriesNumberSchema = {
 };
 
 class seriesNumber extends Model {
-  static associate(models) {}
+  static associate(models) {
+    // Definir asociaciones aquí si fueran necesarias
+  }
+
+  // Getter para uso directo en la instancia (serie.typeLabel)
+  get typeLabel() {
+    const typeData = Object.values(SERIES_TYPES).find(t => t.id === this.type);
+    return typeData ? typeData.label : 'Desconocido';
+  }
+
   static config(sequelize) {
     return {
       sequelize,
       tableName: SERIESNUMBER_TABLE,
       modelName: 'seriesNumber',
       timestamps: true,
-      underscored: true
+      underscored: true,
+      // Los getterMethods aseguran que la propiedad aparezca al hacer JSON.stringify()
+      getterMethods: {
+        typeLabel() {
+          const typeData = Object.values(SERIES_TYPES).find(t => t.id === this.type);
+          return typeData ? typeData.label : 'Desconocido';
+        }
+      }
     };
   }
 }
 
-module.exports = { seriesNumber, seriesNumberSchema, SERIESNUMBER_TABLE };
+// Exportamos también SERIES_TYPES para que el Servicio pueda usarlo para traducir
+module.exports = { seriesNumber, seriesNumberSchema, SERIESNUMBER_TABLE, SERIES_TYPES };

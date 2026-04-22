@@ -1,44 +1,53 @@
 const Joi = require('joi');
 
-const type = Joi.string();
-const startSerie = Joi.string();
-const postingSerie = Joi.string().allow(null, ''); // Nuevo: permite null o vacío
-const description = Joi.string().min(3);
-const prefix = Joi.string().uppercase();
-const lastNumber = Joi.number().integer().min(0);
-const digits = Joi.number().integer().min(1).max(10);
-const fromDate = Joi.date();
-const toDate = Joi.date();
+/**
+ * Nota: El campo 'type' en Joi sigue siendo String porque es lo que
+ * recibimos del cliente (API/Frontend). El Servicio lo mapeará al
+ * INTEGER correspondiente (1, 2, 3...) definido en el Modelo.
+ */
+const type = Joi.string().valid(
+  'customer',
+  'vendor',
+  'product',
+  'budget',
+  'salesinvoice',
+  'purchinvoice'
+);
+
+const code = Joi.string().min(1).max(20).uppercase(); // Quitamos alphanum por si usan guiones como 'FV-26'
+const lastValue = Joi.string().min(1).max(30);
+const postingSerie = Joi.string().allow(null, '');
+const description = Joi.string().min(3).max(100);
+const fromDate = Joi.date().iso();
+const toDate = Joi.date().iso().greater(Joi.ref('fromDate'));
 const username = Joi.string();
 
-const limit = Joi.number().integer();
-const offset = Joi.number().integer();
+// Parámetros de paginación y filtro
+const limit = Joi.number().integer().min(1);
+const offset = Joi.number().integer().min(0);
+const searchTerm = Joi.string().allow('', null);
 
 const getSeriesNumberSchema = Joi.object({
   type: type.required(),
-  startSerie: startSerie.required(),
+  code: code.required(),
 });
 
 const createSeriesNumberSchema = Joi.object({
   type: type.required(),
-  startSerie: startSerie.required(),
-  postingSerie: postingSerie.optional(), // Relación opcional con la serie definitiva
+  code: code.required(),
+  lastValue: lastValue.required(),
+  postingSerie: postingSerie.optional(),
   description: description.required(),
-  prefix: prefix.required(),
-  lastNumber: lastNumber.default(0),
-  digits: digits.default(4),
   fromDate: fromDate.required(),
   toDate: toDate.required(),
   username: username.optional()
 });
 
 const updateSeriesNumberSchema = Joi.object({
-  // Permitimos actualizar la relación si se equivoca al crearla
+  // Recordatorio: type y code no se editan por ser Primary Keys
+  lastValue: lastValue.optional(),
   postingSerie: postingSerie.optional(),
   description: description.optional(),
-  prefix: prefix.optional(),
-  lastNumber: lastNumber.optional(),
-  digits: digits.optional(),
   fromDate: fromDate.optional(),
   toDate: toDate.optional(),
   username: username.optional()
@@ -47,7 +56,8 @@ const updateSeriesNumberSchema = Joi.object({
 const querySeriesNumberSchema = Joi.object({
   limit,
   offset,
-  type: type.optional()
+  type: type.optional(), // Permite filtrar por tipo (ej: ver solo facturas)
+  searchTerm: searchTerm.optional()
 });
 
 module.exports = {
