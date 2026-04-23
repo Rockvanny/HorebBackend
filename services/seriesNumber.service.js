@@ -2,39 +2,44 @@ const boom = require('@hapi/boom');
 const { models } = require('../libs/sequelize');
 const { Op } = require('sequelize');
 const { SERIES_TYPES } = require('../db/models/SeriesNumber.model');
+const { incrementAlphanumeric } = require('../libs/sequence.handler');
 
 class seriesNumberService {
-  constructor() {}
+  constructor() { }
 
-  /**
-   * Helper: Traduce el string del front (ej: 'customer') al ID (1)
-   */
-  _getTypeId(typeStr) {
-    // Si ya es un número (caso de uso interno), lo devolvemos
-    if (Number.isInteger(typeStr)) return typeStr;
-    const typeInfo = SERIES_TYPES[typeStr];
-    if (!typeInfo) throw boom.badRequest(`Tipo de serie '${typeStr}' no válido`);
+  // Método privado (Solo accesible dentro de esta clase)
+  #getTypeId(typeValue) {
+    if (typeValue !== undefined && typeValue !== null && !isNaN(typeValue) && typeValue !== '') {
+      return parseInt(typeValue, 10);
+    }
+
+    const typeInfo = SERIES_TYPES[typeValue];
+    if (!typeInfo) {
+      throw boom.badRequest(`Tipo de serie '${typeValue}' no válido`);
+    }
+
     return typeInfo.id;
   }
 
-  /**
-   * Lógica de incremento alfanumérico
-   * "FV0009" -> "FV0010"
-   */
-  _incrementText(value) {
-    const match = value.match(/(\d+)$/);
-    if (!match) return value;
+  async getAvailableTypes() {
+    return Object.keys(SERIES_TYPES).map(key => ({
+      key,
+      id: SERIES_TYPES[key].id,
+      label: SERIES_TYPES[key].label || key
+    }));
+  }
 
-    const numberStr = match[0];
-    const prefix = value.substring(0, value.length - numberStr.length);
-    const nextNumber = parseInt(numberStr, 10) + 1;
-    const nextNumberStr = nextNumber.toString().padStart(numberStr.length, '0');
-
-    return prefix + nextNumberStr;
+  async findOne(typeStr, code) {
+    // CAMBIO: Se usa el #
+    const typeId = this.#getTypeId(typeStr);
+    const serieNumber = await models.seriesNumber.findOne({ where: { type: typeId, code } });
+    if (!serieNumber) throw boom.notFound('Serie no encontrada');
+    return serieNumber;
   }
 
   async findByType(typeStr) {
-    const typeId = this._getTypeId(typeStr);
+    // CAMBIO: Se usa el #
+    const typeId = this.#getTypeId(typeStr);
     const today = new Date().toISOString().split('T')[0];
 
     return await models.seriesNumber.findAll({
@@ -43,27 +48,21 @@ class seriesNumberService {
         fromDate: { [Op.lte]: today },
         toDate: { [Op.gte]: today }
       },
-      // Quitamos campos viejos, usamos los nuevos
       attributes: ['type', 'code', 'lastValue', 'postingSerie', 'description', 'fromDate', 'toDate'],
       order: [['code', 'ASC']]
     });
   }
 
   async findPaginated({ limit, offset, type, searchTerm }) {
-    const parsedLimit = parseInt(limit, 10) || 10;
-    const parsedOffset = parseInt(offset, 10) || 0;
-
     const options = {
-      limit: parsedLimit,
-      offset: parsedOffset,
+      limit: parseInt(limit, 10) || 10,
+      offset: parseInt(offset, 10) || 0,
       where: {},
       order: [['createdAt', 'DESC']]
     };
 
-    // Si viene el string 'customer', filtramos por el ID 1
-    if (type) {
-      options.where.type = this._getTypeId(type);
-    }
+    // CAMBIO: Se usa el #
+    if (type) options.where.type = this.#getTypeId(type);
 
     if (searchTerm) {
       const term = searchTerm.trim();
@@ -76,63 +75,46 @@ class seriesNumberService {
     const { count, rows } = await models.seriesNumber.findAndCountAll(options);
 
     return {
-      records: rows, // Aquí Sequelize inyectará 'typeLabel' gracias al Getter del modelo
+      records: rows,
       total: count,
-      hasMore: (parsedOffset + rows.length) < count
+      hasMore: (options.offset + rows.length) < count
     };
   }
 
-  async findOne(typeStr, code) {
-    const typeId = this._getTypeId(typeStr);
-    const serieNumber = await models.seriesNumber.findOne({
-      where: { type: typeId, code }
-    });
-    if (!serieNumber) throw boom.notFound('Serie no encontrada');
-    return serieNumber;
-  }
-
   async create(data, userExecutor) {
-    const t = await models.seriesNumber.sequelize.transaction();
-    try {
-      // Traducimos el tipo antes de guardar
-      const typeId = this._getTypeId(data.type);
-
-      const newSerie = await models.seriesNumber.create({
-        ...data,
-        type: typeId
-      }, {
-        transaction: t,
-        userExecutor
-      });
-
-      await t.commit();
-      return newSerie;
-    } catch (error) {
-      await t.rollback();
-      throw error;
-    }
+    // CAMBIO: Se usa el #
+    const typeId = this.#getTypeId(data.type);
+    return await models.seriesNumber.create({ ...data, type: typeId }, { userExecutor });
   }
 
-  /**
-   * Método para obtener y "quemar" el siguiente número
-   * Úsalo en la lógica de creación de facturas/clientes
-   */
   async getNextAndIncrement(typeStr, code, transaction) {
     const serie = await this.findOne(typeStr, code);
-    const currentValue = serie.lastValue;
-    const nextValue = this._incrementText(currentValue);
-
+    const nextValue = incrementAlphanumeric(serie.lastValue || serie.code);
     await serie.update({ lastValue: nextValue }, { transaction });
     return nextValue;
   }
 
   async update(typeStr, code, changes, userExecutor) {
     const serie = await this.findOne(typeStr, code);
+
+    if (serie.lastValue) {
+      const blockedFields = ['fromDate', 'toDate', 'type', 'code', 'postingSerie'];
+      const attemptingToChange = Object.keys(changes).filter(key =>
+        blockedFields.includes(key) && changes[key] !== serie[key]
+      );
+
+      if (attemptingToChange.length > 0) {
+        throw boom.badRequest(`No se pueden editar [${attemptingToChange.join(', ')}] en una serie en uso.`);
+      }
+    }
     return await serie.update(changes, { userExecutor });
   }
 
   async delete(typeStr, code, userExecutor) {
     const serie = await this.findOne(typeStr, code);
+    if (serie.lastValue) {
+      throw boom.badRequest("No se puede eliminar una serie con historial.");
+    }
     await serie.destroy({ userExecutor });
     return { type: typeStr, code };
   }

@@ -5,13 +5,18 @@ const Joi = require('joi');
  * recibimos del cliente (API/Frontend). El Servicio lo mapeará al
  * INTEGER correspondiente (1, 2, 3...) definido en el Modelo.
  */
-const type = Joi.string().valid(
-  'customer',
-  'vendor',
-  'product',
-  'budget',
-  'salesinvoice',
-  'purchinvoice'
+
+const type = Joi.alternatives().try(
+  Joi.string().valid(
+    'customer',
+    'vendor',
+    'product',
+    'budget',
+    'salesinvoice',
+    'purchinvoice'
+  ), // Para aceptar 'customer'
+  Joi.number(), // Para aceptar 2
+  Joi.string().pattern(/^\d+$/) // Para aceptar "2" (string numérico)
 );
 
 const code = Joi.string().min(1).max(20).uppercase(); // Quitamos alphanum por si usan guiones como 'FV-26'
@@ -35,7 +40,6 @@ const getSeriesNumberSchema = Joi.object({
 const createSeriesNumberSchema = Joi.object({
   type: type.required(),
   code: code.required(),
-  lastValue: lastValue.required(),
   postingSerie: postingSerie.optional(),
   description: description.required(),
   fromDate: fromDate.required(),
@@ -45,7 +49,6 @@ const createSeriesNumberSchema = Joi.object({
 
 const updateSeriesNumberSchema = Joi.object({
   // Recordatorio: type y code no se editan por ser Primary Keys
-  lastValue: lastValue.optional(),
   postingSerie: postingSerie.optional(),
   description: description.optional(),
   fromDate: fromDate.optional(),
