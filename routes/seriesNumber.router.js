@@ -46,9 +46,9 @@ router.get('/by-type',
   }
 );
 
-
+// 3. Obtener el diccionario de tipos disponibles
 router.get('/config/types',
-  checkPermission('allowGestion'), // Opcional: según quién deba ver el selector
+  checkPermission('allowGestion'),
   async (req, res, next) => {
     try {
       const types = await service.getAvailableTypes();
@@ -59,6 +59,24 @@ router.get('/config/types',
   }
 );
 
+/**
+ * NUEVA RUTA: Obtener series candidatas para vinculación (Posting)
+ * Se coloca antes de /:type/:code para evitar conflictos de rutas
+ */
+router.get('/config/post-series/:type',
+  checkPermission('allowGestion'),
+  async (req, res, next) => {
+    try {
+      const { type } = req.params;
+      const series = await service.getPostSeries(type);
+      res.json({ success: true, data: series });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// 4. Obtener una serie específica
 router.get('/:type/:code',
   checkPermission('allowGestion'),
   validatorHandler(getSeriesNumberSchema, 'params'),
@@ -76,8 +94,7 @@ router.get('/:type/:code',
   }
 );
 
-
-// 3. Crear una nueva serie
+// 5. Crear una nueva serie
 router.post('/',
   checkPermission('allowGestion'),
   validatorHandler(createSeriesNumberSchema, 'body'),
@@ -92,13 +109,7 @@ router.post('/',
   }
 );
 
-
-/**
- * IMPORTANTE: Las rutas de PATCH y DELETE ahora usan /:type/:code
- * ya que son tu clave primaria compuesta.
- */
-
-// 4. Actualizar serie
+// 6. Actualizar serie
 router.patch('/:type/:code',
   checkPermission('allowGestion'),
   validatorHandler(getSeriesNumberSchema, 'params'),
@@ -115,7 +126,7 @@ router.patch('/:type/:code',
   }
 );
 
-// 5. Eliminar serie
+// 7. Eliminar serie
 router.delete('/:type/:code',
   checkPermission('allowGestion'),
   validatorHandler(getSeriesNumberSchema, 'params'),

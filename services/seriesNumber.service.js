@@ -1,123 +1,208 @@
-const boom = require('@hapi/boom');
-const { models } = require('../libs/sequelize');
-const { Op } = require('sequelize');
-const { SERIES_TYPES } = require('../db/models/SeriesNumber.model');
-const { incrementAlphanumeric } = require('../libs/sequence.handler');
+import { getDomRefs } from '../../../utils/system/dom-utils.js';
 
-class seriesNumberService {
-  constructor() { }
+export const SeriesNumberFieldsHandler = () => {
+    // --- ESTADO PRIVADO (Encapsulado) ---
+    let dom = {};
+    let currentRecord = null;
 
-  // Método privado (Solo accesible dentro de esta clase)
-  #getTypeId(typeValue) {
-    if (typeValue !== undefined && typeValue !== null && !isNaN(typeValue) && typeValue !== '') {
-      return parseInt(typeValue, 10);
-    }
-
-    const typeInfo = SERIES_TYPES[typeValue];
-    if (!typeInfo) {
-      throw boom.badRequest(`Tipo de serie '${typeValue}' no válido`);
-    }
-
-    return typeInfo.id;
-  }
-
-  async getAvailableTypes() {
-    return Object.keys(SERIES_TYPES).map(key => ({
-      key,
-      id: SERIES_TYPES[key].id,
-      label: SERIES_TYPES[key].label || key
-    }));
-  }
-
-  async findOne(typeStr, code) {
-    // CAMBIO: Se usa el #
-    const typeId = this.#getTypeId(typeStr);
-    const serieNumber = await models.seriesNumber.findOne({ where: { type: typeId, code } });
-    if (!serieNumber) throw boom.notFound('Serie no encontrada');
-    return serieNumber;
-  }
-
-  async findByType(typeStr) {
-    // CAMBIO: Se usa el #
-    const typeId = this.#getTypeId(typeStr);
-    const today = new Date().toISOString().split('T')[0];
-
-    return await models.seriesNumber.findAll({
-      where: {
-        type: typeId,
-        fromDate: { [Op.lte]: today },
-        toDate: { [Op.gte]: today }
-      },
-      attributes: ['type', 'code', 'lastValue', 'postingSerie', 'description', 'fromDate', 'toDate'],
-      order: [['code', 'ASC']]
-    });
-  }
-
-  async findPaginated({ limit, offset, type, searchTerm }) {
-    const options = {
-      limit: parseInt(limit, 10) || 10,
-      offset: parseInt(offset, 10) || 0,
-      where: {},
-      order: [['createdAt', 'DESC']]
+    const DOM_MAP = {
+        selectType: 'Selecttype',
+        inputCode: 'code',
+        inputPostingSerie: 'postingSerie',
+        inputDescription: 'description',
+        inputFromDate: 'fromDate',
+        inputToDate: 'toDate'
     };
 
-    // CAMBIO: Se usa el #
-    if (type) options.where.type = this.#getTypeId(type);
+    /**
+     * Carga los tipos de numeración desde el diccionario SERIES_TYPES del backend
+     */
+    const loadTypes = async () => {
+        if (!dom.selectType) return;
 
-    if (searchTerm) {
-      const term = searchTerm.trim();
-      options.where[Op.or] = [
-        { description: { [Op.iLike]: `%${term}%` } },
-        { code: { [Op.iLike]: `%${term}%` } }
-      ];
-    }
+        try {
+            const response = await window.bridge.invoke("api-request", {
+                endpoint: "/seriesNumber/config/types",
+                method: "GET"
+            });
 
-    const { count, rows } = await models.seriesNumber.findAndCountAll(options);
+            if (response.success) {
+                dom.selectType.innerHTML = '<option value="" disabled selected>Seleccione tipo...</option>';
 
+                response.data.forEach(typeObj => {
+                    const opt = document.createElement('option');
+                    opt.value = typeObj.id;
+                    opt.dataset.key = typeObj.key;
+                    opt.textContent = typeObj.label.toUpperCase();
+                    dom.selectType.appendChild(opt);
+                });
+            }
+        } catch (error) {
+            console.error("Error cargando el diccionario de series:", error);
+        }
+    };
+
+    /**
+     * Rellena el select de postingSerie basado en el tipo seleccionado
+     */
+    const refreshPostingSeries = async () => {
+        if (!dom.inputPostingSerie || !dom.selectType) return;
+
+        const selectedOption = dom.selectType.options[dom.selectType.selectedIndex];
+        const typeKey = selectedOption?.dataset.key;
+
+        if (!typeKey) return;
+
+        try {
+            const response = await window.bridge.invoke("api-request", {
+                endpoint: `/seriesNumber/config/post-series/${typeKey}`,
+                method: "GET"
+            });
+
+            if (response.success) {
+                // Guardamos el valor actual para intentar restaurarlo tras la carga
+                const currentValue = dom.inputPostingSerie.value;
+
+                dom.inputPostingSerie.innerHTML = '<option value="">Sin vinculación...</option>';
+
+                response.data.forEach(serie => {
+                    const opt = document.createElement('option');
+                    opt.value = serie.code;
+                    opt.textContent = `${serie.code} - ${serie.description}`;
+                    dom.inputPostingSerie.appendChild(opt);
+                });
+
+                // Restaurar valor si existía
+                if (currentValue) dom.inputPostingSerie.value = currentValue;
+            }
+        } catch (error) {
+            console.error("Error cargando series vinculadas:", error);
+        }
+    };
+
+    /**
+     * Valida los campos y gestiona los estados visuales de error
+     */
+    const validate = () => {
+        let firstError = null;
+
+        // 1. CAMPOS OBLIGATORIOS BASE
+        const mandatoryFields = [
+            { key: 'selectType', label: 'Tipo de numeración' },
+            { key: 'inputCode', label: 'Código' },
+            { key: 'inputDescription', label: 'Descripción' },
+            { key: 'inputFromDate', label: 'Fecha desde' },
+            { key: 'inputToDate', label: 'Fecha hasta' }
+        ];
+
+        // 2. LÓGICA DE OBLIGATORIEDAD CONDICIONAL PARA POSTINGSERIE
+        const selectedOption = dom.selectType?.options[dom.selectType.selectedIndex];
+        const typeKey = selectedOption?.dataset.key || '';
+
+        const isPostingRequired = ['salesinvoice', 'purchinvoice'].includes(typeKey.toLowerCase());
+
+        if (isPostingRequired) {
+            mandatoryFields.push({ key: 'inputPostingSerie', label: 'Serie vinculada' });
+        } else {
+            // Limpieza proactiva si deja de ser obligatorio
+            dom.inputPostingSerie?.classList.remove('is-invalid');
+        }
+
+        // Ejecución de validación de campos obligatorios
+        mandatoryFields.forEach(field => {
+            const el = dom[field.key];
+            if (el) {
+                const value = el.value?.toString().trim();
+                if (!value) {
+                    el.classList.add('is-invalid');
+                    if (!firstError) firstError = `${field.label} es obligatorio`;
+                } else {
+                    el.classList.remove('is-invalid');
+                }
+            }
+        });
+
+        // 3. VALIDACIONES DE LÓGICA (Fechas)
+        const fromVal = dom.inputFromDate?.value || '';
+        const toVal = dom.inputToDate?.value || '';
+        if (fromVal && toVal && fromVal > toVal) {
+            dom.inputToDate.classList.add('is-invalid');
+            if (!firstError) firstError = "La fecha final no puede ser anterior a la inicial";
+        }
+
+        return firstError;
+    };
+
+    // --- INTERFAZ PÚBLICA ---
     return {
-      records: rows,
-      total: count,
-      hasMore: (options.offset + rows.length) < count
+        async init(record) {
+            currentRecord = record;
+            dom = getDomRefs(DOM_MAP);
+
+            await loadTypes();
+
+            // Listener para cambios en el tipo (carga series vinculadas y valida)
+            dom.selectType?.addEventListener('change', async () => {
+                await refreshPostingSeries();
+                validate();
+            });
+
+            // Listeners de validación en tiempo real para el resto de campos
+            const fieldsToMonitor = [
+                'inputCode',
+                'inputPostingSerie',
+                'inputDescription',
+                'inputFromDate',
+                'inputToDate'
+            ];
+
+            fieldsToMonitor.forEach(key => {
+                if (dom[key]) {
+                    const eventType = dom[key].tagName === 'SELECT' ? 'change' : 'input';
+                    dom[key].addEventListener(eventType, () => validate());
+                }
+            });
+        },
+
+        async fillData(data) {
+            if (!data) return;
+
+            // Primero cargamos el tipo
+            if (dom.selectType) dom.selectType.value = data.type || '';
+
+            // Refrescamos las opciones de postingSerie antes de asignar el valor
+            await refreshPostingSeries();
+
+            if (dom.inputCode) dom.inputCode.value = data.code || '';
+            if (dom.inputPostingSerie) dom.inputPostingSerie.value = data.postingSerie || '';
+            if (dom.inputDescription) dom.inputDescription.value = data.description || '';
+            if (dom.inputFromDate) dom.inputFromDate.value = data.fromDate || '';
+            if (dom.inputToDate) dom.inputToDate.value = data.toDate || '';
+
+            // Limpiar estados de error
+            Object.values(dom).forEach(el => el?.classList?.remove('is-invalid'));
+        },
+
+        getData(mode) {
+            const error = validate();
+
+            if (error) {
+                console.warn("Validación fallida:", error);
+            }
+
+            const data = {
+                type: dom.selectType?.value,
+                code: dom.inputCode?.value.trim(),
+                postingSerie: dom.inputPostingSerie?.value.trim(),
+                description: dom.inputDescription?.value.trim(),
+                fromDate: dom.inputFromDate?.value,
+                toDate: dom.inputToDate?.value
+            };
+
+            console.log('Get Data>', data);
+            return data;
+        },
+
+        validate
     };
-  }
-
-  async create(data, userExecutor) {
-    // CAMBIO: Se usa el #
-    const typeId = this.#getTypeId(data.type);
-    return await models.seriesNumber.create({ ...data, type: typeId }, { userExecutor });
-  }
-
-  async getNextAndIncrement(typeStr, code, transaction) {
-    const serie = await this.findOne(typeStr, code);
-    const nextValue = incrementAlphanumeric(serie.lastValue || serie.code);
-    await serie.update({ lastValue: nextValue }, { transaction });
-    return nextValue;
-  }
-
-  async update(typeStr, code, changes, userExecutor) {
-    const serie = await this.findOne(typeStr, code);
-
-    if (serie.lastValue) {
-      const blockedFields = ['fromDate', 'toDate', 'type', 'code', 'postingSerie'];
-      const attemptingToChange = Object.keys(changes).filter(key =>
-        blockedFields.includes(key) && changes[key] !== serie[key]
-      );
-
-      if (attemptingToChange.length > 0) {
-        throw boom.badRequest(`No se pueden editar [${attemptingToChange.join(', ')}] en una serie en uso.`);
-      }
-    }
-    return await serie.update(changes, { userExecutor });
-  }
-
-  async delete(typeStr, code, userExecutor) {
-    const serie = await this.findOne(typeStr, code);
-    if (serie.lastValue) {
-      throw boom.badRequest("No se puede eliminar una serie con historial.");
-    }
-    await serie.destroy({ userExecutor });
-    return { type: typeStr, code };
-  }
-}
-
-module.exports = seriesNumberService;
+};
