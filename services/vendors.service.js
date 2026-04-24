@@ -95,10 +95,10 @@ class VendorService {
   async delete(code, userExecutor) {
     const vendor = await this.findOne(code, true);
 
-    if (
-      (vendor.purchInvoice && vendor.purchInvoice.length > 0) ||
-      (vendor.purchPostInvoice && vendor.purchPostInvoice.length > 0)
-    ) {
+    const haspurchInvoice = vendor.purchInvoice?.length > 0;
+    const hasPurchPostInvoice = vendor.purchPostInvoice?.length > 0;
+
+    if ( haspurchInvoice || hasPurchPostInvoice ) {
       throw boom.conflict('No se puede eliminar: el proveedor tiene facturas vinculadas.');
     }
 

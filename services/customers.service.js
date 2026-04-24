@@ -168,19 +168,23 @@ class CustomerService {
    * ELIMINAR: Validación de integridad referencial y borrado.
    */
   async delete(code, userExecutor) {
-    // Buscamos incluyendo documentos para la validación
+    // 1. Buscamos el cliente incluyendo los documentos (ya lo tienes configurado)
     const customer = await this.findOne(code, true);
 
-    // Validación de integridad
-    if (
-      (customer.salesBudget && customer.salesBudget.length > 0) ||
-      (customer.salesInvoice && customer.salesInvoice.length > 0) ||
-      (customer.salesPostInvoice && customer.salesPostInvoice.length > 0)
-    ) {
-      throw boom.conflict('No se puede eliminar: el cliente tiene documentos contables vinculados.');
+    // 2. Extraemos la existencia de registros para mayor claridad
+    const hasBudgets = customer.salesBudget?.length > 0;
+    const hasInvoices = customer.salesInvoice?.length > 0;
+    const hasPostInvoices = customer.salesPostInvoice?.length > 0;
+
+    // 3. Validación de integridad: Si tiene CUALQUIERA de estos, lanzamos conflicto
+    if (hasBudgets || hasInvoices || hasPostInvoices) {
+      throw boom.conflict(
+        'Operación denegada: El cliente tiene ofertas o facturas (borradores/registradas) asociadas.'
+      );
     }
 
-    // Ejecución del Borrado (pasando el ejecutor por si se requiere en hooks de destroy)
+    // 4. Si la validación pasa, procedemos al borrado
+    // Pasamos userExecutor por si tienes hooks de auditoría (afterDestroy)
     await customer.destroy({ userExecutor });
 
     return { code };
