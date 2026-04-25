@@ -5,14 +5,21 @@ const { SALESPOSTINVOICE_TABLE } = require('../models/salesPostInvoice.model');
 module.exports = {
   up: async (queryInterface, Sequelize) => {
     await queryInterface.createTable(SALESPOSTINVOICE_TABLE, {
+      id: {
+        field: 'id',
+        allowNull: false,
+        autoIncrement: true,
+        primaryKey: true,
+        type: Sequelize.DataTypes.INTEGER,
+      },
       code: {
         field: 'code',
         allowNull: false,
-        primaryKey: true,
+        unique: true, // Único, pero no PK técnica
         type: Sequelize.DataTypes.STRING
       },
       preInvoice: {
-        field: 'pre_invoice', // Normalizado a snake_case
+        field: 'pre_invoice',
         allowNull: false,
         type: Sequelize.DataTypes.STRING,
       },
@@ -143,9 +150,19 @@ module.exports = {
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
       }
     });
+
+    // Índices para mejorar la búsqueda en el histórico
+    await queryInterface.addIndex(SALESPOSTINVOICE_TABLE, ['code']);
+    await queryInterface.addIndex(SALESPOSTINVOICE_TABLE, ['entity_code']);
   },
 
   down: async (queryInterface, Sequelize) => {
     await queryInterface.dropTable(SALESPOSTINVOICE_TABLE);
+    // Nota: Los ENUMs se borran automáticamente si no se comparten,
+    // pero en Postgres a veces es necesario forzar el borrado de tipos si dan error:
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_post_invoices_type_invoice";');
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_post_invoices_status";');
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_post_invoices_rectification_type";');
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_post_invoices_payment_method";');
   }
 };

@@ -1,7 +1,7 @@
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
 const sequelize = require('../libs/sequelize');
-const VerifactuService = require('./verifactulogs.service'); // Asegúrate que el nombre coincida
+const VerifactuService = require('./verifactulogs.service');
 
 const {
   salesPostInvoice,
@@ -13,16 +13,6 @@ const verifactuService = new VerifactuService();
 const isProduction = process.env.NODE_ENV === 'production';
 
 class salesPostInvoiceService {
-  constructor() { }
-
-  async countAll() {
-    try {
-      return await salesPostInvoice.count();
-    } catch (error) {
-      throw boom.badImplementation('Error al contar las facturas registradas', error);
-    }
-  }
-
   async findPaginated({ limit, offset, searchTerm }) {
     const parsedLimit = parseInt(limit, 10) || 100;
     const parsedOffset = parseInt(offset, 10) || 0;
@@ -47,19 +37,17 @@ class salesPostInvoiceService {
       const { count, rows } = await salesPostInvoice.findAndCountAll(options);
       return { records: rows, hasMore: (parsedOffset + rows.length) < count, total: count };
     } catch (error) {
-      throw boom.badImplementation('Error al consultar facturas registradas', error);
+      throw boom.badImplementation('Error al consultar histórico', error);
     }
   }
 
   async findOne(code, options = {}) {
-    const { includeLines = false } = options;
     const queryOptions = {
       where: { code },
       include: [{ model: Customer, as: 'customer' }]
     };
-    if (includeLines) {
-      queryOptions.include.push({ model: salesPostInvoiceLine, as: 'lines' });
-    }
+    if (options.includeLines) queryOptions.include.push({ model: salesPostInvoiceLine, as: 'lines' });
+
     const record = await salesPostInvoice.findOne(queryOptions);
     if (!record) throw boom.notFound('Factura registrada no encontrada');
     return record.get({ plain: true });
@@ -69,20 +57,28 @@ class salesPostInvoiceService {
     const { lines, ...headerData } = data;
     const transaction = await sequelize.transaction();
     try {
+      // 1. Crear Cabecera
       const newInvoice = await salesPostInvoice.create(headerData, { transaction });
 
+      // 2. Crear Líneas (Asegurando que NO lleven ID previo)
       if (lines && lines.length > 0) {
-        const linesToInsert = lines.map((line, index) => ({
-          ...line,
-          lineNo: line.lineNo || (index + 1),
-          codeDocument: newInvoice.code,
-          amountLine: (parseFloat(line.quantity || 0) * parseFloat(line.quantityUnitMeasure || 1) * parseFloat(line.unitPrice || 0)).toFixed(4),
-          username: data.username || 'System'
-        }));
-        await salesPostInvoiceLine.bulkCreate(linesToInsert, { transaction });
+        const linesToInsert = lines.map((line, index) => {
+          const { id, ...cleanLine } = line; // Eliminamos cualquier ID que venga del borrador
+          return {
+            ...cleanLine,
+            codeDocument: newInvoice.code,
+            lineNo: line.lineNo || (index + 1),
+            username: headerData.username || 'System'
+          };
+        });
+
+        await salesPostInvoiceLine.bulkCreate(linesToInsert, {
+          transaction,
+          returning: false // Crucial: No pedimos IDs de vuelta para evitar errores de mapeo
+        });
       }
 
-      // Registro en Veri*factu
+      // 3. Registro Veri*factu
       const isTest = !isProduction;
       await verifactuService.createLog(newInvoice.code, isTest, transaction);
 
@@ -92,16 +88,7 @@ class salesPostInvoiceService {
     } catch (error) {
       if (transaction) await transaction.rollback();
       if (error.name === "SequelizeUniqueConstraintError") throw boom.conflict(`La factura ${data.code} ya existe.`);
-      throw error.isBoom ? error : boom.badImplementation('Error crítico en el proceso de registro', error);
-    }
-  }
-
-  async getTotalByBudget(budgetCode) {
-    try {
-      const total = await salesPostInvoice.sum('amount_with_vat', { where: { budgetCode } });
-      return total || 0;
-    } catch (error) {
-      throw boom.internal('Error al calcular total facturado');
+      throw boom.badImplementation('Error en el registro oficial', error);
     }
   }
 }

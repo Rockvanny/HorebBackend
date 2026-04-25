@@ -5,6 +5,12 @@ const { PURCHINVOICELINE_TABLE } = require('../models/purchInvoiceLine.model');
 module.exports = {
   up: async (queryInterface, Sequelize) => {
     await queryInterface.createTable(PURCHINVOICELINE_TABLE, {
+      id: {
+        allowNull: false,
+        autoIncrement: true,
+        primaryKey: true,
+        type: Sequelize.DataTypes.INTEGER,
+      },
       // Sincronizado con codeDocument (field: 'code_document') del modelo
       code_document: {
         allowNull: false,

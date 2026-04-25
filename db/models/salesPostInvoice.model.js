@@ -4,14 +4,20 @@ const { generateNextCode } = require('../../libs/sequence.handler');
 const SALESPOSTINVOICE_TABLE = 'sales_post_invoices';
 
 const salesPostInvoiceSchema = {
+  id: {
+    allowNull: false,
+    autoIncrement: true,
+    primaryKey: true,
+    type: DataTypes.INTEGER
+  },
   code: {
     field: 'code',
     allowNull: false,
-    primaryKey: true,
+    unique: true, // Deja de ser PK técnica, pasa a ser índice único
     type: DataTypes.STRING
   },
   preInvoice: {
-    field: 'pre_invoice', // Normalizado a snake_case
+    field: 'pre_invoice',
     allowNull: false,
     type: DataTypes.STRING
   },
@@ -21,86 +27,38 @@ const salesPostInvoiceSchema = {
     allowNull: false,
     defaultValue: 'F1'
   },
-  parentCode: {
-    field: 'parent_code',
-    type: DataTypes.STRING,
-    allowNull: true
-  },
+  parentCode: { field: 'parent_code', type: DataTypes.STRING, allowNull: true },
   rectificationType: {
     field: 'rectification_type',
     type: DataTypes.ENUM('S', 'I'),
     allowNull: true
   },
-  budgetCode: {
-    field: 'budget_code',
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-  postingDate: {
-    field: 'posting_date',
-    type: DataTypes.DATE,
-    allowNull: false // Requisito legal
-  },
-  dueDate: {
-    field: 'due_date',
-    type: DataTypes.DATE,
-    allowNull: true
-  },
-  entityCode: { // Mantengo customer_code pero alineado con entity_code del borrador
-    field: 'entity_code',
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  name: {
-    field: 'name',
-    type: DataTypes.STRING,
-    allowNull: false // Requisito legal
-  },
-  nif: { // Añadido para igualar borrador
-    field: 'nif',
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  email: {
-    field: 'email',
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-  phone: {
-    field: 'phone',
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-  address: {
-    field: 'address',
-    type: DataTypes.STRING,
-    allowNull: false // Requisito legal
-  },
-  postCode: {
-    field: 'post_code',
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-  city: {
-    field: 'city',
-    type: DataTypes.STRING,
-    allowNull: true
-  },
+  budgetCode: { field: 'budget_code', type: DataTypes.STRING, allowNull: true },
+  postingDate: { field: 'posting_date', type: DataTypes.DATE, allowNull: false },
+  dueDate: { field: 'due_date', type: DataTypes.DATE, allowNull: true },
+  entityCode: { field: 'entity_code', type: DataTypes.STRING, allowNull: false },
+  name: { field: 'name', type: DataTypes.STRING, allowNull: false },
+  nif: { field: 'nif', type: DataTypes.STRING, allowNull: false },
+  email: { field: 'email', type: DataTypes.STRING, allowNull: true },
+  phone: { field: 'phone', type: DataTypes.STRING, allowNull: true },
+  address: { field: 'address', type: DataTypes.STRING, allowNull: false },
+  postCode: { field: 'post_code', type: DataTypes.STRING, allowNull: true },
+  city: { field: 'city', type: DataTypes.STRING, allowNull: true },
   status: {
     field: 'status',
-    type: DataTypes.ENUM('Abierto', 'Pagado'), // Tipado como ENUM igual que el borrador
+    type: DataTypes.ENUM('Abierto', 'Pagado'),
     allowNull: false,
     defaultValue: 'Abierto'
   },
   paymentMethod: {
     field: 'payment_method',
-    type: DataTypes.ENUM('Tarjeta', 'Efectivo', 'Transferencia'), // Tipado como ENUM
+    type: DataTypes.ENUM('Tarjeta', 'Efectivo', 'Transferencia'),
     allowNull: false,
     defaultValue: 'Tarjeta'
   },
   amountWithoutVAT: {
     field: 'amount_without_vat',
-    type: DataTypes.DECIMAL(12, 4), // Aumentada precisión a 12,4
+    type: DataTypes.DECIMAL(12, 4),
     allowNull: false,
     defaultValue: 0.0000
   },
@@ -116,16 +74,8 @@ const salesPostInvoiceSchema = {
     allowNull: false,
     defaultValue: 0.0000
   },
-  comments: { // Añadido para igualar borrador
-    field: 'comments',
-    type: DataTypes.TEXT,
-    allowNull: true
-  },
-  username: {
-    field: 'user_name',
-    type: DataTypes.STRING,
-    allowNull: true
-  },
+  comments: { field: 'comments', type: DataTypes.TEXT, allowNull: true },
+  username: { field: 'user_name', type: DataTypes.STRING, allowNull: true },
   createdAt: {
     field: 'created_at',
     allowNull: false,
@@ -142,17 +92,12 @@ const salesPostInvoiceSchema = {
 
 class salesPostInvoice extends Model {
   static associate(models) {
-    this.belongsTo(models.Customer, {
-      as: 'customer',
-      foreignKey: 'entity_code'
-    });
-
+    this.belongsTo(models.Customer, { as: 'customer', foreignKey: 'entity_code' });
     this.hasMany(models.salesPostInvoiceLine, {
       as: 'lines',
-      foreignKey: 'codeDocument', // Cambiado a codeDocument para consistencia con líneas de borrador
+      foreignKey: 'codeDocument',
       sourceKey: 'code',
-      onDelete: 'CASCADE',
-      hooks: true
+      onDelete: 'CASCADE'
     });
   }
 
@@ -161,7 +106,7 @@ class salesPostInvoice extends Model {
       sequelize,
       tableName: SALESPOSTINVOICE_TABLE,
       modelName: 'salesPostInvoice',
-      timestamps: false, // Se gestionan manualmente en el esquema igual que el borrador
+      timestamps: true, // Ahora gestionado por Sequelize
       underscored: true,
       hooks: {
         beforeValidate: async (instance, options) => {

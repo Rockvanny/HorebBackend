@@ -4,88 +4,42 @@ const { generateNextCode } = require('../../libs/sequence.handler');
 const SALESINVOICE_TABLE = 'sales_invoices';
 
 const salesInvoiceSchema = {
+  id: {
+    allowNull: false,
+    autoIncrement: true,
+    primaryKey: true,
+    type: DataTypes.INTEGER
+  },
   code: {
     field: 'code',
     allowNull: false,
-    primaryKey: true,
+    unique: true, // Ahora es un índice único, no la PK técnica
     type: DataTypes.STRING
   },
-  codePosting: {
-    field: 'code_posting',
-    type: DataTypes.STRING,
-    allowNull: true
-  },
+  codePosting: { field: 'code_posting', type: DataTypes.STRING, allowNull: true },
   typeInvoice: {
     field: 'type_invoice',
     type: DataTypes.ENUM('F1', 'F2', 'R1', 'R2', 'R3', 'R4', 'R5'),
     allowNull: false,
     defaultValue: 'F1'
   },
-  parentCode: {
-    field: 'parent_code',
-    type: DataTypes.STRING,
-    allowNull: true
-  },
+  parentCode: { field: 'parent_code', type: DataTypes.STRING, allowNull: true },
   rectificationType: {
     field: 'rectification_type',
     type: DataTypes.ENUM('S', 'I'),
     allowNull: true
   },
-  budgetCode: {
-    field: 'budget_code',
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-  postingDate: {
-    field: 'posting_date',
-    type: DataTypes.DATE,
-    allowNull: false // Requisito legal
-  },
-  dueDate: {
-    field: 'due_date',
-    type: DataTypes.DATE,
-    allowNull: true
-  },
-  entityCode: {
-    field: 'entity_code',
-    type: DataTypes.STRING,
-    allowNull: false
-  },
-  name: {
-    field: 'name',
-    type: DataTypes.STRING,
-    allowNull: false // Requisito legal (Razón Social)
-  },
-  nif: {
-    field: 'nif',
-    type: DataTypes.STRING,
-    allowNull: false // Requisito legal
-  },
-  email: {
-    field: 'email',
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-  phone: {
-    field: 'phone',
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-  address: {
-    field: 'address',
-    type: DataTypes.STRING,
-    allowNull: false // Requisito legal (Domicilio Fiscal)
-  },
-  postCode: {
-    field: 'post_code',
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-  city: {
-    field: 'city',
-    type: DataTypes.STRING,
-    allowNull: true
-  },
+  budgetCode: { field: 'budget_code', type: DataTypes.STRING, allowNull: true },
+  postingDate: { field: 'posting_date', type: DataTypes.DATE, allowNull: false },
+  dueDate: { field: 'due_date', type: DataTypes.DATE, allowNull: true },
+  entityCode: { field: 'entity_code', type: DataTypes.STRING, allowNull: false },
+  name: { field: 'name', type: DataTypes.STRING, allowNull: false },
+  nif: { field: 'nif', type: DataTypes.STRING, allowNull: false },
+  email: { field: 'email', type: DataTypes.STRING, allowNull: true },
+  phone: { field: 'phone', type: DataTypes.STRING, allowNull: true },
+  address: { field: 'address', type: DataTypes.STRING, allowNull: false },
+  postCode: { field: 'post_code', type: DataTypes.STRING, allowNull: true },
+  city: { field: 'city', type: DataTypes.STRING, allowNull: true },
   status: {
     field: 'status',
     type: DataTypes.ENUM('Abierto', 'Pagado'),
@@ -116,37 +70,13 @@ const salesInvoiceSchema = {
     allowNull: false,
     defaultValue: 0.0000
   },
-  comments: {
-    field: 'comments',
-    type: DataTypes.TEXT,
-    allowNull: true
-  },
-  username: {
-    field: 'user_name', // Mapeo correcto a la columna de DB
-    type: DataTypes.STRING,
-    allowNull: true
-  },
-  createdAt: {
-    field: 'created_at',
-    allowNull: false,
-    type: DataTypes.DATE,
-    defaultValue: Sequelize.NOW
-  },
-  updatedAt: {
-    field: 'updated_at',
-    allowNull: false,
-    type: DataTypes.DATE,
-    defaultValue: Sequelize.NOW
-  }
+  comments: { field: 'comments', type: DataTypes.TEXT, allowNull: true },
+  username: { field: 'user_name', type: DataTypes.STRING, allowNull: true }
 };
 
 class salesInvoice extends Model {
   static associate(models) {
-    this.belongsTo(models.Customer, {
-      as: 'customer',
-      foreignKey: 'entity_code'
-    });
-
+    this.belongsTo(models.Customer, { as: 'customer', foreignKey: 'entityCode', targetKey: 'entityCode' });
     this.hasMany(models.salesInvoiceLine, {
       as: 'lines',
       foreignKey: 'codeDocument',
@@ -161,7 +91,7 @@ class salesInvoice extends Model {
       sequelize,
       tableName: SALESINVOICE_TABLE,
       modelName: 'salesInvoice',
-      timestamps: false,
+      timestamps: true, // Activado para que Sequelize gestione las fechas
       underscored: true,
       hooks: {
         beforeValidate: async (instance, options) => {

@@ -91,7 +91,7 @@ class salesBudgetService {
       }
 
       // Fallback por si acaso el ENUM no se lee correctamente
-      return ['Borrador', 'Enviado','Aprobado', 'Rechazado'];
+      return ['Borrador', 'Enviado', 'Aprobado', 'Rechazado'];
     } catch (error) {
       console.error("Error en findStatuses:", error);
       throw boom.badImplementation('No se pudieron obtener los estados');
@@ -165,31 +165,54 @@ class salesBudgetService {
     const transaction = await sequelize.transaction();
 
     try {
-      // Usamos findOne con el code porque es tu identificador de negocio
+      // 1. Obtener el estado actual de la DB
       const instance = await salesBudget.findOne({ where: { code }, transaction });
       if (!instance) throw boom.notFound('Registro no encontrado');
 
-      // --- AJUSTE DE SEGURIDAD PARA POSTGRES/SEQUELIZE ---
-      // Eliminamos campos que NUNCA deben estar en el SET de un UPDATE
+      const currentStatus = instance.status;
+
+      // --- REGLA 1: ESTADOS FINALES (Aprobado / Rechazado) ---
+      if (currentStatus === 'Aprobado' || currentStatus === 'Rechazado') {
+        // En estos estados, SOLO se permite modificar el campo 'comments'
+        const allowedFields = ['comments', 'username']; // username suele enviarse siempre
+        const keysAttempted = Object.keys(headerChanges);
+        const isAttemptingOtherFields = keysAttempted.some(key => !allowedFields.includes(key));
+
+        if (isAttemptingOtherFields || lines) {
+          throw boom.forbidden(`En estado ${currentStatus} solo se pueden modificar las observaciones`);
+        }
+      }
+
+      // --- REGLA 2: ESTADO ENVIADO ---
+      if (currentStatus === 'Enviado') {
+        // No se puede cambiar el cliente (entityCode)
+        if (headerChanges.entityCode && headerChanges.entityCode !== instance.entityCode) {
+          throw boom.forbidden('No se puede cambiar el cliente de una oferta ya enviada');
+        }
+
+        // Bloquear cambio de estado a 'Borrador'
+        if (headerChanges.status === 'Borrador') {
+          throw boom.forbidden('No se puede volver a Borrador una oferta ya enviada');
+        }
+      }
+
+      // --- LIMPIEZA DE DATOS ---
       const cleanHeader = { ...headerChanges };
       delete cleanHeader.id;
-      delete cleanHeader.code; // El código no se debe actualizar si es la PK
+      delete cleanHeader.code;
       delete cleanHeader.createdAt;
       delete cleanHeader.updatedAt;
 
-      // 1. Actualizar cabecera con datos limpios
+      // 2. Actualizar cabecera
       await instance.update(cleanHeader, { transaction });
 
-      // 2. Sincronizar líneas si vienen en el body (Lógica Flush & Fill)
+      // 3. Sincronizar líneas (Solo si el estado permite modificar líneas)
+      // (Si es Aprobado/Rechazado, el check de arriba ya habrá lanzado error si 'lines' existe)
       if (lines) {
-        await salesBudgetLine.destroy({
-          where: { codeDocument: code },
-          transaction
-        });
+        await salesBudgetLine.destroy({ where: { codeDocument: code }, transaction });
 
         if (lines.length > 0) {
           const linesToInsert = lines.map((line, index) => {
-            // Limpiamos también el objeto de la línea
             const { id, ...lineData } = line;
             return {
               ...lineData,
@@ -199,19 +222,9 @@ class salesBudgetService {
             };
           });
           await salesBudgetLine.bulkCreate(linesToInsert, { transaction });
-        } else {
-          // Línea por defecto si se vacía el array
-          await salesBudgetLine.create({
-            codeDocument: code,
-            lineNo: 1,
-            description: 'Nueva línea',
-            quantity: 1.0,
-            unitPrice: 0.0,
-            vat: 0.0,
-            amountLine: 0.0,
-            username: cleanHeader.username || 'Sistema'
-          }, { transaction });
         }
+        // Nota: No creamos línea por defecto aquí si el usuario envía array vacío
+        // para evitar sobrescribir si no es necesario.
       }
 
       await transaction.commit();
@@ -219,17 +232,34 @@ class salesBudgetService {
 
     } catch (error) {
       if (transaction) await transaction.rollback();
-      // Log extra para depurar qué campo está fallando exactamente
-      console.error("Error detallado en Sequelize Update:", error);
       throw error;
     }
   }
 
   async delete(code) {
-    const instance = await salesBudget.findByPk(code);
-    if (!instance) throw boom.notFound('Registro no encontrado');
-    await instance.destroy();
-    return { code, message: 'Registro eliminado correctamente' };
+    // 1. Buscamos solo el campo status directamente de la DB, sin basura en memoria
+    const record = await salesBudget.findByPk(code, {
+      attributes: ['status']
+    });
+
+    if (!record) {
+      throw boom.notFound('Registro no encontrado');
+    }
+
+    // 2. Validación ultra-estricta (Case Sensitive y Trim)
+    const currentStatus = record.status;
+
+    if (String(currentStatus).trim() !== 'Borrador') {
+      throw boom.forbidden(`Seguridad: No se puede eliminar una oferta en estado ${currentStatus}. Solo se admiten registros en 'Borrador'.`);
+    }
+
+    // 3. Eliminación física
+    return await salesBudget.destroy({
+      where: {
+        code: code,
+        status: 'Borrador' // Doble seguro: Si el estado cambió justo ahora, el where fallará
+      }
+    });
   }
 }
 

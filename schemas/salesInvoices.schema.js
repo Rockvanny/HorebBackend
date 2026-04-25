@@ -1,19 +1,16 @@
 const Joi = require('joi');
 const { createSalesInvoiceLineSchema, updateSalesInvoiceLineSchema } = require('./salesInvoiceLine.schema');
 
+const id = Joi.number().integer();
 const code = Joi.string();
 const selectedSerie = Joi.string();
 const codePosting = Joi.string().allow('', null);
-
-// Veri*factu Enums
 const typeInvoice = Joi.string().valid('F1', 'F2', 'R1', 'R2', 'R3', 'R4', 'R5').default('F1');
 const parentCode = Joi.string().allow('', null);
 const rectificationType = Joi.string().valid('S', 'I').allow(null);
-
 const postingDate = Joi.date();
 const dueDate = Joi.date().allow(null);
 const budgetCode = Joi.string().allow('', null);
-// Sincronizado con el nombre del modelo: entityCode
 const entityCode = Joi.string();
 const name = Joi.string().min(3).max(100);
 const nif = Joi.string().min(5).max(20);
@@ -27,10 +24,6 @@ const status = Joi.string().valid('Abierto', 'Pagado').default('Abierto');
 const comments = Joi.string().allow('', null);
 const money = Joi.number().precision(4).default(0);
 const username = Joi.string();
-
-const limit = Joi.number().integer();
-const offset = Joi.number().integer();
-const searchTerm = Joi.string().allow('');
 
 const getSalesInvoiceSchema = Joi.object({
     code: code.required(),
@@ -46,7 +39,7 @@ const createSalesInvoiceSchema = Joi.object({
     budgetCode: budgetCode.optional(),
     postingDate: postingDate.default(() => new Date()),
     dueDate: dueDate.optional(),
-    entityCode: entityCode.required(), // Sincronizado
+    entityCode: entityCode.required(),
     name: name.required(),
     nif: nif.required(),
     email: email.optional(),
@@ -65,6 +58,7 @@ const createSalesInvoiceSchema = Joi.object({
 });
 
 const updateSalesInvoiceSchema = Joi.object({
+    id: id.optional(), // Permitimos ID en el body para actualizaciones
     codePosting: codePosting.optional(),
     typeInvoice: typeInvoice.optional(),
     parentCode: parentCode.optional(),
@@ -72,7 +66,7 @@ const updateSalesInvoiceSchema = Joi.object({
     budgetCode: budgetCode.optional(),
     postingDate: postingDate.optional(),
     dueDate: dueDate.optional(),
-    entityCode: entityCode.optional(), // Sincronizado
+    entityCode: entityCode.optional(),
     name: name.optional(),
     nif: nif.optional().allow(''),
     email: email.optional(),
@@ -90,15 +84,8 @@ const updateSalesInvoiceSchema = Joi.object({
     lines: Joi.array().items(updateSalesInvoiceLineSchema).optional(),
 });
 
-const querySalesInvoiceSchema = Joi.object({
-    limit,
-    offset,
-    searchTerm: searchTerm.optional(),
-});
-
 module.exports = {
     getSalesInvoiceSchema,
     createSalesInvoiceSchema,
-    updateSalesInvoiceSchema,
-    querySalesInvoiceSchema
+    updateSalesInvoiceSchema
 };

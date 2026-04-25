@@ -8,8 +8,8 @@ const SERIES_TYPES = {
   vendor:       { id: 2, label: 'Proveedor' },
   product:      { id: 3, label: 'Producto' },
   budget:       { id: 4, label: 'Presupuesto' },
-  salesinvoice: { id: 5, label: 'Factura de Venta' },
-  purchinvoice: { id: 6, label: 'Factura de Compra' }
+  salesinvoice: { id: 5, label: 'Documento de Venta' },
+  purchinvoice: { id: 6, label: 'Documento de Compra' }
 };
 
 const seriesNumberSchema = {

@@ -3,11 +3,15 @@ const { Model, DataTypes, Sequelize } = require('sequelize');
 const SALESINVOICELINE_TABLE = 'sales_invoice_lines';
 
 const salesInvoiceLineSchema = {
-  // CLAVE COMPUESTA NORMALIZADA
+  id: {
+    allowNull: false,
+    autoIncrement: true,
+    primaryKey: true,
+    type: DataTypes.INTEGER
+  },
   codeDocument: {
     field: 'code_document',
     allowNull: false,
-    primaryKey: true,
     type: DataTypes.STRING,
     references: { model: 'sales_invoices', key: 'code' },
     onUpdate: 'CASCADE',
@@ -16,10 +20,8 @@ const salesInvoiceLineSchema = {
   lineNo: {
     field: 'line_no',
     allowNull: false,
-    primaryKey: true,
     type: DataTypes.INTEGER,
   },
-  // CAMPOS GENÉRICOS (Normalizados con Ofertas)
   codeItem: { field: 'item_code', type: DataTypes.STRING, allowNull: true },
   description: { field: 'description', type: DataTypes.TEXT },
   quantity: { field: 'quantity', type: DataTypes.DECIMAL(12, 4), defaultValue: 0 },
@@ -66,6 +68,13 @@ class salesInvoiceLine extends Model {
       modelName: 'salesInvoiceLine',
       timestamps: true,
       underscored: true,
+      // ESTO MANTIENE LA LÓGICA DE NEGOCIO SIN SER PRIMARY KEY
+      indexes: [
+        {
+          unique: true,
+          fields: ['code_document', 'line_no']
+        }
+      ],
       hooks: {
         afterSave: async (line, opts) => {
           await this.updateDocumentTotals(line.codeDocument, opts.transaction);
