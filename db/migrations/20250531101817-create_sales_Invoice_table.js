@@ -17,6 +17,13 @@ module.exports = {
         unique: true,
         type: Sequelize.DataTypes.STRING
       },
+      // --- NUEVA COLUMNA AGREGADA ---
+      seriesCode: {
+        field: 'series_code',
+        type: Sequelize.DataTypes.STRING,
+        allowNull: true
+      },
+      // ------------------------------
       codePosting: {
         field: 'code_posting',
         type: Sequelize.DataTypes.STRING,
@@ -142,11 +149,12 @@ module.exports = {
     });
 
     await queryInterface.addIndex(SALESINVOICE_TABLE, ['entity_code']);
+    // Recomendado: agregar índice a series_code si vas a filtrar mucho por él
+    await queryInterface.addIndex(SALESINVOICE_TABLE, ['series_code']);
   },
 
   down: async (queryInterface) => {
     await queryInterface.dropTable(SALESINVOICE_TABLE);
-    // Limpiar ENUMs en Postgres para evitar conflictos en futuras migraciones
     await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_invoices_type_invoice";');
     await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_invoices_status";');
     await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_invoices_rectification_type";');

@@ -13,9 +13,16 @@ const salesInvoiceSchema = {
   code: {
     field: 'code',
     allowNull: false,
-    unique: true, // Ahora es un índice único, no la PK técnica
+    unique: true,
     type: DataTypes.STRING
   },
+  // --- NUEVA COLUMNA AGREGADA ---
+  seriesCode: {
+    field: 'series_code',
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+  // ------------------------------
   codePosting: { field: 'code_posting', type: DataTypes.STRING, allowNull: true },
   typeInvoice: {
     field: 'type_invoice',
@@ -76,7 +83,8 @@ const salesInvoiceSchema = {
 
 class salesInvoice extends Model {
   static associate(models) {
-    this.belongsTo(models.Customer, { as: 'customer', foreignKey: 'entityCode', targetKey: 'entityCode' });
+    this.belongsTo(models.Customer, { as: 'customer', foreignKey: 'entityCode', targetKey: 'code' });
+
     this.hasMany(models.salesInvoiceLine, {
       as: 'lines',
       foreignKey: 'codeDocument',
@@ -91,7 +99,7 @@ class salesInvoice extends Model {
       sequelize,
       tableName: SALESINVOICE_TABLE,
       modelName: 'salesInvoice',
-      timestamps: true, // Activado para que Sequelize gestione las fechas
+      timestamps: true,
       underscored: true,
       hooks: {
         beforeValidate: async (instance, options) => {

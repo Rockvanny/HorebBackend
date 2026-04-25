@@ -27,7 +27,7 @@ router.get('/',
 router.get('/:code',
   passport.authenticate('jwt', { session: false }),
   checkPermission('allowSales'),
-  validatorHandler(getSalesInvoiceSchema, 'params'), // Reutilizamos lógica de código
+  validatorHandler(getSalesPostInvoiceSchema, 'params'), // Reutilizamos lógica de código
   async (req, res, next) => {
     try {
       const { code } = req.params;

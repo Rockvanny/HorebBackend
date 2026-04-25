@@ -7,6 +7,41 @@ const SalesPostInvoiceService = require('./salesPostInvoice.service');
 const postService = new SalesPostInvoiceService();
 
 class salesInvoiceService {
+
+  async findPaginated({ limit, offset, searchTerm }) {
+    const parsedLimit = parseInt(limit, 10) || 100;
+    const parsedOffset = parseInt(offset, 10) || 0;
+
+    const options = {
+      limit: parsedLimit,
+      offset: parsedOffset,
+      order: [['createdAt', 'DESC']], // Sequelize normaliza a createdAt
+      where: {},
+    };
+
+    if (searchTerm) {
+      options.where[Op.or] = [
+        { code: { [Op.iLike]: `%${searchTerm}%` } },
+        { name: { [Op.iLike]: `%${searchTerm}%` } },
+        { nif: { [Op.iLike]: `%${searchTerm}%` } }
+      ];
+    }
+
+    try {
+      const { count, rows } = await salesInvoice.findAndCountAll(options);
+
+      // DEVOLVEMOS EL MISMO FORMATO QUE OFERTAS
+      return {
+        records: rows, // Antes pusimos 'data', por eso fallaba
+        hasMore: (parsedOffset + rows.length) < count,
+        total: count,
+      };
+    } catch (error) {
+      console.error("Error en paginado de facturas:", error);
+      throw boom.badImplementation('Error al consultar registros paginados', error);
+    }
+  }
+
   async findOne(code, options = {}) {
     const { includeLines = false } = options;
     const queryOptions = { where: { code }, include: [] };
@@ -81,12 +116,17 @@ class salesInvoiceService {
 
     const invoiceData = invoice.get({ plain: true });
 
-    // ELIMINACIÓN DE IDs: Crucial para evitar el error de "column id" en el histórico
     delete invoiceData.id;
     if (invoiceData.lines) {
-      invoiceData.lines = invoiceData.lines.map(line => {
+      invoiceData.lines = invoiceData.lines.map((line, index) => {
+        // Extraemos los metadatos de Sequelize pero CONSERVAMOS lineNo
         const { id, createdAt, updatedAt, ...cleanLine } = line;
-        return cleanLine;
+
+        return {
+          ...cleanLine,
+          // Si por alguna razón lineNo es null, le asignamos el índice
+          lineNo: cleanLine.lineNo || (index + 1)
+        };
       });
     }
 

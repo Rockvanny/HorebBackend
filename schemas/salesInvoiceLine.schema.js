@@ -18,7 +18,7 @@ const getSalesInvoiceLineSchema = Joi.object({
 });
 
 const createSalesInvoiceLineSchema = Joi.object({
-  codeDocument: codeDocument.required(),
+  codeDocument: codeDocument.optional().allow('', null),
   lineNo: lineNo.required(),
   codeItem: codeItem.optional(),
   description: description.required(),

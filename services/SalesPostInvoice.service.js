@@ -57,38 +57,37 @@ class salesPostInvoiceService {
     const { lines, ...headerData } = data;
     const transaction = await sequelize.transaction();
     try {
-      // 1. Crear Cabecera
-      const newInvoice = await salesPostInvoice.create(headerData, { transaction });
+      const newPostInvoice = await salesPostInvoice.create(headerData, { transaction });
 
-      // 2. Crear Líneas (Asegurando que NO lleven ID previo)
       if (lines && lines.length > 0) {
         const linesToInsert = lines.map((line, index) => {
-          const { id, ...cleanLine } = line; // Eliminamos cualquier ID que venga del borrador
+          // Forzamos el mapeo uno a uno para evitar que falten campos 'allowNull: false'
           return {
-            ...cleanLine,
-            codeDocument: newInvoice.code,
+            codeDocument: newPostInvoice.code,
             lineNo: line.lineNo || (index + 1),
-            username: headerData.username || 'System'
+            codeItem: line.codeItem || null,
+            description: line.description || '',
+            quantity: Number(line.quantity) || 0,
+            unitMeasure: line.unitMeasure || 'UNIDAD',
+            quantityUnitMeasure: Number(line.quantityUnitMeasure) || 1,
+            unitPrice: Number(line.unitPrice) || 0,
+            vat: Number(line.vat) || 0,
+            amountLine: Number(line.amountLine) || 0,
+            username: line.username || null,
+            // IMPORTANTE: id debe ser undefined para que la DB genere el nuevo
+            id: undefined
           };
         });
 
-        await salesPostInvoiceLine.bulkCreate(linesToInsert, {
-          transaction,
-          returning: false // Crucial: No pedimos IDs de vuelta para evitar errores de mapeo
-        });
+        await salesPostInvoiceLine.bulkCreate(linesToInsert, { transaction });
       }
 
-      // 3. Registro Veri*factu
-      const isTest = !isProduction;
-      await verifactuService.createLog(newInvoice.code, isTest, transaction);
-
       await transaction.commit();
-      return await this.findOne(newInvoice.code, { includeLines: true });
-
+      return newPostInvoice;
     } catch (error) {
-      if (transaction) await transaction.rollback();
-      if (error.name === "SequelizeUniqueConstraintError") throw boom.conflict(`La factura ${data.code} ya existe.`);
-      throw boom.badImplementation('Error en el registro oficial', error);
+      await transaction.rollback();
+      console.error("Error en el registro oficial:", error);
+      throw error;
     }
   }
 }
