@@ -88,6 +88,10 @@ class salesPostInvoiceService {
         );
       }
 
+      // --- 3. LLAMADA A VERIFACTU ---
+      // Le pasamos la transacción activa para que todo sea atómico
+      await verifactuService.createLog(newPostInvoice.code, true, transaction);
+
       await transaction.commit();
       return newPostInvoice;
     } catch (error) {

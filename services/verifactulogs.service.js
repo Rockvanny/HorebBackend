@@ -6,22 +6,40 @@ const generateVerifactuHash = require('../libs/hasInvoice');
 const { VerifactuLog, salesPostInvoice } = sequelize.models;
 
 class VerifactuService {
-  constructor() {}
+  constructor() { }
 
   async createLog(invoiceCode, isTest = false, transaction = null) {
     const t = transaction || await sequelize.transaction();
     try {
-      const invoice = await salesPostInvoice.findOne({ where: { code: invoiceCode }, transaction: t });
+      // 1. Obtener los datos de la factura recién creada
+      const invoice = await salesPostInvoice.findOne({
+        where: { code: invoiceCode },
+        transaction: t
+      });
+
       if (!invoice) throw boom.notFound('Factura no encontrada para Veri*factu');
 
-      const lastLog = await VerifactuLog.findOne({ order: [['id', 'DESC']], transaction: t });
+      // 2. Buscar el registro anterior para el encadenamiento
+      const lastLog = await VerifactuLog.findOne({
+        order: [['id', 'DESC']],
+        transaction: t
+      });
+
       const prevFingerprint = lastLog ? lastLog.fingerprint : null;
+
+      // 3. Generar la huella (tu librería ya usa los 64 ceros si prevFingerprint es null)
       const fingerprint = generateVerifactuHash(invoice, prevFingerprint);
 
-      const dateStr = invoice.postingDate instanceof Date ? invoice.postingDate.toISOString().split('T')[0] : invoice.postingDate;
+      // 4. Preparar el Payload
+      const dateStr = invoice.postingDate instanceof Date
+        ? invoice.postingDate.toISOString().split('T')[0]
+        : invoice.postingDate;
 
       const payload = {
-        emisor: { nif: (invoice.nif || '').trim().toUpperCase(), nombre: (invoice.name || '').trim() },
+        emisor: {
+          nif: (invoice.nif || '').trim().toUpperCase(),
+          nombre: (invoice.name || '').trim()
+        },
         factura: {
           numero: invoice.code,
           fecha: dateStr,
@@ -33,18 +51,23 @@ class VerifactuService {
         isTest
       };
 
-      const newLog = await VerifactuLog.create({
-        invoiceCode: invoice.code,
-        fingerprint,
-        prevFingerprint,
-        payload,
-        isTest
-      }, { transaction: t });
+      // 5. INSERCIÓN DIRECTA (Usando los "field" del modelo)
+      await sequelize.getQueryInterface().bulkInsert('verifactu_logs', [{
+        invoice_code: invoice.code,
+        fingerprint: fingerprint,
+        prev_fingerprint: prevFingerprint,
+        payload: JSON.stringify(payload),
+        is_test: isTest,
+        created_at: new Date()
+      }], { transaction: t });
 
       if (!transaction) await t.commit();
-      return newLog;
+
+      return { invoiceCode: invoice.code, fingerprint };
+
     } catch (error) {
       if (!transaction && t) await t.rollback();
+      console.error("Error en Verifactu Log:", error);
       throw error.isBoom ? error : boom.badImplementation(error);
     }
   }
