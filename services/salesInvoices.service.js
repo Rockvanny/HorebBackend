@@ -4,6 +4,7 @@ const sequelize = require('../libs/sequelize');
 
 const { salesInvoice, salesInvoiceLine } = sequelize.models;
 const SalesPostInvoiceService = require('./salesPostInvoice.service');
+const { calculateTransactionTotals } = require('../libs/calculations');
 const postService = new SalesPostInvoiceService();
 
 class salesInvoiceService {
@@ -53,18 +54,25 @@ class salesInvoiceService {
   }
 
   async create(data, userId) {
-    const { lines, ...headerData } = data;
+    const { lines: rawLines, ...headerData } = data;
     const transaction = await sequelize.transaction();
     try {
+      const result = calculateTransactionTotals(rawLines || []);
+
+      // Asignación directa según tu modelo
+      headerData.amountWithoutVAT = result.amountWithoutVAT;
+      headerData.amountVAT = result.amountVAT;
+      headerData.amountWithVAT = result.amountWithVAT;
       headerData.username = userId;
+
       const newInvoice = await salesInvoice.create(headerData, { transaction });
 
-      if (lines && lines.length > 0) {
-        const linesToInsert = lines.map((line, index) => ({
+      if (result.processedLines.length > 0) {
+        const linesToInsert = result.processedLines.map((line, index) => ({
           ...line,
-          id: undefined, // Aseguramos que no viaje un ID manual
+          id: undefined,
           codeDocument: newInvoice.code,
-          lineNo: line.lineNo || (index + 1)
+          lineNo: line.lineNo || index + 1,
         }));
         await salesInvoiceLine.bulkCreate(linesToInsert, { transaction });
       }
@@ -72,37 +80,50 @@ class salesInvoiceService {
       await transaction.commit();
       return await this.findOne(newInvoice.code, { includeLines: true });
     } catch (error) {
-      await transaction.rollback();
+      if (transaction) await transaction.rollback();
       throw error;
     }
   }
 
   async update(code, changes) {
-    const { lines, ...headerChanges } = changes;
+    const { lines: rawLines, ...headerChanges } = changes;
     const transaction = await sequelize.transaction();
     try {
       const instance = await salesInvoice.findOne({ where: { code }, transaction });
       if (!instance) throw boom.notFound('Registro no encontrado');
 
-      // Protegemos campos críticos
-      delete headerChanges.id;
-      delete headerChanges.code;
+      if (rawLines) {
+        const result = calculateTransactionTotals(rawLines);
 
-      await instance.update(headerChanges, { transaction });
+        // Pisamos los valores del header con los calculados
+        headerChanges.amountWithoutVAT = result.amountWithoutVAT;
+        headerChanges.amountVAT = result.amountVAT;
+        headerChanges.amountWithVAT = result.amountWithVAT;
 
-      if (lines) {
         await salesInvoiceLine.destroy({ where: { codeDocument: code }, transaction });
-        const linesToInsert = lines.map((line, index) => {
-          const { id, ...cleanLine } = line; // Eliminamos ID de la línea vieja
-          return { ...cleanLine, codeDocument: code, lineNo: line.lineNo || (index + 1) };
+
+        const linesToInsert = result.processedLines.map((line, index) => {
+          const { id, ...cleanLine } = line;
+          return {
+            ...cleanLine,
+            codeDocument: code,
+            lineNo: line.lineNo || index + 1,
+            amountLine: line.amountLine
+          };
         });
         await salesInvoiceLine.bulkCreate(linesToInsert, { transaction });
       }
 
+      delete headerChanges.id;
+      delete headerChanges.code;
+
+      // Ahora Sequelize sí reconocerá los campos y los actualizará en la BD
+      await instance.update(headerChanges, { transaction });
+
       await transaction.commit();
       return await this.findOne(code, { includeLines: true });
     } catch (error) {
-      await transaction.rollback();
+      if (transaction) await transaction.rollback();
       throw error;
     }
   }
