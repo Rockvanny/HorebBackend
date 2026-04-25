@@ -56,37 +56,43 @@ class salesPostInvoiceService {
   async create(data) {
     const { lines, ...headerData } = data;
     const transaction = await sequelize.transaction();
+
     try {
+      // 1. Esto ya funciona (Cabecera)
       const newPostInvoice = await salesPostInvoice.create(headerData, { transaction });
 
       if (lines && lines.length > 0) {
-        const linesToInsert = lines.map((line, index) => {
-          // Forzamos el mapeo uno a uno para evitar que falten campos 'allowNull: false'
-          return {
-            codeDocument: newPostInvoice.code,
-            lineNo: line.lineNo || (index + 1),
-            codeItem: line.codeItem || null,
-            description: line.description || '',
-            quantity: Number(line.quantity) || 0,
-            unitMeasure: line.unitMeasure || 'UNIDAD',
-            quantityUnitMeasure: Number(line.quantityUnitMeasure) || 1,
-            unitPrice: Number(line.unitPrice) || 0,
-            vat: Number(line.vat) || 0,
-            amountLine: Number(line.amountLine) || 0,
-            username: line.username || null,
-            // IMPORTANTE: id debe ser undefined para que la DB genere el nuevo
-            id: undefined
-          };
-        });
+        // 2. MAPEAMOS DIRECTAMENTE A LOS NOMBRES DE COLUMNA DE POSTGRES (snake_case)
+        const rows = lines.map((line, index) => ({
+          code_document: newPostInvoice.code,
+          line_no: parseInt(line.lineNo || index + 1),
+          item_code: line.codeItem || null,
+          description: line.description || '',
+          quantity: parseFloat(line.quantity) || 0,
+          unit_measure: line.unitMeasure || 'UNIDAD',
+          quantity_unit_measure: parseFloat(line.quantityUnitMeasure) || 1,
+          unit_price: parseFloat(line.unitPrice) || 0,
+          vat: parseFloat(line.vat) || 0,
+          amount_line: parseFloat(line.amountLine) || 0,
+          user_name: data.username || null,
+          created_at: new Date(),
+          updated_at: new Date()
+        }));
 
-        await salesPostInvoiceLine.bulkCreate(linesToInsert, { transaction });
+        // 3. FUERZA BRUTA: Inserción directa en la tabla
+        // Esto ignora el modelo y sus validaciones, va directo a la tabla física
+        await sequelize.getQueryInterface().bulkInsert(
+          'sales_post_invoice_lines',
+          rows,
+          { transaction }
+        );
       }
 
       await transaction.commit();
       return newPostInvoice;
     } catch (error) {
-      await transaction.rollback();
-      console.error("Error en el registro oficial:", error);
+      if (transaction) await transaction.rollback();
+      console.error("Error en registro oficial:", error);
       throw error;
     }
   }

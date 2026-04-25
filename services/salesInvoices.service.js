@@ -116,22 +116,40 @@ class salesInvoiceService {
 
     const invoiceData = invoice.get({ plain: true });
 
-    delete invoiceData.id;
+    // 1. Limpieza de metadatos de las líneas
     if (invoiceData.lines) {
       invoiceData.lines = invoiceData.lines.map((line, index) => {
-        // Extraemos los metadatos de Sequelize pero CONSERVAMOS lineNo
         const { id, createdAt, updatedAt, ...cleanLine } = line;
-
         return {
-          ...cleanLine,
-          // Si por alguna razón lineNo es null, le asignamos el índice
-          lineNo: cleanLine.lineNo || (index + 1)
+          lineNo: parseInt(line.lineNo || index + 1),
+          codeItem: line.codeItem,
+          description: line.description,
+          quantity: parseFloat(line.quantity),
+          unitMeasure: line.unitMeasure,
+          unitPrice: parseFloat(line.unitPrice),
+          vat: parseFloat(line.vat),
+          amountLine: parseFloat(line.amountLine),
         };
       });
     }
 
-    invoiceData.preInvoice = invoiceData.code;
+    // --- EL CAMBIO CLAVE AQUÍ ---
+
+    // 2. Guardamos rastro de la factura origen
+    invoiceData.preInvoice = invoiceData.code; // ej: 'FV007'
     invoiceData.username = userId;
+
+    // 3. CAMBIO DE NUMERACIÓN:
+    // Sustituimos la serie de borrador por la serie de registro que capturamos en el front
+    invoiceData.seriesCode = invoiceData.codePosting;
+
+    // IMPORTANTE: Ponemos code en null para que el hook 'beforeValidate'
+    // de salesPostInvoice genere el nuevo número (ej: 'FAC-001')
+    invoiceData.code = null;
+
+    // ----------------------------
+
+    delete invoiceData.id;
 
     const result = await postService.create(invoiceData);
     if (result) await invoice.destroy();

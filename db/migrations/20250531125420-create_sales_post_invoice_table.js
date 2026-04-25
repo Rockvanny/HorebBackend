@@ -18,6 +18,11 @@ module.exports = {
         unique: true, // Único, pero no PK técnica
         type: Sequelize.DataTypes.STRING
       },
+      seriesCode: {
+        field: 'series_code',
+        type: Sequelize.DataTypes.STRING,
+        allowNull: true
+      },
       preInvoice: {
         field: 'pre_invoice',
         allowNull: false,

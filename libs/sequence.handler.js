@@ -2,10 +2,6 @@ const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
 const { SERIES_TYPES } = require('../db/models/SeriesNumber.model');
 
-/**
- * Lógica de incremento alfanumérico pura.
- * Se exporta para que el Service también pueda usarla.
- */
 function incrementAlphanumeric(value) {
     if (!value) return "";
     const match = value.match(/(\d+)$/);
@@ -26,12 +22,16 @@ const MODEL_SERIES_MAP = {
     'Vendor': 'vendor',
     'salesBudget': 'budget',
     'salesInvoice': 'salesinvoice',
+    'salesPostInvoice': 'salesinvoice', // Mapeamos el histórico al tipo de factura de venta
     'purchInvoice': 'purchinvoice',
+    'purchPostInvoice': 'purchinvoice', // Mapeamos el histórico al tipo de factura de compra
 };
 
 async function generateNextCode(instance, options) {
     try {
         const modelName = instance.constructor.options?.name?.singular || instance.constructor.name;
+
+        // 1. Buscamos el tipo de serie (traducción)
         const typeStr = MODEL_SERIES_MAP[modelName] || modelName.toLowerCase();
         const typeInfo = SERIES_TYPES[typeStr];
 
@@ -53,18 +53,28 @@ async function generateNextCode(instance, options) {
             findOptions.lock = options.transaction.LOCK.UPDATE;
         }
 
-        if (instance.selectedSerie) findOptions.where.code = instance.selectedSerie;
+        // 2. PRIORIDAD DE BÚSQUEDA DE SERIE:
+        // Primero intentamos usar 'seriesCode' (el nuevo campo que creamos)
+        // Si no existe, probamos con 'selectedSerie' (compatibilidad)
+        const targetSerieCode = instance.seriesCode || instance.selectedSerie;
 
-        const serie = await seriesNumber.findOne(findOptions);
-        if (!serie) {
-            throw boom.badRequest(`No existe serie activa para '${typeStr}' (${modelName}) hoy.`);
+        if (targetSerieCode) {
+            findOptions.where.code = targetSerieCode;
         }
 
-        // Usamos la función interna de incremento
+        const serie = await seriesNumber.findOne(findOptions);
+
+        if (!serie) {
+            const extraInfo = targetSerieCode ? ` con código '${targetSerieCode}'` : '';
+            throw boom.badRequest(`No existe serie activa para '${typeStr}'${extraInfo} hoy.`);
+        }
+
+        // 3. Generación del nuevo código
         const nextValue = incrementAlphanumeric(serie.lastValue || serie.code);
 
         instance.code = nextValue;
 
+        // 4. Actualización del contador de la serie
         await serie.update({ lastValue: nextValue }, {
             transaction: options.transaction || null
         });
@@ -75,5 +85,4 @@ async function generateNextCode(instance, options) {
     }
 }
 
-// Exportamos ambas: la lógica de incremento y el hook de Sequelize
 module.exports = { generateNextCode, incrementAlphanumeric };

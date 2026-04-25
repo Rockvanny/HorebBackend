@@ -16,6 +16,11 @@ const salesPostInvoiceSchema = {
     unique: true, // Deja de ser PK técnica, pasa a ser índice único
     type: DataTypes.STRING
   },
+  seriesCode: {
+    field: 'series_code',
+    type: DataTypes.STRING,
+    allowNull: true
+  },
   preInvoice: {
     field: 'pre_invoice',
     allowNull: false,

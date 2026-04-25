@@ -3,6 +3,7 @@ const { createSalesPostInvoiceLineSchema } = require('./salesPostInvoiceLine.sch
 
 const id = Joi.number().integer();
 const code = Joi.string();
+const seriesCode = Joi.string();
 const preInvoice = Joi.string();
 const typeInvoice = Joi.string().valid('F1', 'F2', 'R1', 'R2', 'R3', 'R4', 'R5').default('F1');
 const parentCode = Joi.string().allow('', null);
@@ -28,6 +29,7 @@ const getSalesPostInvoiceSchema = Joi.object({ code: code.required() });
 
 const createSalesPostInvoiceSchema = Joi.object({
     code: code.required(),
+    seriesCode: seriesCode.optional(),
     preInvoice: preInvoice.required(),
     typeInvoice: typeInvoice.required(),
     parentCode: parentCode.optional(),
