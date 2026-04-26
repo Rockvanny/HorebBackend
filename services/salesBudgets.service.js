@@ -1,6 +1,7 @@
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
 const sequelize = require('../libs/sequelize');
+const { calculateDocumentTotals } = require('../libs/taxCalculation');
 
 // Extraemos los modelos correctamente del objeto sequelize
 const {
@@ -54,17 +55,21 @@ class salesBudgetService {
   }
 
   // Ahora buscamos por el ID numérico (PK)
-  async findOne(id, options = {}) {
+  async findOne(identifier, options = {}) {
     const { includeLines = false } = options;
 
+    // Determinamos si el identificador es el ID numérico o el Código visual
+    const isNumeric = !isNaN(identifier) && !isNaN(parseFloat(identifier));
+    const whereCondition = isNumeric ? { id: identifier } : { code: identifier };
+
     const queryOptions = {
-      where: { id }, // <--- Cambiado de code a id
+      where: whereCondition,
       include: [
         { model: Customer, as: 'customer' },
+
         {
           model: DocumentTax,
           as: 'taxes',
-          where: { codeDocument: 'budget' }, // Solo impuestos de este presupuesto
           required: false
         }
       ]
@@ -101,181 +106,172 @@ class salesBudgetService {
   }
 
   async create(data) {
-    const { lines, taxes, ...headerData } = data; // <--- Capturamos 'taxes' del body
-    const transaction = await sequelize.transaction();
+  const { lines, ...headerData } = data;
+  const transaction = await sequelize.transaction();
 
-    try {
-      // 1. Crear cabecera (Genera code y movementId via Hook beforeValidate)
-      const newSalesBudget = await salesBudget.create(headerData, { transaction });
+  try {
+    // 1. Crear cabecera (Genera UUID 'movementId' en el Hook)
+    const newSalesBudget = await salesBudget.create(headerData, { transaction });
 
-      let totalNeto = 0;
-      let totalIva = 0;
+    // 2. Calcular todo usando la librería
+    // La librería ahora procesa taxType (IVA, IRPF, etc.)
+    const { processedLines, taxesToInsert, totals } = calculateDocumentTotals(
+      lines || [],
+      newSalesBudget.movementId,
+      'budget'
+    );
 
-      // 2. Procesar líneas
-      if (lines && lines.length > 0) {
-        const linesToInsert = lines.map((line, index) => {
-          const qty = parseFloat(line.quantity) || 0;
-          const price = parseFloat(line.unitPrice) || 0;
-          const factor = parseFloat(line.quantityUnitMeasure) || 1;
-          const vatPerc = parseFloat(line.vat) || 0;
-
-          const lineAmount = qty * factor * price;
-          const lineVat = lineAmount * (vatPerc / 100);
-
-          totalNeto += lineAmount;
-          totalIva += lineVat;
-
-          return {
-            ...line,
-            lineNo: line.lineNo || (index + 1),
-            codeDocument: newSalesBudget.code,
-            amountLine: lineAmount
-          };
-        });
-        await salesBudgetLine.bulkCreate(linesToInsert, { transaction });
-      } else {
-        await salesBudgetLine.create({
-          codeDocument: newSalesBudget.code,
-          lineNo: 1,
-          description: 'Nueva línea',
-          quantity: 1,
-          unitPrice: 0,
-          amountLine: 0
-        }, { transaction });
-      }
-
-      // 3. Procesar Impuestos (VINCULADOS POR movementId)
-      if (taxes && taxes.length > 0) {
-        const taxesToInsert = taxes.map(tax => ({
-          ...tax,
-          movementId: newSalesBudget.movementId, // ADN generado en el paso 1
-          codeDocument: 'budget'
-        }));
-        await DocumentTax.bulkCreate(taxesToInsert, { transaction });
-      }
-
-      // 4. ACTUALIZAR TOTALES EN CABECERA
-      await newSalesBudget.update({
-        amountWithoutVAT: totalNeto,
-        amountVAT: totalIva,
-        amountWithVAT: totalNeto + totalIva
+    // 3. Insertar Líneas
+    if (processedLines.length > 0) {
+      // El spread (...l) ya incluye el taxType procesado por la librería
+      const finalLines = processedLines.map(l => ({
+        ...l,
+        codeDocument: newSalesBudget.code
+      }));
+      await salesBudgetLine.bulkCreate(finalLines, { transaction });
+    } else {
+      // Línea por defecto corregida con taxType
+      await salesBudgetLine.create({
+        codeDocument: newSalesBudget.code,
+        lineNo: 1,
+        description: 'Nueva línea',
+        quantity: 1,
+        unitPrice: 0,
+        amountLine: 0,
+        taxType: 'IVA' // Valor por defecto para líneas vacías
       }, { transaction });
-
-      await transaction.commit();
-      return await this.findOne(newSalesBudget.id, { includeLines: true });
-
-    } catch (error) {
-      if (transaction) await transaction.rollback();
-      throw error;
     }
-  }
 
-  async update(id, changes) {
-    const { lines, taxes, ...headerChanges } = changes;
-    const transaction = await sequelize.transaction();
-
-    try {
-      // 1. Obtener el estado actual por ID
-      const instance = await salesBudget.findByPk(id, { transaction });
-      if (!instance) throw boom.notFound('Registro no encontrado');
-
-      const currentStatus = instance.status;
-
-      // --- REGLA 1: ESTADOS FINALES ---
-      if (currentStatus === 'Aprobado' || currentStatus === 'Rechazado') {
-        const allowedFields = ['comments', 'username'];
-        const keysAttempted = Object.keys(headerChanges);
-        const isAttemptingOtherFields = keysAttempted.some(key => !allowedFields.includes(key));
-
-        if (isAttemptingOtherFields || lines || taxes) {
-          throw boom.forbidden(`En estado ${currentStatus} solo se pueden modificar las observaciones`);
-        }
-      }
-
-      // --- REGLA 2: ESTADO ENVIADO ---
-      if (currentStatus === 'Enviado') {
-        if (headerChanges.entityCode && headerChanges.entityCode !== instance.entityCode) {
-          throw boom.forbidden('No se puede cambiar el cliente de una oferta ya enviada');
-        }
-        if (headerChanges.status === 'Borrador') {
-          throw boom.forbidden('No se puede volver a Borrador una oferta ya enviada');
-        }
-      }
-
-      // --- LIMPIEZA DE DATOS ---
-      const cleanHeader = { ...headerChanges };
-      delete cleanHeader.id;
-      delete cleanHeader.movementId; // Protegemos el ADN
-      delete cleanHeader.code;
-      delete cleanHeader.createdAt;
-      delete cleanHeader.updatedAt;
-
-      // 2. Actualizar cabecera
-      await instance.update(cleanHeader, { transaction });
-
-      // 3. Sincronizar líneas
-      if (lines) {
-        await salesBudgetLine.destroy({ where: { codeDocument: instance.code }, transaction });
-        if (lines.length > 0) {
-          const linesToInsert = lines.map((line, index) => {
-            const { id: lineId, ...lineData } = line;
-            return {
-              ...lineData,
-              codeDocument: instance.code,
-              lineNo: line.lineNo || (index + 1),
-              username: line.username || cleanHeader.username || 'system'
-            };
-          });
-          await salesBudgetLine.bulkCreate(linesToInsert, { transaction });
-        }
-      }
-
-      // 4. Sincronizar Impuestos (UUID se mantiene constante)
-      if (taxes) {
-        await DocumentTax.destroy({
-          where: { movementId: instance.movementId, codeDocument: 'budget' },
-          transaction
-        });
-        if (taxes.length > 0) {
-          const taxesToInsert = taxes.map(tax => ({
-            ...tax,
-            movementId: instance.movementId,
-            codeDocument: 'budget'
-          }));
-          await DocumentTax.bulkCreate(taxesToInsert, { transaction });
-        }
-      }
-
-      await transaction.commit();
-      return await this.findOne(id, { includeLines: true });
-
-    } catch (error) {
-      if (transaction) await transaction.rollback();
-      throw error;
+    // 4. Insertar Impuestos Desglosados (Ya vienen agrupados por tipo y % desde la lib)
+    if (taxesToInsert.length > 0) {
+      await DocumentTax.bulkCreate(taxesToInsert, { transaction });
     }
+
+    // 5. Actualizar totales en cabecera
+    await newSalesBudget.update(totals, { transaction });
+
+    await transaction.commit();
+    return await this.findOne(newSalesBudget.id, { includeLines: true });
+
+  } catch (error) {
+    if (transaction) await transaction.rollback();
+    throw error;
   }
+}
+
+async update(id, changes) {
+  const { lines, ...headerChanges } = changes;
+  const transaction = await sequelize.transaction();
+
+  try {
+    const isNumeric = !isNaN(id) && !isNaN(parseFloat(id));
+    const instance = await salesBudget.findOne({
+      where: isNumeric ? { id } : { code: id },
+      transaction
+    });
+
+    if (!instance) throw boom.notFound('Registro no encontrado');
+
+    const currentStatus = String(instance.status).trim();
+
+    // --- REGLAS DE NEGOCIO ---
+    if (currentStatus === 'Aprobado' || currentStatus === 'Rechazado') {
+      const allowedFields = ['comments', 'username'];
+      const isAttemptingForbidden = Object.keys(headerChanges).some(key => !allowedFields.includes(key));
+      if (isAttemptingForbidden || lines) {
+        throw boom.forbidden(`En estado ${currentStatus} solo se pueden modificar comentarios`);
+      }
+    }
+
+    if (currentStatus === 'Enviado') {
+      if (headerChanges.entityCode && headerChanges.entityCode !== instance.entityCode) {
+        throw boom.forbidden('No se puede cambiar el cliente de una oferta enviada');
+      }
+      if (headerChanges.status === 'Borrador') {
+        throw boom.forbidden('No se puede volver a Borrador una oferta enviada');
+      }
+    }
+
+    // --- PROCESAMIENTO DE LÓGICA Y CÁLCULOS ---
+    let totalsUpdate = {};
+
+    if (lines) {
+      const { processedLines, taxesToInsert, totals } = calculateDocumentTotals(
+        lines,
+        instance.movementId,
+        'budget'
+      );
+
+      totalsUpdate = totals;
+
+      // Sincronizar Líneas
+      await salesBudgetLine.destroy({ where: { codeDocument: instance.code }, transaction });
+
+      const finalLines = processedLines.map(l => ({
+        ...l, // Aquí ya viaja el taxType (IVA/IRPF)
+        codeDocument: instance.code,
+        username: headerChanges.username || instance.username || 'system'
+      }));
+      await salesBudgetLine.bulkCreate(finalLines, { transaction });
+
+      // Sincronizar Impuestos
+      await DocumentTax.destroy({
+        where: { movementId: instance.movementId, codeDocument: 'budget' },
+        transaction
+      });
+      await DocumentTax.bulkCreate(taxesToInsert, { transaction });
+    }
+
+    // --- ACTUALIZACIÓN FINAL ---
+    const cleanHeader = { ...headerChanges, ...totalsUpdate };
+    delete cleanHeader.id;
+    delete cleanHeader.movementId;
+    delete cleanHeader.code;
+
+    await instance.update(cleanHeader, { transaction });
+
+    await transaction.commit();
+    return await this.findOne(instance.id, { includeLines: true });
+
+  } catch (error) {
+    if (transaction) await transaction.rollback();
+    throw error;
+  }
+}
 
   async delete(id) {
-    const record = await salesBudget.findByPk(id, {
-      attributes: ['id', 'status', 'movementId']
+    // 1. Búsqueda inteligente para evitar error de tipos en Postgres
+    const isNumeric = !isNaN(id) && !isNaN(parseFloat(id));
+    const record = await salesBudget.findOne({
+      where: isNumeric ? { id } : { code: id },
+      attributes: ['id', 'status', 'movementId', 'code']
     });
 
     if (!record) {
       throw boom.notFound('Registro no encontrado');
     }
 
+    // 2. Validación de estado
     if (String(record.status).trim() !== 'Borrador') {
       throw boom.forbidden(`No se puede eliminar una oferta en estado ${record.status}`);
     }
 
-    // La eliminación de DocumentTax se hará automáticamente vía el Hook afterDestroy
-    // que definimos en el modelo salesBudget.
-    return await salesBudget.destroy({
-      where: {
-        id: id,
-        status: 'Borrador'
-      }
-    });
+    // 3. Eliminación
+    // El Hook afterDestroy en el modelo se encargará de borrar los DocumentTax por movementId
+    // Las líneas deben borrarse aquí o vía ON DELETE CASCADE en la DB
+    const transaction = await sequelize.transaction();
+    try {
+      // Borramos líneas explícitamente si no tienes CASCADE en la DB
+      await salesBudgetLine.destroy({ where: { codeDocument: record.code }, transaction });
+
+      await record.destroy({ transaction });
+
+      await transaction.commit();
+      return { id, code: record.code, deleted: true };
+    } catch (error) {
+      if (transaction) await transaction.rollback();
+      throw error;
+    }
   }
 }
 

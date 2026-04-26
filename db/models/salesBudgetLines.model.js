@@ -27,6 +27,14 @@ const salesBudgetLineSchema = {
   unitMeasure: { field: 'unit_measure', type: DataTypes.STRING, defaultValue: 'UNIDAD' },
   quantityUnitMeasure: { field: 'quantity_unit_measure', type: DataTypes.DECIMAL(12, 4), defaultValue: 1 },
   unitPrice: { field: 'unit_price', type: DataTypes.DECIMAL(12, 4), defaultValue: 0 },
+
+  taxType: {
+    field: 'tax_type',
+    allowNull: false,
+    type: DataTypes.ENUM('IVA', 'IRPF', 'RE', 'EXENTO'),
+    defaultValue: 'IVA'
+  },
+
   vat: { field: 'vat', type: DataTypes.DECIMAL(12, 4), defaultValue: 21 },
   amountLine: { field: 'amount_line', type: DataTypes.DECIMAL(12, 4), defaultValue: 0 },
   username: { field: 'user_name', type: DataTypes.STRING },

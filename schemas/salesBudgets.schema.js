@@ -35,7 +35,10 @@ const searchTerm = Joi.string().allow('');
  * Esquema para obtener un registro por su ID numérico (PK física)
  */
 const getSalesBudgetSchema = Joi.object({
-    id: id.required(),
+  id: Joi.alternatives().try(
+    Joi.number().integer(),
+    Joi.string()
+  ).required(),
 });
 
 /**
@@ -43,31 +46,31 @@ const getSalesBudgetSchema = Joi.object({
  * El movementId es opcional porque el Hook lo genera si no viene.
  */
 const createSalesBudgetSchema = Joi.object({
-    movementId: movementId.optional(),
-    code: code.optional(),
-    selectedSerie: selectedSerie.optional(),
+  movementId: movementId.optional(),
+  code: code.optional(),
+  selectedSerie: selectedSerie.optional(),
 
-    postingDate: postingDate.default(() => new Date()),
-    dueDate: dueDate.optional(),
-    entityCode: entityCode.required(),
-    name: name.required(),
-    nif: nif.required(),
-    email: email.optional(),
-    phone: phone.optional(),
-    address: address.optional(),
-    postCode: postCode.optional(),
-    city: city.optional(),
-    status: status.optional(),
-    comments: comments.optional(),
+  postingDate: postingDate.default(() => new Date()),
+  dueDate: dueDate.optional(),
+  entityCode: entityCode.required(),
+  name: name.required(),
+  nif: nif.required(),
+  email: email.optional(),
+  phone: phone.optional(),
+  address: address.optional(),
+  postCode: postCode.optional(),
+  city: city.optional(),
+  status: status.optional(),
+  comments: comments.optional(),
 
-    amountWithoutVAT: money.optional(),
-    amountVAT: money.optional(),
-    amountWithVAT: money.optional(),
+  amountWithoutVAT: money.optional(),
+  amountVAT: money.optional(),
+  amountWithVAT: money.optional(),
 
-    username: username.optional(),
+  username: username.optional(),
 
-    // Inserción de líneas
-    lines: Joi.array().items(createSalesBudgetLineSchema).optional(),
+  // Inserción de líneas
+  lines: Joi.array().items(createSalesBudgetLineSchema).optional(),
 });
 
 /**
@@ -75,40 +78,41 @@ const createSalesBudgetSchema = Joi.object({
  * movementId OMITIDO: No se permite su modificación vía API
  */
 const updateSalesBudgetSchema = Joi.object({
-    postingDate: postingDate.optional(),
-    dueDate: dueDate.optional(),
-    name: name.optional(),
-    nif: nif.optional().allow(''),
-    email: email.optional(),
-    phone: phone.optional(),
-    address: address.optional(),
-    postCode: postCode.optional(),
-    city: city.optional(),
-    status: status.optional(),
-    comments: comments.optional(),
+  postingDate: postingDate.optional(),
+  dueDate: dueDate.optional(),
+  entityCode: Joi.string(),
+  name: name.optional(),
+  nif: nif.optional().allow(''),
+  email: email.optional(),
+  phone: phone.optional(),
+  address: address.optional(),
+  postCode: postCode.optional(),
+  city: city.optional(),
+  status: status.optional(),
+  comments: comments.optional(),
 
-    amountWithoutVAT: money.optional(),
-    amountVAT: money.optional(),
-    amountWithVAT: money.optional(),
+  amountWithoutVAT: money.optional(),
+  amountVAT: money.optional(),
+  amountWithVAT: money.optional(),
 
-    username: username.optional(),
+  username: username.optional(),
 
-    // Sincronización de líneas
-    lines: Joi.array().items(updateSalesBudgetLineSchema).optional(),
+  // Sincronización de líneas
+  lines: Joi.array().items(updateSalesBudgetLineSchema).optional(),
 });
 
 /**
  * Esquema para filtrado y paginación
  */
 const querySalesBudgetSchema = Joi.object({
-    limit,
-    offset,
-    searchTerm: searchTerm.optional(),
+  limit,
+  offset,
+  searchTerm: searchTerm.optional(),
 });
 
 module.exports = {
-    getSalesBudgetSchema,
-    createSalesBudgetSchema,
-    updateSalesBudgetSchema,
-    querySalesBudgetSchema
+  getSalesBudgetSchema,
+  createSalesBudgetSchema,
+  updateSalesBudgetSchema,
+  querySalesBudgetSchema
 };

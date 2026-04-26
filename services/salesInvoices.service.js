@@ -92,6 +92,7 @@ class salesInvoiceService {
   async create(data, userId) {
     const { lines: rawLines, ...headerData } = data;
     const transaction = await sequelize.transaction();
+
     try {
       const result = calculateTransactionTotals(rawLines || []);
 
@@ -100,28 +101,66 @@ class salesInvoiceService {
       headerData.amountWithVAT = result.amountWithVAT;
       headerData.username = userId;
 
+      // 1. Crear Cabecera (Aquí el hook genera el code y el movementId)
       const newInvoice = await salesInvoice.create(headerData, { transaction });
 
       if (result.processedLines.length > 0) {
-        // 1. Insertar Líneas (Manteniendo tu lógica original)
+        // 2. Insertar Líneas vinculadas por el código visual
         const linesToInsert = result.processedLines.map((line, index) => ({
           ...line,
-          id: undefined,
+          id: undefined, // Aseguramos que no viaje un ID previo
           codeDocument: newInvoice.code,
           lineNo: line.lineNo || index + 1,
         }));
         await salesInvoiceLine.bulkCreate(linesToInsert, { transaction });
 
-        // 2. NUEVO: Insertar Desglose de Impuestos
-        const taxesToInsert = this.groupTaxes(linesToInsert, newInvoice.code);
+        // 3. NUEVO: Insertar Desglose de Impuestos vinculado por movementId (UUID)
+        // Pasamos el movementId que acaba de generar la instancia newInvoice
+        const groupedTaxes = this.groupTaxes(linesToInsert, newInvoice.movementId);
+
+        if (groupedTaxes.length > 0) {
+          await DocumentTax.bulkCreate(groupedTaxes, { transaction });
+        }
       }
 
       await transaction.commit();
-      return await this.findOne(newInvoice.code, { includeLines: true, includeTaxes: true });
+      // Nota: findOne ahora debería buscar por ID para ser consistente con lo anterior
+      return await this.findOne(newInvoice.id, { includeLines: true, includeTaxes: true });
+
     } catch (error) {
       if (transaction) await transaction.rollback();
       throw error;
     }
+  }
+
+  /**
+   * Agrupa las líneas por tipo de IVA y prepara el objeto para DocumentTax
+   */
+  groupTaxes(lines, movementId) {
+    const taxGroups = {};
+
+    lines.forEach(line => {
+      const vat = parseFloat(line.vat) || 0;
+      if (!taxGroups[vat]) {
+        taxGroups[vat] = {
+          movementId: movementId,
+          codeDocument: 'salesinvoice', // O 'budget' según el servicio
+          taxType: 'IVA',
+          taxPercentage: vat,
+          taxableAmount: 0,
+          taxAmount: 0
+        };
+      }
+
+      // Sumamos base e impuesto de cada línea
+      const base = parseFloat(line.amountLine) || 0;
+      const tax = base * (vat / 100);
+
+      taxGroups[vat].taxableAmount += base;
+      taxGroups[vat].taxAmount += tax;
+    });
+
+    return Object.values(taxGroups);
   }
 
   async update(code, changes) {
