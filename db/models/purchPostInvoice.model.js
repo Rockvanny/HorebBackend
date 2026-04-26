@@ -104,7 +104,7 @@ const purchPostInvoiceSchema = {
     type: DataTypes.DECIMAL(10, 2),
   },
 
-  username: {
+  userName: {
     field: 'user_name',
     type: DataTypes.STRING,
   },

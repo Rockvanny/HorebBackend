@@ -25,9 +25,8 @@ const ProductSchema = {
 
   unitMeasure: {
     field: 'unit_measure',
-    type: DataTypes.ENUM('Unidad','Caja','Kilos','Metros', 'Horas'),
-    allowNull: false,
-    defaultValue: 'Unidad'
+    type: DataTypes.ENUM('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK'),
+    defaultValue: 'UNIDAD'
   },
 
   qtyByUnitMeasure: {
@@ -42,13 +41,20 @@ const ProductSchema = {
     allowNull: false,
   },
 
+  taxType: {
+    field: 'tax_type',
+    allowNull: false,
+    type: DataTypes.ENUM('IVA', 'IRPF', 'RE', 'EXENTO'),
+    defaultValue: 'IVA'
+  },
+
   vat: {
     field: 'vat',
     type: DataTypes.INTEGER,
     allowNull: false,
   },
 
-  username: {
+  userName: {
     field: 'user_name',
     type: DataTypes.STRING,
   },

@@ -118,7 +118,7 @@ const purchInvoiceSchema = {
     type: DataTypes.TEXT,
     allowNull: true
   },
-  username: {
+  userName: {
     field: 'user_name',
     type: DataTypes.STRING,
     allowNull: true

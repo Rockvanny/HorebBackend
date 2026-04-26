@@ -61,7 +61,7 @@ module.exports = {
         allowNull: false,
         defaultValue: 21.0000 // Actualizado a 21.0000 para coincidir con el defaultValue del modelo
       },
-      amount_line: {
+      amountLine: {
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 0.0000

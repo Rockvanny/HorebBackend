@@ -76,7 +76,7 @@ const purchPostInvoiceLineSchema = {
     defaultValue: 0.00
   },
 
-  username: {
+  userName: {
     field: 'user_name',
     type: DataTypes.STRING,
   },

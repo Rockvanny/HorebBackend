@@ -94,7 +94,7 @@ const salesBudgetSchema = {
     field: 'comments',
     type: DataTypes.TEXT
   },
-  username: {
+  userName: {
     field: 'user_name',
     type: DataTypes.STRING,
   },

@@ -73,7 +73,7 @@ module.exports = {
         allowNull: false,
         defaultValue: 0
       },
-      username: {
+      userName: {
         field: 'user_name',
         type: Sequelize.DataTypes.STRING,
         allowNull: true,

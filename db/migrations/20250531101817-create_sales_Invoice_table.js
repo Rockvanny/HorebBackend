@@ -12,7 +12,7 @@ module.exports = {
         type: Sequelize.DataTypes.INTEGER,
       },
       // --- COLUMNA CRÍTICA PARA IMPUESTOS ---
-      movement_id: {
+      movementId: {
         field: 'movement_id',
         allowNull: false,
         unique: true,
@@ -31,43 +31,43 @@ module.exports = {
         type: Sequelize.DataTypes.STRING,
         allowNull: true
       },
-      code_posting: {
+      codeposting: {
         field: 'code_posting',
         type: Sequelize.DataTypes.STRING,
         allowNull: true
       },
-      type_invoice: {
+      typeinvoice: {
         field: 'type_invoice',
         type: Sequelize.DataTypes.ENUM('F1', 'F2', 'R1', 'R2', 'R3', 'R4', 'R5'),
         allowNull: false,
         defaultValue: 'F1'
       },
-      parent_code: {
+      parentCode: {
         field: 'parent_code',
         type: Sequelize.DataTypes.STRING,
         allowNull: true
       },
-      rectification_type: {
+      rectificationType: {
         field: 'rectification_type',
         type: Sequelize.DataTypes.ENUM('S', 'I'),
         allowNull: true
       },
-      budget_code: {
+      budgetCode: {
         field: 'budget_code',
         type: Sequelize.DataTypes.STRING,
         allowNull: true
       },
-      posting_date: {
+      postingDate: {
         field: 'posting_date',
         type: Sequelize.DataTypes.DATE,
         allowNull: false
       },
-      due_date: {
+      dueDate: {
         field: 'due_date',
         type: Sequelize.DataTypes.DATE,
         allowNull: true
       },
-      entity_code: {
+      entityCode: {
         field: 'entity_code',
         allowNull: false,
         type: Sequelize.DataTypes.STRING,
@@ -95,7 +95,7 @@ module.exports = {
         type: Sequelize.DataTypes.STRING,
         allowNull: false
       },
-      post_code: {
+      postCode: {
         field: 'post_code',
         type: Sequelize.DataTypes.STRING
       },
@@ -109,25 +109,25 @@ module.exports = {
         allowNull: false,
         defaultValue: 'Abierto'
       },
-      payment_method: {
+      paymentMethod: {
         field: 'payment_method',
         type: Sequelize.DataTypes.ENUM('Tarjeta', 'Efectivo', 'Transferencia'),
         allowNull: false,
         defaultValue: 'Tarjeta'
       },
-      amount_without_vat: {
+      amountWithoutVat: {
         field: 'amount_without_vat',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 0.0000
       },
-      amount_vat: {
+      amountVat: {
         field: 'amount_vat',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 0.0000
       },
-      amount_with_vat: {
+      amountWithVat: {
         field: 'amount_with_vat',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
@@ -137,17 +137,17 @@ module.exports = {
         field: 'comments',
         type: Sequelize.DataTypes.TEXT
       },
-      user_name: {
+      userName: {
         field: 'user_name',
         type: Sequelize.DataTypes.STRING
       },
-      created_at: {
+      createdAt: {
         field: 'created_at',
         allowNull: false,
         type: Sequelize.DataTypes.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
       },
-      updated_at: {
+      updatedAt: {
         field: 'updated_at',
         allowNull: false,
         type: Sequelize.DataTypes.DATE,

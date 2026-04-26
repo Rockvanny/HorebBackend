@@ -9,6 +9,7 @@ const salesInvoiceLineSchema = {
     primaryKey: true,
     type: DataTypes.INTEGER
   },
+
   codeDocument: {
     field: 'code_document',
     allowNull: false,
@@ -17,34 +18,90 @@ const salesInvoiceLineSchema = {
     onUpdate: 'CASCADE',
     onDelete: 'CASCADE'
   },
+
   lineNo: {
     field: 'line_no',
     allowNull: false,
     type: DataTypes.INTEGER,
   },
-  codeItem: { field: 'item_code', type: DataTypes.STRING, allowNull: true },
-  description: { field: 'description', type: DataTypes.TEXT },
-  quantity: { field: 'quantity', type: DataTypes.DECIMAL(12, 4), defaultValue: 0 },
+
+  codeItem: {
+    field: 'item_code',
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+
+  description: {
+    field: 'description',
+    type: DataTypes.TEXT
+  },
+
+  quantity: {
+    field: 'quantity',
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 0
+  },
+
   unitMeasure: {
     field: 'unit_measure',
     type: DataTypes.ENUM('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK'),
     defaultValue: 'UNIDAD'
   },
-  quantityUnitMeasure: { field: 'quantity_unit_measure', type: DataTypes.DECIMAL(12, 4), defaultValue: 1 },
-  unitPrice: { field: 'unit_price', type: DataTypes.DECIMAL(12, 4), defaultValue: 0 },
 
-  // --- NUEVA COLUMNA: Tipo de Impuesto ---
+  quantityUnitMeasure: {
+    field: 'quantity_unit_measure',
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 1
+
+  },
+
+  unitPrice: {
+    field: 'unit_price',
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 0
+
+  },
+
   taxType: {
     field: 'tax_type',
     type: DataTypes.ENUM('IVA', 'IRPF', 'RE', 'EXENTO'),
     allowNull: false,
     defaultValue: 'IVA'
   },
-  // ---------------------------------------
 
-  vat: { field: 'vat', type: DataTypes.DECIMAL(12, 4), defaultValue: 21 },
-  amountLine: { field: 'amount_line', type: DataTypes.DECIMAL(12, 4), defaultValue: 0 },
-  username: { field: 'user_name', type: DataTypes.STRING },
+  vat: {
+    field: 'vat',
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 21
+
+  },
+
+  amountLine: {
+    field: 'amount_line',
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 0
+
+  },
+
+  username: {
+    field: 'user_name',
+    type: DataTypes.STRING
+
+  },
+
+  createdAt: {
+    field: 'created_at',
+    allowNull: false,
+    type: DataTypes.DATE,
+    defaultValue: Sequelize.NOW
+  },
+  
+  updatedAt: {
+    field: 'updated_at',
+    allowNull: false,
+    type: DataTypes.DATE,
+    defaultValue: Sequelize.NOW
+  }
 };
 
 class salesInvoiceLine extends Model {

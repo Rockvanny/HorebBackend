@@ -62,7 +62,7 @@ const purchInvoiceLineSchema = {
     type: DataTypes.DECIMAL(12, 4),
     defaultValue: 0.0000
   },
-  username: {
+  userName: {
     field: 'user_name',
     type: DataTypes.STRING
   },

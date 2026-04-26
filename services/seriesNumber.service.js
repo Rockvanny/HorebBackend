@@ -40,10 +40,6 @@ class seriesNumberService {
 
     const sourceKey = sourceTypeStr.toLowerCase();
 
-    // AQUÍ ESTABA EL ERROR:
-    // El servicio intentaba buscar 'salespostinvoice' en SERIES_TYPES y no lo encontraba.
-    // Debes poner aquí la KEY exacta que aparece en tu SERIES_TYPES para facturas registradas.
-
     if (['salesinvoice', 'salesbudget'].includes(sourceKey)) {
       targetType = 'salesinvoice'; // O el nombre exacto que tengas en SERIES_TYPES
     } else if (['purchinvoice', 'purchbudget'].includes(sourceKey)) {
@@ -82,7 +78,14 @@ class seriesNumberService {
       where: {
         type: typeId,
         fromDate: { [Op.lte]: today },
-        toDate: { [Op.gte]: today }
+        toDate: { [Op.gte]: today },
+
+        postingSerie: {
+          [Op.and]: [
+            { [Op.ne]: null }, // Que no sea NULL
+            { [Op.ne]: '' }   // Que no esté vacío (por si acaso)
+          ]
+        }
       },
       attributes: ['type', 'code', 'lastValue', 'postingSerie', 'description', 'fromDate', 'toDate'],
       order: [['code', 'ASC']]

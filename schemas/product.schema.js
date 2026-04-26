@@ -2,9 +2,14 @@ const Joi = require('joi');
 
 const code = Joi.string();
 const name = Joi.string().min(3).max(200);
-const unitMeasure = Joi.string().valid('Unidad', 'Caja', 'Kilos', 'Metros', 'Horas').default('Unidad');
+const unitMeasure = Joi.string()
+  .valid('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK')
+  .default('UNIDAD');
 const qtyByUnitMeasure = Joi.number().precision(2);
 const price = Joi.number().precision(2);
+const taxType = Joi.string()
+  .valid('IVA', 'IRPF', 'RE', 'EXENTO')
+  .default('IVA');
 const vat = Joi.number().integer();
 const username = Joi.string();
 const selectedSerie = Joi.string(); // <--- CRÍTICO para el Hook
@@ -21,6 +26,7 @@ const createProductSchema = Joi.object({
   unitMeasure: unitMeasure.required(),
   qtyByUnitMeasure: qtyByUnitMeasure.required(),
   price: price.required(),
+  taxType: taxType.optional(),
   vat: vat.required(),
   selectedSerie: selectedSerie.required(), // <--- Requerido para generar el code
   username, // Opcional, lo solemos inyectar en el service
@@ -31,6 +37,7 @@ const updateProductSchema = Joi.object({
   unitMeasure: unitMeasure,
   qtyByUnitMeasure: qtyByUnitMeasure,
   price: price,
+  taxType: taxType.optional(),
   vat: vat,
   username,
 }).min(1); // Al menos un campo debe ser enviado para actualizar

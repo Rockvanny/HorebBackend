@@ -5,7 +5,7 @@ const { SALESBUDGETLINE_TABLE } = require('../models/salesBudgetLines.model');
 module.exports = {
   up: async (queryInterface, Sequelize) => {
     await queryInterface.createTable(SALESBUDGETLINE_TABLE, {
-      code_document: {
+      codeDocument: {
         field: 'code_document',
         allowNull: false,
         primaryKey: true,
@@ -17,13 +17,13 @@ module.exports = {
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE'
       },
-      line_no: {
+      lineNo: {
         field: 'line_no',
         allowNull: false,
         primaryKey: true,
         type: Sequelize.DataTypes.INTEGER,
       },
-      item_code: {
+      itemCode: {
         field: 'item_code',
         type: Sequelize.DataTypes.STRING,
         allowNull: true,
@@ -44,19 +44,19 @@ module.exports = {
         type: Sequelize.DataTypes.ENUM('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK'),
         defaultValue: 'UNIDAD'
       },
-      quantity_unit_measure: {
+      quantityUnitMeasure: {
         field: 'quantity_unit_measure',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 1.0000
       },
-      unit_price: {
+      unitPrice: {
         field: 'unit_price',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 0.0000
       },
-      tax_type: {
+      taxType: {
         field: 'tax_type',
         allowNull: false,
         type: Sequelize.DataTypes.ENUM('IVA', 'IRPF', 'RE', 'EXENTO'),
@@ -68,24 +68,24 @@ module.exports = {
         allowNull: false,
         defaultValue: 21.0000
       },
-      amount_line: {
+      amountLine: {
         field: 'amount_line',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 0.0000
       },
-      user_name: {
+      userName: {
         field: 'user_name',
         type: Sequelize.DataTypes.STRING,
         allowNull: true,
       },
-      created_at: {
+      createdAt: {
         field: 'created_at',
         allowNull: false,
         type: Sequelize.DataTypes.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
       },
-      updated_at: {
+      updatedAt: {
         field: 'updated_at',
         allowNull: false,
         type: Sequelize.DataTypes.DATE,
