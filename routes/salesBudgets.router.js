@@ -34,7 +34,7 @@ router.get('/salesBudgets-paginated',
 
 // Contador total para estadísticas rápidas (Dashboard)
 router.get('/count',
-    passport.authenticate('jwt', { session: false }), // <--- Fundamental para evitar el 401 inicial
+    passport.authenticate('jwt', { session: false }),
     checkPermission('allowSales'),
     async (req, res, next) => {
         try {
@@ -46,16 +46,17 @@ router.get('/count',
     }
 );
 
-// Obtener un presupuesto específico
-router.get('/:code',
+// Obtener un presupuesto específico por su ID (PK)
+// Cambiado :code por :id para sincronizar con getSalesBudgetSchema
+router.get('/:id',
     passport.authenticate('jwt', { session: false }),
     checkPermission('allowSales'),
     validatorHandler(getSalesBudgetSchema, 'params'),
     async (req, res, next) => {
         try {
-            const { code } = req.params;
+            const { id } = req.params;
             const includeLines = req.query.include_lines === 'true' || req.query.includeLines === 'true';
-            const record = await service.findOne(code, { includeLines });
+            const record = await service.findOne(id, { includeLines });
 
             res.json({
                 success: true,
@@ -94,7 +95,6 @@ router.post('/',
     async (req, res, next) => {
         try {
             const body = req.body;
-            // Pasamos el userId para trazabilidad
             const userId = req.user.userId || req.user.sub;
             const newSalesBudget = await service.create(body, userId);
             res.status(201).json(newSalesBudget);
@@ -102,7 +102,7 @@ router.post('/',
             if (error.name === "SequelizeUniqueConstraintError") {
                 return res.status(409).json({
                     success: false,
-                    message: `El código de presupuesto '${req.body.code}' ya existe en el sistema.`,
+                    message: `El recurso ya existe en el sistema (conflicto de código o UUID).`,
                     error: error.errors
                 });
             }
@@ -111,18 +111,18 @@ router.post('/',
     }
 );
 
-// Actualización completa
-router.put('/:code',
+// Actualización completa por ID
+router.put('/:id',
     passport.authenticate('jwt', { session: false }),
     checkPermission('allowSales'),
     validatorHandler(getSalesBudgetSchema, 'params'),
     validatorHandler(updateSalesBudgetSchema, 'body'),
     async (req, res, next) => {
         try {
-            const { code } = req.params;
+            const { id } = req.params;
             const body = req.body;
             const userId = req.user.userId || req.user.sub;
-            const record = await service.update(code, body, userId);
+            const record = await service.update(id, body, userId);
             res.json(record);
         } catch (error) {
             next(error);
@@ -130,17 +130,17 @@ router.put('/:code',
     }
 );
 
-// Eliminación
-router.delete('/:code',
+// Eliminación por ID
+router.delete('/:id',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSettings'), // Borrar suele ser permiso de Admin/Configuración
+    checkPermission('allowSettings'),
     validatorHandler(getSalesBudgetSchema, 'params'),
     async (req, res, next) => {
         try {
-            const { code } = req.params;
+            const { id } = req.params;
             const userId = req.user.userId || req.user.sub;
-            await service.delete(code, userId);
-            res.status(200).json({ code });
+            await service.delete(id, userId);
+            res.status(200).json({ id });
         } catch (error) {
             next(error);
         }

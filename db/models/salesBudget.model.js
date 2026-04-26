@@ -1,13 +1,28 @@
 const { Model, DataTypes, Sequelize } = require('sequelize');
+const { v4: uuidv4 } = require('uuid');
 const { generateNextCode } = require('../../libs/sequence.handler');
 
 const SALESBUDGET_TABLE = 'sales_budgets';
 
 const salesBudgetSchema = {
+  id: {
+    allowNull: false,
+    autoIncrement: true,
+    primaryKey: true,
+    type: DataTypes.INTEGER
+  },
+  // NUEVO: El "ADN" único del documento para relacionar impuestos
+  movementId: {
+    field: 'movement_id',
+    type: DataTypes.UUID,
+    allowNull: false,
+    unique: true,
+    defaultValue: DataTypes.UUIDV4 // También lo definimos a nivel de esquema por seguridad
+  },
   code: {
     field: 'code',
     allowNull: false,
-    primaryKey: true,
+    unique: true,
     type: DataTypes.STRING
   },
   postingDate: {
@@ -111,6 +126,17 @@ class salesBudget extends Model {
       onDelete: 'CASCADE',
       hooks: true
     });
+
+    // RELACIÓN ACTUALIZADA: Ahora vinculamos por movementId (UUID)
+    this.hasMany(models.DocumentTax, {
+      as: 'taxes',
+      foreignKey: 'movementId', // document_taxes.movement_id
+      sourceKey: 'movementId',  // sales_budgets.movement_id
+      constraints: false,
+      scope: {
+        codeDocument: 'budget'
+      }
+    });
   }
 
   static config(sequelize) {
@@ -122,9 +148,25 @@ class salesBudget extends Model {
       underscored: true,
       hooks: {
         beforeValidate: async (instance, options) => {
+          // 1. Generar código visual correlativo
           if (instance.isNewRecord && !instance.code) {
             await generateNextCode(instance, options);
           }
+          // 2. Generar UUID de movimiento si no existe
+          if (instance.isNewRecord && !instance.movementId) {
+            instance.movementId = uuidv4();
+          }
+        },
+
+        // Hook de limpieza actualizado para usar movementId
+        afterDestroy: async (instance, options) => {
+          await sequelize.models.DocumentTax.destroy({
+            where: {
+                movementId: instance.movementId,
+                codeDocument: 'budget'
+            },
+            transaction: options.transaction
+          });
         }
       }
     };

@@ -13,16 +13,16 @@ class purchPostInvoice {
   constructor() { }
 
   async countAll() {
-      try {
-        // Sequelize's count() method returns the total number of records
-        const totalCount = await purchpostInvoice.count();
-        console.log(`Total de facturas compra registradas encontrados: ${totalCount}`);
-        return totalCount;
-      } catch (error) {
-        console.error('Error al contar los facturas:', error);
-        throw boom.badImplementation('Error al contar los facturas', error); // Usa Boom para errores
-      }
+    try {
+      // Sequelize's count() method returns the total number of records
+      const totalCount = await purchpostInvoice.count();
+      console.log(`Total de facturas compra registradas encontrados: ${totalCount}`);
+      return totalCount;
+    } catch (error) {
+      console.error('Error al contar los facturas:', error);
+      throw boom.badImplementation('Error al contar los facturas', error); // Usa Boom para errores
     }
+  }
 
   async find(query) {
     const options = {
@@ -115,32 +115,36 @@ class purchPostInvoice {
   }
 
   async getTotalByBudget(budgetCode) {
-      try {
-        const totalFacturado = await purchpostInvoice.sum('amountWithVAT', {
-          where: {
-            budgetCode: budgetCode,
-          },
-        });
+    try {
+      const totalFacturado = await purchpostInvoice.sum('amountWithVAT', {
+        where: {
+          budgetCode: budgetCode,
+        },
+      });
 
-        // Si no se encuentra ninguna factura, la suma será null.
-        // Retornamos 0 en ese caso para evitar errores.
-        return totalFacturado || 0;
-      } catch (error) {
-        console.error("Error al obtener el total facturado por presupuesto:", error);
-        throw boom.internal('Error al calcular el total facturado.');
-      }
+      // Si no se encuentra ninguna factura, la suma será null.
+      // Retornamos 0 en ese caso para evitar errores.
+      return totalFacturado || 0;
+    } catch (error) {
+      console.error("Error al obtener el total facturado por presupuesto:", error);
+      throw boom.internal('Error al calcular el total facturado.');
     }
+  }
 
   async create(data) {
     let transaction;
     try {
       transaction = await sequelize.transaction();
-      const newpurchPostInvoice = await purchpostInvoice.create(data, { transaction });
 
-      // Preparar los datos para la primera línea vacía
-      // Asegúrate de que estos valores por defecto sean aceptables por tu modelo purchPostInvoiceLine
+      // 1. Creamos la cabecera
+      // Sequelize ahora gestionará el 'id' autoincremental automáticamente
+      const newPurchPostInvoice = await purchpostInvoice.create(data, { transaction });
+
+      // 2. Preparar la primera línea vacía
       const emptyItemData = {
-        codeInvoice: newpurchPostInvoice.code,
+        // USAMOS EL ID INTERNO para la relación si has migrado las líneas,
+        // o mantenemos el code si las líneas siguen vinculadas por string
+        codeInvoice: newPurchPostInvoice.code,
         lineNo: 1,
         codeItem: '',
         description: '',
@@ -148,38 +152,39 @@ class purchPostInvoice {
         unitMeasure: 'UNIDAD',
         quantityUnitMeasure: 0,
         unitPrice: 0.00,
-        vat: 0.00,         // Asumiendo que existe un campo 'vat' en purchPostInvoiceLine
-        amountLine: 0.00,  // Asumiendo que existe un campo 'amountLine' en purchPostInvoiceLine
+        vat: 0.00,
+        amountLine: 0.00,
         username: data.username || 'Sistema',
       };
 
-      // Crea la primera línea vacía y vinculada dentro de la misma transacción
+      // 3. Crear la línea (Ahora el esquema cargará bien sin la "t" extra)
       await purchPostInvoiceLine.create(emptyItemData, { transaction });
 
-      await transaction.commit(); // Si todo fue bien, confirma la transacción
+      // 4. Si hay impuestos iniciales, los crearíamos aquí con el nuevo servicio
+      // await documentTaxService.createBulk(initialTaxes, transaction);
 
-      const fullBudget = await purchpostInvoice.findByPk(newpurchPostInvoice.code, {
-        include: [{
-          model: purchPostInvoiceLine,
-          as: 'lines'
-        }]
+      await transaction.commit();
+
+      // 5. Recuperar el objeto completo para el Front
+      // IMPORTANTE: Ahora buscamos por el ID interno que es más rápido y seguro
+      const fullInvoice = await purchpostInvoice.findByPk(newPurchPostInvoice.id, {
+        include: [
+          { model: purchPostInvoiceLine, as: 'lines' },
+          { model: DocumentTax, as: 'taxes' } // Incluimos los nuevos impuestos polimórficos
+        ]
       });
 
-      console.log('--- DEBUG: fullBudget devuelto por el servicio ---');
-      console.log(JSON.stringify(fullBudget, null, 2)); // Para ver el objeto completo, con sus anidamientos
-      console.log('--- FIN DEBUG ---');
+      return fullInvoice;
 
-      return fullBudget;
     } catch (error) {
-      // Solo intenta hacer rollback si la transacción aún está activa (no ha terminado)
-      if (transaction && !transaction.finished) { // <--- CAMBIO CLAVE AQUÍ
-        await transaction.rollback();
-      }
-      console.error('Error en salesPostInvoiceService.create (con transacción y primera línea): ', error);
+      if (transaction) await transaction.rollback();
+
+      console.error('Error en purchPostInvoiceService.create: ', error);
+
       if (error.name === "SequelizeUniqueConstraintError") {
-        throw boom.conflict(`El código de Factura '${data.code}' ya existe. Intenta otro.`);
+        throw boom.conflict(`El código '${data.code}' ya existe.`);
       }
-      throw boom.badImplementation('Error al crear el Factura y su primera línea', error);
+      throw boom.badImplementation('Error al crear la factura y sus dependencias', error);
     }
   }
 

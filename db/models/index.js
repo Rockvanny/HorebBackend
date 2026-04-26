@@ -7,16 +7,15 @@ const { salesBudget, salesBudgetSchema } = require('./salesBudget.model');
 const { salesBudgetLine, salesBudgetLineSchema } = require('./salesBudgetLines.model');
 const { salesInvoice, salesInvoiceSchema } = require('./salesInvoice.model');
 const { salesInvoiceLine, salesInvoiceLineSchema } = require('./salesInvoiceLine.model');
-const { salesInvoiceTax, salesInvoiceTaxSchema } = require('./salesInvoiceTax.model');
+const { DocumentTax, documentTaxSchema } = require('./documentTax.model');
 const { salesPostInvoice, salesPostInvoiceSchema } = require('./salesPostInvoice.model');
-const { salesPostInvoiceLine, salesPostInvoicetLineSchema } = require('./salesPostInvoiceLine.model');
-const { salesPostInvoiceTax, salesPostInvoiceTaxSchema } = require('./salesPostInvoiceTax.model');
+const { salesPostInvoiceLine, salesPostInvoiceLineSchema } = require('./salesPostInvoiceLine.model');
 const { purchInvoice, purchInvoiceSchema } = require('./purchInvoice.model');
 const { purchInvoiceLine, purchInvoiceLineSchema } = require('./purchInvoiceLine.model');
 const { purchPostInvoice, purchPostInvoiceSchema } = require('./purchPostInvoice.model');
 const { purchPostInvoiceLine, purchPostInvoiceLineSchema } = require('./purchPostInvoiceLine.model');
 const { seriesNumber, seriesNumberSchema } = require('./SeriesNumber.model');
-const { VerifactuLog, VerifactuLogSchema } = require('./verifactuLogs.model');
+const { VerifactuLog, verifactuLogSchema } = require('./verifactuLogs.model');
 
 function setupModels(sequelize) {
   // 1. Inicialización de modelos
@@ -29,16 +28,15 @@ function setupModels(sequelize) {
   salesBudgetLine.init(salesBudgetLineSchema, salesBudgetLine.config(sequelize));
   salesInvoice.init(salesInvoiceSchema, salesInvoice.config(sequelize));
   salesInvoiceLine.init(salesInvoiceLineSchema, salesInvoiceLine.config(sequelize));
-  salesInvoiceTax.init(salesInvoiceTaxSchema, salesInvoiceTax.config(sequelize));
+  DocumentTax.init(documentTaxSchema, DocumentTax.config(sequelize));
   salesPostInvoice.init(salesPostInvoiceSchema, salesPostInvoice.config(sequelize));
-  salesPostInvoiceLine.init(salesPostInvoicetLineSchema, salesPostInvoiceLine.config(sequelize));
-  salesPostInvoiceTax.init(salesPostInvoiceTaxSchema, salesPostInvoiceTax.config(sequelize));
+  salesPostInvoiceLine.init(salesPostInvoiceLineSchema, salesPostInvoiceLine.config(sequelize));
   purchInvoice.init(purchInvoiceSchema, purchInvoice.config(sequelize));
   purchInvoiceLine.init(purchInvoiceLineSchema, purchInvoiceLine.config(sequelize));
   purchPostInvoice.init(purchPostInvoiceSchema, purchPostInvoice.config(sequelize));
   purchPostInvoiceLine.init(purchPostInvoiceLineSchema, purchPostInvoiceLine.config(sequelize));
   seriesNumber.init(seriesNumberSchema, seriesNumber.config(sequelize));
-  VerifactuLog.init(VerifactuLogSchema, VerifactuLog.config(sequelize));
+  VerifactuLog.init(verifactuLogSchema, VerifactuLog.config(sequelize));
 
   // 2. Definición de asociaciones
   Company.associate(sequelize.models);
@@ -49,10 +47,8 @@ function setupModels(sequelize) {
   salesBudgetLine.associate(sequelize.models);
   salesInvoice.associate(sequelize.models);
   salesInvoiceLine.associate(sequelize.models);
-  salesInvoiceTax.associate(sequelize.models);
   salesPostInvoice.associate(sequelize.models);
   salesPostInvoiceLine.associate(sequelize.models);
-  salesPostInvoiceTax.associate(sequelize.models);
   purchInvoice.associate(sequelize.models);
   purchInvoiceLine.associate(sequelize.models);
   purchPostInvoice.associate(sequelize.models);

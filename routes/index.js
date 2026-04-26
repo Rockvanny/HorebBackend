@@ -6,10 +6,10 @@ const productsRouter = require('./product.router');
 const customersRouter = require('./customers.router');
 const vendorsRouter = require('./vendors.router');
 const salesBudgetRouter = require('./salesBudgets.router');
-const salesBudgetLines = require('./salesBudgetLines.router');
+const salesBudgetLinesRouter = require('./salesBudgetLines.router');
 const salesInvoiceRouter = require('./salesInvoices.router');
-const salesInvoiceLines = require('./salesInvoiceLines.router');
-const salesInvoiceTaxesRouter = require('./salesInvoiceTax.router');
+const salesInvoiceLinesRouter = require('./salesInvoiceLines.router');
+const documentTaxRouter = require('./documentTax.router');
 const salesPostInvoiceRouter = require('./salesPostInvoice.router');
 const salesPostInvoiceTaxesRouter = require('./salesPostInvoiceTax.router');
 const purchInvoiceRouter = require('./purchInvoice.router');
@@ -17,7 +17,7 @@ const purchInvoiceLinesRouter = require('./purchInvoiceLines.router');
 const purchPostInvoiceRouter = require('./purchPostInvoice.router');
 const seiresNumberRouter = require('./seriesNumber.router');
 const verifactuLogsRouter = require('./verifactuLogs.router');
-const config = require('./config.router');
+const configRouter = require('./config.router');
 
 // Rutas internas que no apuntan a tablas
 const statsRouter = require('./stats.router');
@@ -33,10 +33,10 @@ function routerApi(app) {
   router.use('/customers', customersRouter);
   router.use('/vendors', vendorsRouter);
   router.use('/salesBudgets', salesBudgetRouter);
-  router.use('/salesBudgetLines', salesBudgetLines);
+  router.use('/salesBudgetLines', salesBudgetLinesRouter);
   router.use('/salesInvoices', salesInvoiceRouter);
-  router.use('/salesInvoiceLines', salesInvoiceLines);
-  router.use('/sales-invoice-taxes', salesInvoiceTaxesRouter);
+  router.use('/salesInvoiceLines', salesInvoiceLinesRouter);
+  router.use('/document-taxes', documentTaxRouter);
   router.use('/salesPostInvoices', salesPostInvoiceRouter);
   router.use('/sales-post-invoice-taxes', salesPostInvoiceTaxesRouter);
   router.use('/purchInvoices', purchInvoiceRouter);
@@ -44,7 +44,7 @@ function routerApi(app) {
   router.use('/purchPostInvoices', purchPostInvoiceRouter);
   router.use('/seriesNumber', seiresNumberRouter);
   router.use('/verifactuLogs', verifactuLogsRouter);
-  router.use('/config', config);
+  router.use('/config', configRouter);
   router.use('/stats', statsRouter);
   router.use('/enums', enumsRouter);
 }

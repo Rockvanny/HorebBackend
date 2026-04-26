@@ -1,29 +1,26 @@
 'use strict';
 
-// Importamos el nombre de la tabla desde el modelo que definimos antes
-const { SALESINVOICE_TAX_TABLE } = require('../models/salesInvoiceTax.model');
-const { SALESINVOICE_TABLE } = require('../models/salesInvoice.model');
+const DOCUMENT_TAX_TABLE = 'document_taxes';
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
-    await queryInterface.createTable(SALESINVOICE_TAX_TABLE, {
+    await queryInterface.createTable(DOCUMENT_TAX_TABLE, {
       id: {
-        field: 'id',
         allowNull: false,
         autoIncrement: true,
         primaryKey: true,
         type: Sequelize.DataTypes.INTEGER,
       },
-      invoiceCode: {
-        field: 'invoice_code',
+      codeDocument: {
+        field: 'code_document',
         allowNull: false,
-        type: Sequelize.DataTypes.STRING,
-        references: {
-          model: SALESINVOICE_TABLE,
-          key: 'code'
-        },
-        onUpdate: 'CASCADE',
-        onDelete: 'CASCADE'
+        type: Sequelize.DataTypes.ENUM('budget', 'salesinvoice', 'salespostinvoice', 'purchinvoice', 'purchpostinvoice'),
+      },
+      // CAMBIO CLAVE: De INTEGER a UUID para el traspaso entre tablas
+      movementId: {
+        field: 'movement_id',
+        allowNull: false,
+        type: Sequelize.DataTypes.UUID,
       },
       taxType: {
         field: 'tax_type',
@@ -63,16 +60,17 @@ module.exports = {
       }
     });
 
-    // Índices para optimizar las búsquedas de impuestos por factura
-    await queryInterface.addIndex(SALESINVOICE_TAX_TABLE, ['invoice_code']);
-    // Índice compuesto para evitar duplicados del mismo tipo de IVA en la misma factura
-    await queryInterface.addIndex(SALESINVOICE_TAX_TABLE, ['invoice_code', 'tax_percentage'], {
+    // Actualización de Índices para usar movement_id
+    await queryInterface.addIndex(DOCUMENT_TAX_TABLE, ['code_document', 'movement_id']);
+
+    // Índice único para evitar duplicar el mismo % de IVA en un mismo movimiento
+    await queryInterface.addIndex(DOCUMENT_TAX_TABLE, ['code_document', 'movement_id', 'tax_percentage'], {
       unique: true,
-      name: 'unique_tax_per_invoice'
+      name: 'unique_tax_per_doc'
     });
   },
 
   down: async (queryInterface) => {
-    await queryInterface.dropTable(SALESINVOICE_TAX_TABLE);
+    await queryInterface.dropTable(DOCUMENT_TAX_TABLE);
   }
 };

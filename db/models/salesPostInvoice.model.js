@@ -98,6 +98,7 @@ const salesPostInvoiceSchema = {
 class salesPostInvoice extends Model {
   static associate(models) {
     this.belongsTo(models.Customer, { as: 'customer', foreignKey: 'entity_code' });
+
     this.hasMany(models.salesPostInvoiceLine, {
       as: 'lines',
       foreignKey: 'codeDocument',

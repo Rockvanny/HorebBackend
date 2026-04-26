@@ -1,10 +1,12 @@
 const Joi = require('joi');
-// Importamos tanto el de creación como el de actualización de líneas
+// Importamos los esquemas de líneas
 const { createSalesBudgetLineSchema, updateSalesBudgetLineSchema } = require('./salesBudgetLines.schema');
 
 // --- DEFINICIÓN DE TIPOS BASE ---
+const id = Joi.number().integer();
+const movementId = Joi.string().uuid({ version: 'uuidv4' }); // El identificador único de movimiento
 const code = Joi.string();
-const selectedSerie = Joi.string(); // Campo necesario para el Hook de serie del backend
+const selectedSerie = Joi.string();
 const postingDate = Joi.date();
 const dueDate = Joi.date().allow(null);
 const entityCode = Joi.string();
@@ -18,9 +20,8 @@ const city = Joi.string().allow('', null);
 const status = Joi.string().default('Borrador');
 const comments = Joi.string().allow('', null);
 
-// Sincronizado con DECIMAL(12, 4) de la DB para los cálculos
+// Sincronizado con DECIMAL(12, 4)
 const money = Joi.number().precision(4).default(0);
-
 const username = Joi.string();
 
 // Esquemas de consulta
@@ -31,19 +32,20 @@ const searchTerm = Joi.string().allow('');
 // --- ESQUEMAS DE ACCIÓN ---
 
 /**
- * Esquema para obtener un registro por su PK
+ * Esquema para obtener un registro por su ID numérico (PK física)
  */
 const getSalesBudgetSchema = Joi.object({
-    code: code.required(),
+    id: id.required(),
 });
 
 /**
  * Esquema para CREACIÓN
- * Permite recibir el documento completo (Cabecera + Líneas)
+ * El movementId es opcional porque el Hook lo genera si no viene.
  */
 const createSalesBudgetSchema = Joi.object({
-    code: code.optional(), // Opcional porque lo genera el hook beforeCreate
-    selectedSerie: selectedSerie.optional(), // Serie elegida en el combo de Electron
+    movementId: movementId.optional(),
+    code: code.optional(),
+    selectedSerie: selectedSerie.optional(),
 
     postingDate: postingDate.default(() => new Date()),
     dueDate: dueDate.optional(),
@@ -58,20 +60,19 @@ const createSalesBudgetSchema = Joi.object({
     status: status.optional(),
     comments: comments.optional(),
 
-    // Totales calculados en el Front
     amountWithoutVAT: money.optional(),
     amountVAT: money.optional(),
     amountWithVAT: money.optional(),
 
     username: username.optional(),
 
-    // Inserción masiva de líneas
+    // Inserción de líneas
     lines: Joi.array().items(createSalesBudgetLineSchema).optional(),
 });
 
 /**
- * Esquema para ACTUALIZACIÓN (PATCH/PUT)
- * Se vuelve flexible con el 'code' ya que suele venir por req.params
+ * Esquema para ACTUALIZACIÓN
+ * movementId OMITIDO: No se permite su modificación vía API
  */
 const updateSalesBudgetSchema = Joi.object({
     postingDate: postingDate.optional(),
@@ -92,7 +93,7 @@ const updateSalesBudgetSchema = Joi.object({
 
     username: username.optional(),
 
-    // Sincronización de líneas (Flush & Fill)
+    // Sincronización de líneas
     lines: Joi.array().items(updateSalesBudgetLineSchema).optional(),
 });
 

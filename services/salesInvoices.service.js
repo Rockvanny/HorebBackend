@@ -2,7 +2,6 @@ const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
 const sequelize = require('../libs/sequelize');
 
-const { salesInvoice, salesInvoiceLine, salesInvoiceTax } = sequelize.models;
 const SalesPostInvoiceService = require('./salesPostInvoice.service');
 const { calculateTransactionTotals } = require('../libs/calculations');
 const postService = new SalesPostInvoiceService();
@@ -82,7 +81,6 @@ class salesInvoiceService {
     const queryOptions = { where: { code }, include: [] };
 
     if (includeLines) queryOptions.include.push({ model: salesInvoiceLine, as: 'lines' });
-    if (includeTaxes) queryOptions.include.push({ model: salesInvoiceTax, as: 'taxes' });
 
     const record = await salesInvoice.findOne(queryOptions);
     if (!record) throw boom.notFound('Registro no encontrado');
@@ -116,7 +114,6 @@ class salesInvoiceService {
 
         // 2. NUEVO: Insertar Desglose de Impuestos
         const taxesToInsert = this.groupTaxes(linesToInsert, newInvoice.code);
-        await salesInvoiceTax.bulkCreate(taxesToInsert, { transaction });
       }
 
       await transaction.commit();
@@ -143,7 +140,6 @@ class salesInvoiceService {
 
         // Limpieza de líneas e impuestos antiguos
         await salesInvoiceLine.destroy({ where: { codeDocument: code }, transaction });
-        await salesInvoiceTax.destroy({ where: { invoiceCode: code }, transaction });
 
         const linesToInsert = result.processedLines.map((line, index) => {
           const { id, ...cleanLine } = line;
@@ -158,7 +154,6 @@ class salesInvoiceService {
 
         // NUEVO: Regenerar Desglose de Impuestos
         const taxesToInsert = this.groupTaxes(linesToInsert, code);
-        await salesInvoiceTax.bulkCreate(taxesToInsert, { transaction });
       }
 
       delete headerChanges.id;
@@ -178,8 +173,7 @@ class salesInvoiceService {
     const invoice = await salesInvoice.findOne({
       where: { code },
       include: [
-        { model: salesInvoiceLine, as: 'lines' },
-        { model: salesInvoiceTax, as: 'taxes' } // NUEVO: Incluimos taxes en el archivo
+        { model: salesInvoiceLine, as: 'lines' }
       ]
     });
     if (!invoice) throw boom.notFound('Factura no encontrada');

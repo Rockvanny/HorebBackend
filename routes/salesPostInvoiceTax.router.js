@@ -3,7 +3,6 @@ const passport = require('passport');
 const salesPostInvoiceTaxService = require('../services/salesPostInvoiceTax.service');
 const validatorHandler = require('../middlewares/validator.handler');
 const { checkPermission } = require('../middlewares/auth.handler');
-const { filterInvoiceTaxSchema } = require('../schemas/salesInvoiceTax.schema'); // Reutilizamos el validador ya que la estructura es igual
 
 const router = express.Router();
 const service = new salesPostInvoiceTaxService();
@@ -15,7 +14,6 @@ const service = new salesPostInvoiceTaxService();
 router.get('/by-invoice/:invoiceCode',
     passport.authenticate('jwt', { session: false }),
     checkPermission('allowSales'),
-    validatorHandler(filterInvoiceTaxSchema, 'params'),
     async (req, res, next) => {
         try {
             const { invoiceCode } = req.params;
