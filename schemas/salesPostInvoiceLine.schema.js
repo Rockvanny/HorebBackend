@@ -6,13 +6,14 @@ const lineNo = Joi.number().integer().min(1);
 const codeItem = Joi.string().allow('', null);
 const description = Joi.string().allow('', null);
 const quantity = Joi.number().precision(4);
-const unitMeasure = Joi.string().allow('', null).default('UNIDAD');
 const quantityUnitMeasure = Joi.number().precision(4).default(1);
 const unitPrice = Joi.number().precision(4);
 
-// --- NUEVA CONSTANTE PARA EL HISTÓRICO ---
 const taxType = Joi.string().valid('IVA', 'IRPF', 'RE', 'EXENTO').default('IVA');
-// -----------------------------------------
+
+const unitMeasure = Joi.string()
+  .valid('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK')
+  .default('UNIDAD');
 
 const vat = Joi.number().min(0).max(100).precision(4).default(21);
 const amountLine = Joi.number().precision(4);

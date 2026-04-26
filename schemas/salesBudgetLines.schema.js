@@ -1,19 +1,20 @@
 const Joi = require('joi');
 
-// Definimos las opciones del ENUM para reusarlas
-const taxTypeValues = ['IVA', 'IRPF', 'RE', 'EXENTO'];
-
 const codeDocument = Joi.string();
 const lineNo = Joi.number().integer().min(1);
 const codeItem = Joi.string().allow('', null);
 const description = Joi.string().allow('', null);
 const quantity = Joi.number().min(0).precision(4);
-const unitMeasure = Joi.string().allow('', null).default('UNIDAD');
 const quantityUnitMeasure = Joi.number().min(0).precision(4).default(1);
 const unitPrice = Joi.number().min(0).precision(4);
 
-// NUEVO: Validación para el tipo de impuesto
-const taxType = Joi.string().valid(...taxTypeValues).default('IVA');
+const taxType = Joi.string()
+  .valid('IVA', 'IRPF', 'RE', 'EXENTO')
+  .default('IVA');
+
+const unitMeasure = Joi.string()
+  .valid('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK')
+  .default('UNIDAD');
 
 const vat = Joi.number().min(0).max(100).precision(4).default(21);
 const amountLine = Joi.number().min(0).precision(4);

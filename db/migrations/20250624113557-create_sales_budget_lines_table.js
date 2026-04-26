@@ -39,10 +39,9 @@ module.exports = {
         allowNull: false,
         defaultValue: 0.0000
       },
-      unit_measure: {
+      unitMeasure: {
         field: 'unit_measure',
-        type: Sequelize.DataTypes.STRING,
-        allowNull: false,
+        type: Sequelize.DataTypes.ENUM('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK'),
         defaultValue: 'UNIDAD'
       },
       quantity_unit_measure: {
@@ -64,7 +63,7 @@ module.exports = {
         defaultValue: 'IVA'
       },
       vat: {
-        field: 'var',
+        field: 'vat',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 21.0000

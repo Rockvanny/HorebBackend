@@ -41,9 +41,9 @@ module.exports = {
         allowNull: false,
         defaultValue: 0.0000
       },
-      unit_measure: {
-        type: Sequelize.DataTypes.STRING,
-        allowNull: false,
+      unitMeasure: {
+        field: 'unit_measure',
+        type: Sequelize.DataTypes.ENUM('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK'),
         defaultValue: 'UNIDAD'
       },
       quantity_unit_measure: {

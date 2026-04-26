@@ -25,7 +25,11 @@ const salesPostInvoiceLineSchema = {
   codeItem: { field: 'item_code', type: DataTypes.STRING, allowNull: true },
   description: { field: 'description', type: DataTypes.TEXT },
   quantity: { field: 'quantity', type: DataTypes.DECIMAL(12, 4), allowNull: false, defaultValue: 0 },
-  unitMeasure: { field: 'unit_measure', type: DataTypes.STRING, allowNull: false, defaultValue: 'UNIDAD' },
+  unitMeasure: {
+    field: 'unit_measure',
+    type: DataTypes.ENUM('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK'),
+    defaultValue: 'UNIDAD'
+  },
   quantityUnitMeasure: { field: 'quantity_unit_measure', type: DataTypes.DECIMAL(12, 4), allowNull: false, defaultValue: 1 },
   unitPrice: { field: 'unit_price', type: DataTypes.DECIMAL(12, 4), allowNull: false, defaultValue: 0 },
 

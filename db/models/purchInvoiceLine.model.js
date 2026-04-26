@@ -39,7 +39,7 @@ const purchInvoiceLineSchema = {
   },
   unitMeasure: {
     field: 'unit_measure',
-    type: DataTypes.STRING,
+    type: DataTypes.ENUM('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK'),
     defaultValue: 'UNIDAD'
   },
   quantityUnitMeasure: {
