@@ -44,9 +44,18 @@ class salesPostInvoiceService {
   async findOne(code, options = {}) {
     const queryOptions = {
       where: { code },
-      include: [{ model: Customer, as: 'customer' }]
+      include: [
+        { model: Customer, as: 'customer' }
+      ]
     };
-    if (options.includeLines) queryOptions.include.push({ model: salesPostInvoiceLine, as: 'lines' });
+
+    // Agregamos include de líneas si se solicita
+    if (options.includeLines) {
+      queryOptions.include.push({ model: salesPostInvoiceLine, as: 'lines' });
+    }
+
+    // NUEVO: Agregamos include de impuestos (taxes) para el histórico
+    queryOptions.include.push({ model: sequelize.models.salesPostInvoiceTax, as: 'taxes' });
 
     const record = await salesPostInvoice.findOne(queryOptions);
     if (!record) throw boom.notFound('Factura registrada no encontrada');
@@ -54,15 +63,16 @@ class salesPostInvoiceService {
   }
 
   async create(data) {
-    const { lines, ...headerData } = data;
+    // Extraemos 'taxes' además de 'lines'
+    const { lines, taxes, ...headerData } = data;
     const transaction = await sequelize.transaction();
 
     try {
-      // 1. Esto ya funciona (Cabecera)
+      // 1. Creación de Cabecera (Dispara hooks de numeración)
       const newPostInvoice = await salesPostInvoice.create(headerData, { transaction });
 
+      // 2. Inserción de Líneas (Tu lógica de mapeo manual)
       if (lines && lines.length > 0) {
-        // 2. MAPEAMOS DIRECTAMENTE A LOS NOMBRES DE COLUMNA DE POSTGRES (snake_case)
         const rows = lines.map((line, index) => ({
           code_document: newPostInvoice.code,
           line_no: parseInt(line.lineNo || index + 1),
@@ -79,8 +89,6 @@ class salesPostInvoiceService {
           updated_at: new Date()
         }));
 
-        // 3. FUERZA BRUTA: Inserción directa en la tabla
-        // Esto ignora el modelo y sus validaciones, va directo a la tabla física
         await sequelize.getQueryInterface().bulkInsert(
           'sales_post_invoice_lines',
           rows,
@@ -88,12 +96,33 @@ class salesPostInvoiceService {
         );
       }
 
-      // --- 3. LLAMADA A VERIFACTU ---
-      // Le pasamos la transacción activa para que todo sea atómico
+      // --- 3. NUEVO: Inserción de Impuestos (Mismo patrón de "Fuerza Bruta") ---
+      if (taxes && taxes.length > 0) {
+        const taxRows = taxes.map(tax => ({
+          invoice_code: newPostInvoice.code,
+          tax_type: tax.taxType || 'IVA',
+          tax_percentage: parseFloat(tax.taxPercentage) || 0,
+          taxable_amount: parseFloat(tax.taxableAmount) || 0,
+          tax_amount: parseFloat(tax.taxAmount) || 0,
+          created_at: new Date(),
+          updated_at: new Date()
+        }));
+
+        await sequelize.getQueryInterface().bulkInsert(
+          'sales_post_invoice_taxes',
+          taxRows,
+          { transaction }
+        );
+      }
+
+      // --- 4. LLAMADA A VERIFACTU ---
       await verifactuService.createLog(newPostInvoice.code, true, transaction);
 
       await transaction.commit();
-      return newPostInvoice;
+
+      // Retornamos el registro completo incluyendo líneas y taxes
+      return await this.findOne(newPostInvoice.code, { includeLines: true });
+
     } catch (error) {
       if (transaction) await transaction.rollback();
       console.error("Error en registro oficial:", error);

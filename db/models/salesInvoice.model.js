@@ -92,6 +92,15 @@ class salesInvoice extends Model {
       onDelete: 'CASCADE',
       hooks: true
     });
+
+    // --- NUEVA ASOCIACIÓN PARA IMPUESTOS ---
+    this.hasMany(models.salesInvoiceTax, {
+      as: 'taxes',
+      foreignKey: 'invoiceCode',
+      sourceKey: 'code',
+      onDelete: 'CASCADE',
+      hooks: true
+    });
   }
 
   static config(sequelize) {

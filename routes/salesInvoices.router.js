@@ -32,7 +32,14 @@ router.get('/:code',
         try {
             const { code } = req.params;
             const includeLines = req.query.include_lines === 'true';
-            const record = await service.findOne(code, { includeLines });
+            const includeTaxes = req.query.include_taxes !== 'false';
+
+            const record = await service.findOne(code,
+              {
+                includeLines,
+                includeTaxes
+              });
+              
             res.json({ success: true, data: record });
         } catch (error) { next(error); }
     }

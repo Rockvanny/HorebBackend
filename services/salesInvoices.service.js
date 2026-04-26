@@ -2,12 +2,47 @@ const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
 const sequelize = require('../libs/sequelize');
 
-const { salesInvoice, salesInvoiceLine } = sequelize.models;
+const { salesInvoice, salesInvoiceLine, salesInvoiceTax } = sequelize.models;
 const SalesPostInvoiceService = require('./salesPostInvoice.service');
 const { calculateTransactionTotals } = require('../libs/calculations');
 const postService = new SalesPostInvoiceService();
 
 class salesInvoiceService {
+
+  // --- MÉTODOS DE APOYO (NUEVOS) ---
+
+  /**
+   * Agrupa las líneas por porcentaje de IVA para generar el desglose de la tabla taxes
+   */
+  groupTaxes(lines, invoiceCode) {
+    const groups = lines.reduce((acc, line) => {
+      const vat = parseFloat(line.vat || 0);
+      const key = vat.toFixed(2);
+
+      if (!acc[key]) {
+        acc[key] = {
+          invoiceCode: invoiceCode,
+          taxType: 'IVA',
+          taxPercentage: vat,
+          taxableAmount: 0,
+          taxAmount: 0
+        };
+      }
+
+      // Base = Cantidad * Precio
+      const base = parseFloat(line.quantity) * parseFloat(line.unitPrice);
+      const tax = (base * vat) / 100;
+
+      acc[key].taxableAmount += base;
+      acc[key].taxAmount += tax;
+
+      return acc;
+    }, {});
+
+    return Object.values(groups);
+  }
+
+  // --- MÉTODOS DE BÚSQUEDA ---
 
   async findPaginated({ limit, offset, searchTerm }) {
     const parsedLimit = parseInt(limit, 10) || 100;
@@ -16,7 +51,7 @@ class salesInvoiceService {
     const options = {
       limit: parsedLimit,
       offset: parsedOffset,
-      order: [['createdAt', 'DESC']], // Sequelize normaliza a createdAt
+      order: [['createdAt', 'DESC']],
       where: {},
     };
 
@@ -30,10 +65,8 @@ class salesInvoiceService {
 
     try {
       const { count, rows } = await salesInvoice.findAndCountAll(options);
-
-      // DEVOLVEMOS EL MISMO FORMATO QUE OFERTAS
       return {
-        records: rows, // Antes pusimos 'data', por eso fallaba
+        records: rows,
         hasMore: (parsedOffset + rows.length) < count,
         total: count,
       };
@@ -44,14 +77,19 @@ class salesInvoiceService {
   }
 
   async findOne(code, options = {}) {
-    const { includeLines = false } = options;
+    // Agregamos includeTaxes por defecto para ver el desglose
+    const { includeLines = false, includeTaxes = true } = options;
     const queryOptions = { where: { code }, include: [] };
+
     if (includeLines) queryOptions.include.push({ model: salesInvoiceLine, as: 'lines' });
+    if (includeTaxes) queryOptions.include.push({ model: salesInvoiceTax, as: 'taxes' });
 
     const record = await salesInvoice.findOne(queryOptions);
     if (!record) throw boom.notFound('Registro no encontrado');
     return record.get({ plain: true });
   }
+
+  // --- LÓGICA DE PERSISTENCIA ---
 
   async create(data, userId) {
     const { lines: rawLines, ...headerData } = data;
@@ -59,7 +97,6 @@ class salesInvoiceService {
     try {
       const result = calculateTransactionTotals(rawLines || []);
 
-      // Asignación directa según tu modelo
       headerData.amountWithoutVAT = result.amountWithoutVAT;
       headerData.amountVAT = result.amountVAT;
       headerData.amountWithVAT = result.amountWithVAT;
@@ -68,6 +105,7 @@ class salesInvoiceService {
       const newInvoice = await salesInvoice.create(headerData, { transaction });
 
       if (result.processedLines.length > 0) {
+        // 1. Insertar Líneas (Manteniendo tu lógica original)
         const linesToInsert = result.processedLines.map((line, index) => ({
           ...line,
           id: undefined,
@@ -75,10 +113,14 @@ class salesInvoiceService {
           lineNo: line.lineNo || index + 1,
         }));
         await salesInvoiceLine.bulkCreate(linesToInsert, { transaction });
+
+        // 2. NUEVO: Insertar Desglose de Impuestos
+        const taxesToInsert = this.groupTaxes(linesToInsert, newInvoice.code);
+        await salesInvoiceTax.bulkCreate(taxesToInsert, { transaction });
       }
 
       await transaction.commit();
-      return await this.findOne(newInvoice.code, { includeLines: true });
+      return await this.findOne(newInvoice.code, { includeLines: true, includeTaxes: true });
     } catch (error) {
       if (transaction) await transaction.rollback();
       throw error;
@@ -95,12 +137,13 @@ class salesInvoiceService {
       if (rawLines) {
         const result = calculateTransactionTotals(rawLines);
 
-        // Pisamos los valores del header con los calculados
         headerChanges.amountWithoutVAT = result.amountWithoutVAT;
         headerChanges.amountVAT = result.amountVAT;
         headerChanges.amountWithVAT = result.amountWithVAT;
 
+        // Limpieza de líneas e impuestos antiguos
         await salesInvoiceLine.destroy({ where: { codeDocument: code }, transaction });
+        await salesInvoiceTax.destroy({ where: { invoiceCode: code }, transaction });
 
         const linesToInsert = result.processedLines.map((line, index) => {
           const { id, ...cleanLine } = line;
@@ -112,16 +155,19 @@ class salesInvoiceService {
           };
         });
         await salesInvoiceLine.bulkCreate(linesToInsert, { transaction });
+
+        // NUEVO: Regenerar Desglose de Impuestos
+        const taxesToInsert = this.groupTaxes(linesToInsert, code);
+        await salesInvoiceTax.bulkCreate(taxesToInsert, { transaction });
       }
 
       delete headerChanges.id;
       delete headerChanges.code;
 
-      // Ahora Sequelize sí reconocerá los campos y los actualizará en la BD
       await instance.update(headerChanges, { transaction });
 
       await transaction.commit();
-      return await this.findOne(code, { includeLines: true });
+      return await this.findOne(code, { includeLines: true, includeTaxes: true });
     } catch (error) {
       if (transaction) await transaction.rollback();
       throw error;
@@ -131,13 +177,16 @@ class salesInvoiceService {
   async archiveInvoice(code, userId) {
     const invoice = await salesInvoice.findOne({
       where: { code },
-      include: [{ model: salesInvoiceLine, as: 'lines' }]
+      include: [
+        { model: salesInvoiceLine, as: 'lines' },
+        { model: salesInvoiceTax, as: 'taxes' } // NUEVO: Incluimos taxes en el archivo
+      ]
     });
     if (!invoice) throw boom.notFound('Factura no encontrada');
 
     const invoiceData = invoice.get({ plain: true });
 
-    // 1. Limpieza de metadatos de las líneas
+    // 1. Limpieza de metadatos de las líneas (MANTENIENDO TU MAPEO ORIGINAL)
     if (invoiceData.lines) {
       invoiceData.lines = invoiceData.lines.map((line, index) => {
         const { id, createdAt, updatedAt, ...cleanLine } = line;
@@ -154,26 +203,29 @@ class salesInvoiceService {
       });
     }
 
-    // --- EL CAMBIO CLAVE AQUÍ ---
+    // 2. NUEVO: Limpieza de impuestos para el envío a Post
+    if (invoiceData.taxes) {
+      invoiceData.taxes = invoiceData.taxes.map(tax => {
+        // Quitamos IDs y timestamps para que postService genere nuevos
+        const { id, createdAt, updatedAt, invoiceCode, ...cleanTax } = tax;
+        return cleanTax;
+      });
+    }
 
-    // 2. Guardamos rastro de la factura origen
-    invoiceData.preInvoice = invoiceData.code; // ej: 'FV007'
+    // 3. Lógica de archivado original
+    invoiceData.preInvoice = invoiceData.code;
     invoiceData.username = userId;
-
-    // 3. CAMBIO DE NUMERACIÓN:
-    // Sustituimos la serie de borrador por la serie de registro que capturamos en el front
     invoiceData.seriesCode = invoiceData.codePosting;
-
-    // IMPORTANTE: Ponemos code en null para que el hook 'beforeValidate'
-    // de salesPostInvoice genere el nuevo número (ej: 'FAC-001')
     invoiceData.code = null;
-
-    // ----------------------------
-
     delete invoiceData.id;
 
+    // Enviamos el objeto con 'lines' y 'taxes' al postService
     const result = await postService.create(invoiceData);
-    if (result) await invoice.destroy();
+
+    if (result) {
+      await invoice.destroy();
+    }
+
     return result;
   }
 }

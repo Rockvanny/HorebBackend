@@ -9,7 +9,9 @@ const salesBudgetRouter = require('./salesBudgets.router');
 const salesBudgetLines = require('./salesBudgetLines.router');
 const salesInvoiceRouter = require('./salesInvoices.router');
 const salesInvoiceLines = require('./salesInvoiceLines.router');
+const salesInvoiceTaxesRouter = require('./salesInvoiceTax.router');
 const salesPostInvoiceRouter = require('./salesPostInvoice.router');
+const salesPostInvoiceTaxesRouter = require('./salesPostInvoiceTax.router');
 const purchInvoiceRouter = require('./purchInvoice.router');
 const purchInvoiceLinesRouter = require('./purchInvoiceLines.router');
 const purchPostInvoiceRouter = require('./purchPostInvoice.router');
@@ -17,7 +19,7 @@ const seiresNumberRouter = require('./seriesNumber.router');
 const verifactuLogsRouter = require('./verifactuLogs.router');
 const config = require('./config.router');
 
-//Rutas internas que no apuntan a tablas
+// Rutas internas que no apuntan a tablas
 const statsRouter = require('./stats.router');
 const enumsRouter = require('./enums.router');
 
@@ -34,7 +36,9 @@ function routerApi(app) {
   router.use('/salesBudgetLines', salesBudgetLines);
   router.use('/salesInvoices', salesInvoiceRouter);
   router.use('/salesInvoiceLines', salesInvoiceLines);
+  router.use('/sales-invoice-taxes', salesInvoiceTaxesRouter);
   router.use('/salesPostInvoices', salesPostInvoiceRouter);
+  router.use('/sales-post-invoice-taxes', salesPostInvoiceTaxesRouter);
   router.use('/purchInvoices', purchInvoiceRouter);
   router.use('/purchInvoiceLines', purchInvoiceLinesRouter);
   router.use('/purchPostInvoices', purchPostInvoiceRouter);
