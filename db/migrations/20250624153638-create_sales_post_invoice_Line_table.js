@@ -61,6 +61,12 @@ module.exports = {
         allowNull: false,
         defaultValue: 0
       },
+      taxType: {
+        field: 'tax_type',
+        type: Sequelize.DataTypes.ENUM('IVA', 'IRPF', 'RE', 'EXENTO'),
+        allowNull: false,
+        defaultValue: 'IVA'
+      },
       vat: {
         field: 'vat',
         type: Sequelize.DataTypes.DECIMAL(12, 4),

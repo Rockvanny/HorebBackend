@@ -4,8 +4,8 @@ const sequelize = require('../libs/sequelize');
 const { salesInvoice, salesInvoiceLine, DocumentTax } = sequelize.models;
 
 const SalesPostInvoiceService = require('./salesPostInvoice.service');
-// Importamos la librería universal de cálculos
-const { calculateDocumentTotals } = require('../libs/calculations');
+// IMPORTANTE: Cambiamos a la librería correcta y función correcta
+const { calculateDocumentTotals } = require('../libs/taxCalculation');
 const postService = new SalesPostInvoiceService();
 
 class salesInvoiceService {
@@ -18,8 +18,7 @@ class salesInvoiceService {
       limit: parsedLimit,
       offset: parsedOffset,
       order: [['createdAt', 'DESC']],
-      where: {},
-      include: [{ model: DocumentTax, as: 'taxes' }] // Incluimos impuestos en el listado
+      where: {}
     };
 
     if (searchTerm) {
@@ -44,7 +43,6 @@ class salesInvoiceService {
 
   async findOne(id, options = {}) {
     const { includeLines = false } = options;
-    // Buscamos por ID o Code dinámicamente
     const isNumeric = !isNaN(id) && !isNaN(parseFloat(id));
     const queryOptions = {
       where: isNumeric ? { id } : { code: id },
@@ -63,15 +61,15 @@ class salesInvoiceService {
     const transaction = await sequelize.transaction();
 
     try {
-      // 1. Crear Cabecera (Genera code y movementId vía Hooks)
+      // 1. Crear Cabecera
       headerData.username = userId;
       const newInvoice = await salesInvoice.create(headerData, { transaction });
 
-      // 2. Calcular usando la librería universal
-      const { processedLines, taxesToInsert, totals } = calculateDocumentTotals(
+      // 2. Calcular usando la librería unificada (Igual que en presupuestos)
+      const { processedLines, taxesToInsert, headerTotals } = calculateDocumentTotals(
         rawLines || [],
         newInvoice.movementId,
-        'invoice' // Identificador para la tabla DocumentTax
+        'salesinvoice' // Identificador coherente para DocumentTax
       );
 
       // 3. Insertar Líneas
@@ -88,8 +86,8 @@ class salesInvoiceService {
         await DocumentTax.bulkCreate(taxesToInsert, { transaction });
       }
 
-      // 5. Actualizar totales finales en la cabecera
-      await newInvoice.update(totals, { transaction });
+      // 5. Actualizar totales finales en la cabecera (Usando headerTotals)
+      await newInvoice.update(headerTotals, { transaction });
 
       await transaction.commit();
       return await this.findOne(newInvoice.id, { includeLines: true });
@@ -109,23 +107,23 @@ class salesInvoiceService {
       let totalsUpdate = {};
 
       if (rawLines) {
-        // Recalcular todo
-        const { processedLines, taxesToInsert, totals } = calculateDocumentTotals(
+        // Recalcular todo con la lógica de impuestos y factores
+        const { processedLines, taxesToInsert, headerTotals } = calculateDocumentTotals(
           rawLines,
           instance.movementId,
-          'invoice'
+          'salesinvoice'
         );
 
-        totalsUpdate = totals;
+        totalsUpdate = headerTotals;
 
-        // Limpieza de líneas e impuestos antiguos
+        // Limpieza de registros antiguos
         await salesInvoiceLine.destroy({ where: { codeDocument: instance.code }, transaction });
         await DocumentTax.destroy({
-          where: { movementId: instance.movementId, codeDocument: 'invoice' },
+          where: { movementId: instance.movementId, codeDocument: 'salesinvoice' },
           transaction
         });
 
-        // Re-insertar
+        // Re-insertar líneas e impuestos procesados
         const linesToInsert = processedLines.map(l => ({ ...l, codeDocument: instance.code }));
         await salesInvoiceLine.bulkCreate(linesToInsert, { transaction });
         await DocumentTax.bulkCreate(taxesToInsert, { transaction });
@@ -147,7 +145,6 @@ class salesInvoiceService {
   }
 
   async archiveInvoice(code, userId) {
-    // Buscamos la factura con líneas e impuestos
     const invoice = await salesInvoice.findOne({
       where: { code },
       include: [
@@ -159,18 +156,16 @@ class salesInvoiceService {
     if (!invoice) throw boom.notFound('Factura no encontrada');
     const invoiceData = invoice.get({ plain: true });
 
-    // Preparación de datos para el archivado (PostInvoice)
     invoiceData.preInvoice = invoiceData.code;
     invoiceData.username = userId;
     invoiceData.seriesCode = invoiceData.codePosting;
     invoiceData.code = null;
     delete invoiceData.id;
 
-    // El postService debe estar preparado para recibir 'lines' y 'taxes'
     const result = await postService.create(invoiceData);
 
     if (result) {
-      await invoice.destroy(); // El hook afterDestroy limpiará DocumentTax automáticamente
+      await invoice.destroy();
     }
 
     return result;

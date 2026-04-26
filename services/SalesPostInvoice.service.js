@@ -21,8 +21,7 @@ class SalesPostInvoiceService {
       limit: parsedLimit,
       offset: parsedOffset,
       order: [['created_at', 'DESC']],
-      where: {},
-      include: [{ model: Customer, as: 'customer', attributes: ['name', 'nif'] }]
+      where: {}
     };
 
     if (searchTerm) {

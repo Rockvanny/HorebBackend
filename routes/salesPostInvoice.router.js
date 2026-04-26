@@ -12,6 +12,23 @@ const {
 const router = express.Router();
 const service = new SalesPostInvoiceService();
 
+router.get('/salesPostInvoices-paginated',
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowSales'),
+    async(req, res, next) => {
+        try {
+            const { limit, offset, searchTerm, overdue } = req.query;
+            const result = await service.findPaginated({
+                limit,
+                offset,
+                searchTerm,
+                filter: overdue === 'true' ? 'overdue' : null
+            });
+            res.json(result);
+        } catch (error) { next(error); }
+    }
+);
+
 // Listado de histórico (facturas registradas)
 router.get('/',
   passport.authenticate('jwt', { session: false }),

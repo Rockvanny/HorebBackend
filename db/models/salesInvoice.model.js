@@ -10,7 +10,7 @@ const salesInvoiceSchema = {
     primaryKey: true,
     type: DataTypes.INTEGER
   },
-  
+
   movementId: {
     field: 'movement_id',
     allowNull: false,
@@ -201,7 +201,7 @@ class salesInvoice extends Model {
       as: 'taxes',
       foreignKey: 'movementId',
       sourceKey: 'movementId',
-      scope: { codeDocument: 'invoice' } // Filtramos para que solo traiga impuestos de factura
+      scope: { codeDocument: 'salesinvoice' } // Filtramos para que solo traiga impuestos de factura
     });
   }
 
@@ -222,7 +222,7 @@ class salesInvoice extends Model {
         afterDestroy: async (instance, options) => {
           const { DocumentTax } = sequelize.models;
           await DocumentTax.destroy({
-            where: { movementId: instance.movementId, codeDocument: 'invoice' },
+            where: { movementId: instance.movementId, codeDocument: 'salesinvoice' },
             transaction: options.transaction
           });
         }

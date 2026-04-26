@@ -51,15 +51,15 @@ class seriesNumberService {
     // Si no quieres filtrar por tipo y solo quieres traer series,
     // podrías saltarte el #getTypeId y buscar por la key directamente si tu modelo lo permite.
     try {
-        const typeId = this.#getTypeId(targetType);
-        return await models.seriesNumber.findAll({
-          where: { type: typeId },
-          attributes: ['code', 'description'],
-          order: [['code', 'ASC']]
-        });
+      const typeId = this.#getTypeId(targetType);
+      return await models.seriesNumber.findAll({
+        where: { type: typeId },
+        attributes: ['code', 'description'],
+        order: [['code', 'ASC']]
+      });
     } catch (e) {
-        console.error("Error en getPostSeries:", e.message);
-        return []; // Retorna vacío si el tipo no existe para evitar el crash
+      console.error("Error en getPostSeries:", e.message);
+      return []; // Retorna vacío si el tipo no existe para evitar el crash
     }
   }
 
@@ -74,19 +74,29 @@ class seriesNumberService {
     const typeId = this.#getTypeId(typeStr);
     const today = new Date().toISOString().split('T')[0];
 
-    return await models.seriesNumber.findAll({
-      where: {
-        type: typeId,
-        fromDate: { [Op.lte]: today },
-        toDate: { [Op.gte]: today },
+    // 1. Definimos las condiciones base para cualquier tipo de serie
+    const whereCondition = {
+      type: typeId,
+      fromDate: { [Op.lte]: today },
+      toDate: { [Op.gte]: today }
+    };
 
-        postingSerie: {
-          [Op.and]: [
-            { [Op.ne]: null }, // Que no sea NULL
-            { [Op.ne]: '' }   // Que no esté vacío (por si acaso)
-          ]
-        }
-      },
+    // Normalizamos el tipo a minúsculas para evitar errores de comparación
+    const currentType = typeStr.toLowerCase();
+
+    // 2. Aplicamos el filtro de "Solo Borradores" únicamente para Facturas
+    // Si es salesinvoice o purchinvoice, ocultamos las que NO tienen postingSerie
+    if (currentType === 'salesinvoice' || currentType === 'purchinvoice') {
+      whereCondition.postingSerie = {
+        [Op.and]: [
+          { [Op.ne]: null },
+          { [Op.ne]: '' }
+        ]
+      };
+    }
+
+    return await models.seriesNumber.findAll({
+      where: whereCondition,
       attributes: ['type', 'code', 'lastValue', 'postingSerie', 'description', 'fromDate', 'toDate'],
       order: [['code', 'ASC']]
     });
