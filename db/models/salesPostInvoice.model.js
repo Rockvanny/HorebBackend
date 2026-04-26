@@ -10,10 +10,18 @@ const salesPostInvoiceSchema = {
     primaryKey: true,
     type: DataTypes.INTEGER
   },
+  // --- CAMPO CRÍTICO PARA MANTENER LA TRAZABILIDAD FISCAL ---
+  movementId: {
+    field: 'movement_id',
+    allowNull: false,
+    unique: true,
+    type: DataTypes.UUID // Se hereda del borrador
+  },
+  // ---------------------------------------------------------
   code: {
     field: 'code',
     allowNull: false,
-    unique: true, // Deja de ser PK técnica, pasa a ser índice único
+    unique: true,
     type: DataTypes.STRING
   },
   seriesCode: {
@@ -105,6 +113,13 @@ class salesPostInvoice extends Model {
       sourceKey: 'code',
       onDelete: 'CASCADE'
     });
+
+    // --- NUEVA ASOCIACIÓN CON EL DESGLOSE DE IMPUESTOS ---
+    this.hasMany(models.DocumentTax, {
+      as: 'taxes',
+      foreignKey: 'movementId',
+      sourceKey: 'movementId'
+    });
   }
 
   static config(sequelize) {
@@ -112,7 +127,7 @@ class salesPostInvoice extends Model {
       sequelize,
       tableName: SALESPOSTINVOICE_TABLE,
       modelName: 'salesPostInvoice',
-      timestamps: true, // Ahora gestionado por Sequelize
+      timestamps: true,
       underscored: true,
       hooks: {
         beforeValidate: async (instance, options) => {

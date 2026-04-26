@@ -1,6 +1,6 @@
 const express = require('express');
 const passport = require('passport');
-const SalesPostInvoiceService = require('../services/SalesPostInvoice.service');
+const SalesPostInvoiceService = require('../services/salesPostInvoice.service');
 const validatorHandler = require('../middlewares/validator.handler');
 const { checkPermission } = require('../middlewares/auth.handler');
 const {
@@ -12,6 +12,7 @@ const {
 const router = express.Router();
 const service = new SalesPostInvoiceService();
 
+// Listado de histórico (facturas registradas)
 router.get('/',
   passport.authenticate('jwt', { session: false }),
   checkPermission('allowSales'),
@@ -24,19 +25,23 @@ router.get('/',
   }
 );
 
+// Obtener una factura específica por su CÓDIGO (Ej: FAC-2026-0001)
 router.get('/:code',
   passport.authenticate('jwt', { session: false }),
   checkPermission('allowSales'),
-  validatorHandler(getSalesPostInvoiceSchema, 'params'), // Reutilizamos lógica de código
+  // Validamos que el parámetro 'code' cumpla con el esquema getSalesPostInvoiceSchema
+  validatorHandler(getSalesPostInvoiceSchema, 'params'),
   async (req, res, next) => {
     try {
       const { code } = req.params;
+      // El servicio ahora incluye automáticamente los taxes gracias al movementId
       const invoice = await service.findOne(code, { includeLines: true });
       res.json(invoice);
     } catch (error) { next(error); }
   }
 );
 
+// Registrar una factura (Este endpoint suele ser llamado internamente por el archiveInvoice)
 router.post('/',
   passport.authenticate('jwt', { session: false }),
   checkPermission('allowSales'),
@@ -45,7 +50,8 @@ router.post('/',
     try {
       const data = {
         ...req.body,
-        username: req.user.username || req.user.email,
+        // Inyectamos metadatos del usuario autenticado
+        username: req.user.username || req.user.email || 'system',
         userId: req.user.userId || req.user.sub
       };
       const result = await service.create(data);

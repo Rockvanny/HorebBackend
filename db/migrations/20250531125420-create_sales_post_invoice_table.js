@@ -12,10 +12,18 @@ module.exports = {
         primaryKey: true,
         type: Sequelize.DataTypes.INTEGER,
       },
+      // --- NUEVO: UUID HEREDADO ---
+      movementId: {
+        field: 'movement_id',
+        allowNull: false,
+        unique: true,
+        type: Sequelize.DataTypes.UUID,
+      },
+      // ----------------------------
       code: {
         field: 'code',
         allowNull: false,
-        unique: true, // Único, pero no PK técnica
+        unique: true,
         type: Sequelize.DataTypes.STRING
       },
       seriesCode: {
@@ -28,7 +36,6 @@ module.exports = {
         allowNull: false,
         type: Sequelize.DataTypes.STRING,
       },
-      // --- CAMPOS VERI*FACTU ---
       typeInvoice: {
         field: 'type_invoice',
         type: Sequelize.DataTypes.ENUM('F1', 'F2', 'R1', 'R2', 'R3', 'R4', 'R5'),
@@ -45,7 +52,6 @@ module.exports = {
         type: Sequelize.DataTypes.ENUM('S', 'I'),
         allowNull: true
       },
-      // -------------------------
       postingDate: {
         field: 'posting_date',
         type: Sequelize.DataTypes.DATE,
@@ -113,7 +119,6 @@ module.exports = {
         allowNull: false,
         defaultValue: 'Abierto'
       },
-      // --- IMPORTES CON PRECISIÓN 12,4 ---
       amountWithoutVAT: {
         field: 'amount_without_vat',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
@@ -156,15 +161,14 @@ module.exports = {
       }
     });
 
-    // Índices para mejorar la búsqueda en el histórico
+    // Índices actualizados
     await queryInterface.addIndex(SALESPOSTINVOICE_TABLE, ['code']);
+    await queryInterface.addIndex(SALESPOSTINVOICE_TABLE, ['movement_id']); // Vital para DocumentTax
     await queryInterface.addIndex(SALESPOSTINVOICE_TABLE, ['entity_code']);
   },
 
-  down: async (queryInterface, Sequelize) => {
+  down: async (queryInterface) => {
     await queryInterface.dropTable(SALESPOSTINVOICE_TABLE);
-    // Nota: Los ENUMs se borran automáticamente si no se comparten,
-    // pero en Postgres a veces es necesario forzar el borrado de tipos si dan error:
     await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_post_invoices_type_invoice";');
     await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_post_invoices_status";');
     await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_post_invoices_rectification_type";');

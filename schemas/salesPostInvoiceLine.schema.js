@@ -9,15 +9,20 @@ const quantity = Joi.number().precision(4);
 const unitMeasure = Joi.string().allow('', null).default('UNIDAD');
 const quantityUnitMeasure = Joi.number().precision(4).default(1);
 const unitPrice = Joi.number().precision(4);
+
+// --- NUEVA CONSTANTE PARA EL HISTÓRICO ---
+const taxType = Joi.string().valid('IVA', 'IRPF', 'RE', 'EXENTO').default('IVA');
+// -----------------------------------------
+
 const vat = Joi.number().min(0).max(100).precision(4).default(21);
 const amountLine = Joi.number().precision(4);
 const username = Joi.string().allow('', null);
 
 const getSalesPostInvoiceLineSchema = Joi.object({
-  id: id.optional(), // Búsqueda por ID técnico
-  codeDocument: codeDocument.optional(), // O por documento + línea
+  id: id.optional(),
+  codeDocument: codeDocument.optional(),
   lineNo: lineNo.optional(),
-}).or('id', 'codeDocument'); // Al menos uno es necesario
+}).or('id', 'codeDocument');
 
 const createSalesPostInvoiceLineSchema = Joi.object({
   codeDocument: codeDocument.required(),
@@ -28,6 +33,7 @@ const createSalesPostInvoiceLineSchema = Joi.object({
   unitMeasure: unitMeasure.required(),
   quantityUnitMeasure: quantityUnitMeasure.required(),
   unitPrice: unitPrice.required(),
+  taxType: taxType.required(), // Ahora es requerido para el histórico oficial
   vat: vat.required(),
   amountLine: amountLine.required(),
   username: username.optional(),

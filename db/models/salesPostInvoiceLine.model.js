@@ -28,6 +28,16 @@ const salesPostInvoiceLineSchema = {
   unitMeasure: { field: 'unit_measure', type: DataTypes.STRING, allowNull: false, defaultValue: 'UNIDAD' },
   quantityUnitMeasure: { field: 'quantity_unit_measure', type: DataTypes.DECIMAL(12, 4), allowNull: false, defaultValue: 1 },
   unitPrice: { field: 'unit_price', type: DataTypes.DECIMAL(12, 4), allowNull: false, defaultValue: 0 },
+
+  // --- NUEVA COLUMNA: Tipo de Impuesto (Inmutable para el histórico) ---
+  taxType: {
+    field: 'tax_type',
+    type: DataTypes.ENUM('IVA', 'IRPF', 'RE', 'EXENTO'),
+    allowNull: false,
+    defaultValue: 'IVA'
+  },
+  // ---------------------------------------------------------------------
+
   vat: { field: 'vat', type: DataTypes.DECIMAL(12, 4), allowNull: false, defaultValue: 21 },
   amountLine: { field: 'amount_line', type: DataTypes.DECIMAL(12, 4), allowNull: false, defaultValue: 0 },
   username: { field: 'user_name', type: DataTypes.STRING },

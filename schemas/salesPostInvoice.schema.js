@@ -2,6 +2,9 @@ const Joi = require('joi');
 const { createSalesPostInvoiceLineSchema } = require('./salesPostInvoiceLine.schema');
 
 const id = Joi.number().integer();
+// --- NUEVO: VALIDACIÓN PARA EL UUID HEREDADO ---
+const movementId = Joi.string().uuid();
+// ----------------------------------------------
 const code = Joi.string();
 const seriesCode = Joi.string();
 const preInvoice = Joi.string();
@@ -28,6 +31,7 @@ const username = Joi.string();
 const getSalesPostInvoiceSchema = Joi.object({ code: code.required() });
 
 const createSalesPostInvoiceSchema = Joi.object({
+    movementId: movementId.required(), // Obligatorio para heredar la trazabilidad
     code: code.required(),
     seriesCode: seriesCode.optional(),
     preInvoice: preInvoice.required(),
