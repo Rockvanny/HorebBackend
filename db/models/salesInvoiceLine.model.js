@@ -28,6 +28,16 @@ const salesInvoiceLineSchema = {
   unitMeasure: { field: 'unit_measure', type: DataTypes.STRING, defaultValue: 'UNIDAD' },
   quantityUnitMeasure: { field: 'quantity_unit_measure', type: DataTypes.DECIMAL(12, 4), defaultValue: 1 },
   unitPrice: { field: 'unit_price', type: DataTypes.DECIMAL(12, 4), defaultValue: 0 },
+
+  // --- NUEVA COLUMNA: Tipo de Impuesto ---
+  taxType: {
+    field: 'tax_type',
+    type: DataTypes.ENUM('IVA', 'IRPF', 'RE', 'EXENTO'),
+    allowNull: false,
+    defaultValue: 'IVA'
+  },
+  // ---------------------------------------
+
   vat: { field: 'vat', type: DataTypes.DECIMAL(12, 4), defaultValue: 21 },
   amountLine: { field: 'amount_line', type: DataTypes.DECIMAL(12, 4), defaultValue: 0 },
   username: { field: 'user_name', type: DataTypes.STRING },
@@ -42,22 +52,32 @@ class salesInvoiceLine extends Model {
     });
   }
 
+  /**
+   * Red de seguridad: Recalcula la cabecera si se toca una línea individualmente
+   * Nota: El servicio suele sobreescribir esto con la librería de cálculos.
+   */
   static async updateDocumentTotals(codeDocument, transaction) {
-    const { salesInvoice } = this.sequelize.models;
+    const { salesInvoice, DocumentTax } = this.sequelize.models;
     const lines = await this.findAll({ where: { codeDocument }, transaction });
 
     const totals = lines.reduce((acc, line) => {
       const base = Number(line.amountLine) || 0;
-      const vatAmount = base * (Number(line.vat) / 100);
+      const vatPercent = Number(line.vat) || 0;
+
+      // Lógica simple: Si es IRPF, resta; si no, suma.
+      const isNegative = line.taxType === 'IRPF';
+      const taxAmount = base * (vatPercent / 100);
+
       acc.baseTotal += base;
-      acc.vatTotal += vatAmount;
+      acc.taxTotal += isNegative ? -taxAmount : taxAmount;
+
       return acc;
-    }, { baseTotal: 0, vatTotal: 0 });
+    }, { baseTotal: 0, taxTotal: 0 });
 
     await salesInvoice.update({
       amountWithoutVAT: totals.baseTotal.toFixed(4),
-      amountVAT: totals.vatTotal.toFixed(4),
-      amountWithVAT: (totals.baseTotal + totals.vatTotal).toFixed(4)
+      amountVAT: totals.taxTotal.toFixed(4),
+      amountWithVAT: (totals.baseTotal + totals.taxTotal).toFixed(4)
     }, { where: { code: codeDocument }, transaction });
   }
 
@@ -68,7 +88,6 @@ class salesInvoiceLine extends Model {
       modelName: 'salesInvoiceLine',
       timestamps: true,
       underscored: true,
-      // ESTO MANTIENE LA LÓGICA DE NEGOCIO SIN SER PRIMARY KEY
       indexes: [
         {
           unique: true,

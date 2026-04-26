@@ -9,12 +9,17 @@ const quantity = Joi.number().precision(4);
 const unitMeasure = Joi.string().allow('', null).default('UNIDAD');
 const quantityUnitMeasure = Joi.number().precision(4).default(1);
 const unitPrice = Joi.number().precision(4);
+
+// --- NUEVA CONSTANTE PARA VALIDAR EL TIPO DE IMPUESTO ---
+const taxType = Joi.string().valid('IVA', 'IRPF', 'RE', 'EXENTO').default('IVA');
+// -------------------------------------------------------
+
 const vat = Joi.number().min(0).max(100).precision(4).default(21);
 const amountLine = Joi.number().precision(4);
 const username = Joi.string().allow('', null);
 
 const getSalesInvoiceLineSchema = Joi.object({
-  id: id.required(), // Ahora la forma preferida de buscar una línea es por ID
+  id: id.required(),
 });
 
 const createSalesInvoiceLineSchema = Joi.object({
@@ -26,6 +31,7 @@ const createSalesInvoiceLineSchema = Joi.object({
   unitMeasure: unitMeasure.optional(),
   quantityUnitMeasure: quantityUnitMeasure.optional(),
   unitPrice: unitPrice.required(),
+  taxType: taxType.optional(), // Agregado aquí
   vat: vat.optional(),
   amountLine: amountLine.required(),
   username: username.optional(),
@@ -41,6 +47,7 @@ const updateSalesInvoiceLineSchema = Joi.object({
   unitMeasure: unitMeasure.optional(),
   quantityUnitMeasure: quantityUnitMeasure.optional(),
   unitPrice: unitPrice.optional(),
+  taxType: taxType.optional(), // Agregado aquí
   vat: vat.optional(),
   amountLine: amountLine.optional(),
   username: username.optional(),

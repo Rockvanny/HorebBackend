@@ -10,19 +10,26 @@ const salesInvoiceSchema = {
     primaryKey: true,
     type: DataTypes.INTEGER
   },
+  // --- ADN DEL DOCUMENTO PARA IMPUESTOS ---
+  movementId: {
+    field: 'movement_id',
+    allowNull: false,
+    unique: true,
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4 // Genera uno por defecto si no viene
+  },
+  // ----------------------------------------
   code: {
     field: 'code',
     allowNull: false,
     unique: true,
     type: DataTypes.STRING
   },
-  // --- NUEVA COLUMNA AGREGADA ---
   seriesCode: {
     field: 'series_code',
     type: DataTypes.STRING,
     allowNull: true
   },
-  // ------------------------------
   codePosting: { field: 'code_posting', type: DataTypes.STRING, allowNull: true },
   typeInvoice: {
     field: 'type_invoice',
@@ -93,6 +100,13 @@ class salesInvoice extends Model {
       hooks: true
     });
 
+    // NUEVA ASOCIACIÓN: Conexión con la tabla universal de impuestos
+    this.hasMany(models.DocumentTax, {
+      as: 'taxes',
+      foreignKey: 'movementId',
+      sourceKey: 'movementId',
+      scope: { codeDocument: 'invoice' } // Filtramos para que solo traiga impuestos de factura
+    });
   }
 
   static config(sequelize) {
@@ -107,6 +121,14 @@ class salesInvoice extends Model {
           if (instance.isNewRecord && !instance.code) {
             await generateNextCode(instance, options);
           }
+        },
+        // LIMPIEZA AUTOMÁTICA DE IMPUESTOS
+        afterDestroy: async (instance, options) => {
+          const { DocumentTax } = sequelize.models;
+          await DocumentTax.destroy({
+            where: { movementId: instance.movementId, codeDocument: 'invoice' },
+            transaction: options.transaction
+          });
         }
       }
     };

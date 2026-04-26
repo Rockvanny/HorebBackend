@@ -62,6 +62,16 @@ module.exports = {
         allowNull: false,
         defaultValue: 0.0000
       },
+
+      // --- NUEVA COLUMNA DE TIPO DE IMPUESTO ---
+      taxType: {
+        field: 'tax_type',
+        type: Sequelize.DataTypes.ENUM('IVA', 'IRPF', 'RE', 'EXENTO'),
+        allowNull: false,
+        defaultValue: 'IVA'
+      },
+      // -----------------------------------------
+
       vat: {
         field: 'vat',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
@@ -93,7 +103,6 @@ module.exports = {
       }
     });
 
-    // Índice único compuesto para asegurar integridad de negocio (Doc + Nº Línea)
     await queryInterface.addIndex(SALESINVOICELINE_TABLE, ['code_document', 'line_no'], {
       unique: true,
       name: 'sales_invoice_lines_code_line_unique'
@@ -102,5 +111,7 @@ module.exports = {
 
   async down(queryInterface) {
     await queryInterface.dropTable(SALESINVOICELINE_TABLE);
+    // IMPORTANTE: Limpiar el ENUM en Postgres al revertir
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_invoice_lines_tax_type";');
   }
 };

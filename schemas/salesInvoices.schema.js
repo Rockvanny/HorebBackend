@@ -1,9 +1,11 @@
 const Joi = require('joi');
 const { createSalesInvoiceLineSchema, updateSalesInvoiceLineSchema } = require('./salesInvoiceLine.schema');
 
+
+const movementId = Joi.string().uuid();
 const id = Joi.number().integer();
 const code = Joi.string();
-const seriesCode = Joi.string(); // Nueva constante para Joi
+const seriesCode = Joi.string();
 const selectedSerie = Joi.string();
 const codePosting = Joi.string().allow('', null);
 const typeInvoice = Joi.string().valid('F1', 'F2', 'R1', 'R2', 'R3', 'R4', 'R5').default('F1');
@@ -31,8 +33,9 @@ const getSalesInvoiceSchema = Joi.object({
 });
 
 const createSalesInvoiceSchema = Joi.object({
+    movementId: movementId.optional(), // <-- Permitir UUID opcional
     code: code.optional(),
-    seriesCode: seriesCode.optional(), // Agregado aquí
+    seriesCode: seriesCode.optional(),
     selectedSerie: selectedSerie.optional(),
     codePosting: codePosting.optional(),
     typeInvoice: typeInvoice.optional(),
@@ -61,7 +64,8 @@ const createSalesInvoiceSchema = Joi.object({
 
 const updateSalesInvoiceSchema = Joi.object({
     id: id.optional(),
-    seriesCode: seriesCode.optional(), // Agregado aquí
+    movementId: movementId.optional(), // <-- Permitir UUID opcional
+    seriesCode: seriesCode.optional(),
     codePosting: codePosting.optional(),
     typeInvoice: typeInvoice.optional(),
     parentCode: parentCode.optional(),

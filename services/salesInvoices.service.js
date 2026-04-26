@@ -1,47 +1,14 @@
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
 const sequelize = require('../libs/sequelize');
+const { salesInvoice, salesInvoiceLine, DocumentTax } = sequelize.models;
 
 const SalesPostInvoiceService = require('./salesPostInvoice.service');
-const { calculateTransactionTotals } = require('../libs/calculations');
+// Importamos la librería universal de cálculos
+const { calculateDocumentTotals } = require('../libs/calculations');
 const postService = new SalesPostInvoiceService();
 
 class salesInvoiceService {
-
-  // --- MÉTODOS DE APOYO (NUEVOS) ---
-
-  /**
-   * Agrupa las líneas por porcentaje de IVA para generar el desglose de la tabla taxes
-   */
-  groupTaxes(lines, invoiceCode) {
-    const groups = lines.reduce((acc, line) => {
-      const vat = parseFloat(line.vat || 0);
-      const key = vat.toFixed(2);
-
-      if (!acc[key]) {
-        acc[key] = {
-          invoiceCode: invoiceCode,
-          taxType: 'IVA',
-          taxPercentage: vat,
-          taxableAmount: 0,
-          taxAmount: 0
-        };
-      }
-
-      // Base = Cantidad * Precio
-      const base = parseFloat(line.quantity) * parseFloat(line.unitPrice);
-      const tax = (base * vat) / 100;
-
-      acc[key].taxableAmount += base;
-      acc[key].taxAmount += tax;
-
-      return acc;
-    }, {});
-
-    return Object.values(groups);
-  }
-
-  // --- MÉTODOS DE BÚSQUEDA ---
 
   async findPaginated({ limit, offset, searchTerm }) {
     const parsedLimit = parseInt(limit, 10) || 100;
@@ -52,6 +19,7 @@ class salesInvoiceService {
       offset: parsedOffset,
       order: [['createdAt', 'DESC']],
       where: {},
+      include: [{ model: DocumentTax, as: 'taxes' }] // Incluimos impuestos en el listado
     };
 
     if (searchTerm) {
@@ -70,62 +38,61 @@ class salesInvoiceService {
         total: count,
       };
     } catch (error) {
-      console.error("Error en paginado de facturas:", error);
-      throw boom.badImplementation('Error al consultar registros paginados', error);
+      throw boom.badImplementation('Error al consultar facturas paginadas', error);
     }
   }
 
-  async findOne(code, options = {}) {
-    // Agregamos includeTaxes por defecto para ver el desglose
-    const { includeLines = false, includeTaxes = true } = options;
-    const queryOptions = { where: { code }, include: [] };
+  async findOne(id, options = {}) {
+    const { includeLines = false } = options;
+    // Buscamos por ID o Code dinámicamente
+    const isNumeric = !isNaN(id) && !isNaN(parseFloat(id));
+    const queryOptions = {
+      where: isNumeric ? { id } : { code: id },
+      include: [{ model: DocumentTax, as: 'taxes' }]
+    };
 
     if (includeLines) queryOptions.include.push({ model: salesInvoiceLine, as: 'lines' });
 
     const record = await salesInvoice.findOne(queryOptions);
-    if (!record) throw boom.notFound('Registro no encontrado');
-    return record.get({ plain: true });
+    if (!record) throw boom.notFound('Factura no encontrada');
+    return record;
   }
-
-  // --- LÓGICA DE PERSISTENCIA ---
 
   async create(data, userId) {
     const { lines: rawLines, ...headerData } = data;
     const transaction = await sequelize.transaction();
 
     try {
-      const result = calculateTransactionTotals(rawLines || []);
-
-      headerData.amountWithoutVAT = result.amountWithoutVAT;
-      headerData.amountVAT = result.amountVAT;
-      headerData.amountWithVAT = result.amountWithVAT;
+      // 1. Crear Cabecera (Genera code y movementId vía Hooks)
       headerData.username = userId;
-
-      // 1. Crear Cabecera (Aquí el hook genera el code y el movementId)
       const newInvoice = await salesInvoice.create(headerData, { transaction });
 
-      if (result.processedLines.length > 0) {
-        // 2. Insertar Líneas vinculadas por el código visual
-        const linesToInsert = result.processedLines.map((line, index) => ({
-          ...line,
-          id: undefined, // Aseguramos que no viaje un ID previo
-          codeDocument: newInvoice.code,
-          lineNo: line.lineNo || index + 1,
+      // 2. Calcular usando la librería universal
+      const { processedLines, taxesToInsert, totals } = calculateDocumentTotals(
+        rawLines || [],
+        newInvoice.movementId,
+        'invoice' // Identificador para la tabla DocumentTax
+      );
+
+      // 3. Insertar Líneas
+      if (processedLines.length > 0) {
+        const linesToInsert = processedLines.map(l => ({
+          ...l,
+          codeDocument: newInvoice.code
         }));
         await salesInvoiceLine.bulkCreate(linesToInsert, { transaction });
-
-        // 3. NUEVO: Insertar Desglose de Impuestos vinculado por movementId (UUID)
-        // Pasamos el movementId que acaba de generar la instancia newInvoice
-        const groupedTaxes = this.groupTaxes(linesToInsert, newInvoice.movementId);
-
-        if (groupedTaxes.length > 0) {
-          await DocumentTax.bulkCreate(groupedTaxes, { transaction });
-        }
       }
 
+      // 4. Insertar Impuestos Desglosados
+      if (taxesToInsert.length > 0) {
+        await DocumentTax.bulkCreate(taxesToInsert, { transaction });
+      }
+
+      // 5. Actualizar totales finales en la cabecera
+      await newInvoice.update(totals, { transaction });
+
       await transaction.commit();
-      // Nota: findOne ahora debería buscar por ID para ser consistente con lo anterior
-      return await this.findOne(newInvoice.id, { includeLines: true, includeTaxes: true });
+      return await this.findOne(newInvoice.id, { includeLines: true });
 
     } catch (error) {
       if (transaction) await transaction.rollback();
@@ -133,75 +100,46 @@ class salesInvoiceService {
     }
   }
 
-  /**
-   * Agrupa las líneas por tipo de IVA y prepara el objeto para DocumentTax
-   */
-  groupTaxes(lines, movementId) {
-    const taxGroups = {};
-
-    lines.forEach(line => {
-      const vat = parseFloat(line.vat) || 0;
-      if (!taxGroups[vat]) {
-        taxGroups[vat] = {
-          movementId: movementId,
-          codeDocument: 'salesinvoice', // O 'budget' según el servicio
-          taxType: 'IVA',
-          taxPercentage: vat,
-          taxableAmount: 0,
-          taxAmount: 0
-        };
-      }
-
-      // Sumamos base e impuesto de cada línea
-      const base = parseFloat(line.amountLine) || 0;
-      const tax = base * (vat / 100);
-
-      taxGroups[vat].taxableAmount += base;
-      taxGroups[vat].taxAmount += tax;
-    });
-
-    return Object.values(taxGroups);
-  }
-
-  async update(code, changes) {
+  async update(id, changes) {
     const { lines: rawLines, ...headerChanges } = changes;
     const transaction = await sequelize.transaction();
     try {
-      const instance = await salesInvoice.findOne({ where: { code }, transaction });
-      if (!instance) throw boom.notFound('Registro no encontrado');
+      const instance = await this.findOne(id, { transaction });
+
+      let totalsUpdate = {};
 
       if (rawLines) {
-        const result = calculateTransactionTotals(rawLines);
+        // Recalcular todo
+        const { processedLines, taxesToInsert, totals } = calculateDocumentTotals(
+          rawLines,
+          instance.movementId,
+          'invoice'
+        );
 
-        headerChanges.amountWithoutVAT = result.amountWithoutVAT;
-        headerChanges.amountVAT = result.amountVAT;
-        headerChanges.amountWithVAT = result.amountWithVAT;
+        totalsUpdate = totals;
 
         // Limpieza de líneas e impuestos antiguos
-        await salesInvoiceLine.destroy({ where: { codeDocument: code }, transaction });
-
-        const linesToInsert = result.processedLines.map((line, index) => {
-          const { id, ...cleanLine } = line;
-          return {
-            ...cleanLine,
-            codeDocument: code,
-            lineNo: line.lineNo || index + 1,
-            amountLine: line.amountLine
-          };
+        await salesInvoiceLine.destroy({ where: { codeDocument: instance.code }, transaction });
+        await DocumentTax.destroy({
+          where: { movementId: instance.movementId, codeDocument: 'invoice' },
+          transaction
         });
-        await salesInvoiceLine.bulkCreate(linesToInsert, { transaction });
 
-        // NUEVO: Regenerar Desglose de Impuestos
-        const taxesToInsert = this.groupTaxes(linesToInsert, code);
+        // Re-insertar
+        const linesToInsert = processedLines.map(l => ({ ...l, codeDocument: instance.code }));
+        await salesInvoiceLine.bulkCreate(linesToInsert, { transaction });
+        await DocumentTax.bulkCreate(taxesToInsert, { transaction });
       }
 
-      delete headerChanges.id;
-      delete headerChanges.code;
+      const cleanHeader = { ...headerChanges, ...totalsUpdate };
+      delete cleanHeader.id;
+      delete cleanHeader.code;
+      delete cleanHeader.movementId;
 
-      await instance.update(headerChanges, { transaction });
+      await instance.update(cleanHeader, { transaction });
 
       await transaction.commit();
-      return await this.findOne(code, { includeLines: true, includeTaxes: true });
+      return await this.findOne(instance.id, { includeLines: true });
     } catch (error) {
       if (transaction) await transaction.rollback();
       throw error;
@@ -209,54 +147,30 @@ class salesInvoiceService {
   }
 
   async archiveInvoice(code, userId) {
+    // Buscamos la factura con líneas e impuestos
     const invoice = await salesInvoice.findOne({
       where: { code },
       include: [
-        { model: salesInvoiceLine, as: 'lines' }
+        { model: salesInvoiceLine, as: 'lines' },
+        { model: DocumentTax, as: 'taxes' }
       ]
     });
-    if (!invoice) throw boom.notFound('Factura no encontrada');
 
+    if (!invoice) throw boom.notFound('Factura no encontrada');
     const invoiceData = invoice.get({ plain: true });
 
-    // 1. Limpieza de metadatos de las líneas (MANTENIENDO TU MAPEO ORIGINAL)
-    if (invoiceData.lines) {
-      invoiceData.lines = invoiceData.lines.map((line, index) => {
-        const { id, createdAt, updatedAt, ...cleanLine } = line;
-        return {
-          lineNo: parseInt(line.lineNo || index + 1),
-          codeItem: line.codeItem,
-          description: line.description,
-          quantity: parseFloat(line.quantity),
-          unitMeasure: line.unitMeasure,
-          unitPrice: parseFloat(line.unitPrice),
-          vat: parseFloat(line.vat),
-          amountLine: parseFloat(line.amountLine),
-        };
-      });
-    }
-
-    // 2. NUEVO: Limpieza de impuestos para el envío a Post
-    if (invoiceData.taxes) {
-      invoiceData.taxes = invoiceData.taxes.map(tax => {
-        // Quitamos IDs y timestamps para que postService genere nuevos
-        const { id, createdAt, updatedAt, invoiceCode, ...cleanTax } = tax;
-        return cleanTax;
-      });
-    }
-
-    // 3. Lógica de archivado original
+    // Preparación de datos para el archivado (PostInvoice)
     invoiceData.preInvoice = invoiceData.code;
     invoiceData.username = userId;
     invoiceData.seriesCode = invoiceData.codePosting;
     invoiceData.code = null;
     delete invoiceData.id;
 
-    // Enviamos el objeto con 'lines' y 'taxes' al postService
+    // El postService debe estar preparado para recibir 'lines' y 'taxes'
     const result = await postService.create(invoiceData);
 
     if (result) {
-      await invoice.destroy();
+      await invoice.destroy(); // El hook afterDestroy limpiará DocumentTax automáticamente
     }
 
     return result;

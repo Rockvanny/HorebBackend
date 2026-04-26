@@ -11,56 +11,63 @@ module.exports = {
         primaryKey: true,
         type: Sequelize.DataTypes.INTEGER,
       },
+      // --- COLUMNA CRÍTICA PARA IMPUESTOS ---
+      movement_id: {
+        field: 'movement_id',
+        allowNull: false,
+        unique: true,
+        type: Sequelize.DataTypes.UUID,
+        defaultValue: Sequelize.DataTypes.UUIDV4
+      },
+      // --------------------------------------
       code: {
         field: 'code',
         allowNull: false,
         unique: true,
         type: Sequelize.DataTypes.STRING
       },
-      // --- NUEVA COLUMNA AGREGADA ---
-      seriesCode: {
+      series_code: {
         field: 'series_code',
         type: Sequelize.DataTypes.STRING,
         allowNull: true
       },
-      // ------------------------------
-      codePosting: {
+      code_posting: {
         field: 'code_posting',
         type: Sequelize.DataTypes.STRING,
         allowNull: true
       },
-      typeInvoice: {
+      type_invoice: {
         field: 'type_invoice',
         type: Sequelize.DataTypes.ENUM('F1', 'F2', 'R1', 'R2', 'R3', 'R4', 'R5'),
         allowNull: false,
         defaultValue: 'F1'
       },
-      parentCode: {
+      parent_code: {
         field: 'parent_code',
         type: Sequelize.DataTypes.STRING,
         allowNull: true
       },
-      rectificationType: {
+      rectification_type: {
         field: 'rectification_type',
         type: Sequelize.DataTypes.ENUM('S', 'I'),
         allowNull: true
       },
-      budgetCode: {
+      budget_code: {
         field: 'budget_code',
         type: Sequelize.DataTypes.STRING,
         allowNull: true
       },
-      postingDate: {
+      posting_date: {
         field: 'posting_date',
         type: Sequelize.DataTypes.DATE,
         allowNull: false
       },
-      dueDate: {
+      due_date: {
         field: 'due_date',
         type: Sequelize.DataTypes.DATE,
         allowNull: true
       },
-      entityCode: {
+      entity_code: {
         field: 'entity_code',
         allowNull: false,
         type: Sequelize.DataTypes.STRING,
@@ -88,7 +95,7 @@ module.exports = {
         type: Sequelize.DataTypes.STRING,
         allowNull: false
       },
-      postCode: {
+      post_code: {
         field: 'post_code',
         type: Sequelize.DataTypes.STRING
       },
@@ -102,25 +109,25 @@ module.exports = {
         allowNull: false,
         defaultValue: 'Abierto'
       },
-      paymentMethod: {
+      payment_method: {
         field: 'payment_method',
         type: Sequelize.DataTypes.ENUM('Tarjeta', 'Efectivo', 'Transferencia'),
         allowNull: false,
         defaultValue: 'Tarjeta'
       },
-      amountWithoutVAT: {
+      amount_without_vat: {
         field: 'amount_without_vat',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 0.0000
       },
-      amountVAT: {
+      amount_vat: {
         field: 'amount_vat',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 0.0000
       },
-      amountWithVAT: {
+      amount_with_vat: {
         field: 'amount_with_vat',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
@@ -130,17 +137,17 @@ module.exports = {
         field: 'comments',
         type: Sequelize.DataTypes.TEXT
       },
-      username: {
+      user_name: {
         field: 'user_name',
         type: Sequelize.DataTypes.STRING
       },
-      createdAt: {
+      created_at: {
         field: 'created_at',
         allowNull: false,
         type: Sequelize.DataTypes.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
       },
-      updatedAt: {
+      updated_at: {
         field: 'updated_at',
         allowNull: false,
         type: Sequelize.DataTypes.DATE,
@@ -148,13 +155,15 @@ module.exports = {
       }
     });
 
+    // ÍNDICES PARA RENDIMIENTO
     await queryInterface.addIndex(SALESINVOICE_TABLE, ['entity_code']);
-    // Recomendado: agregar índice a series_code si vas a filtrar mucho por él
     await queryInterface.addIndex(SALESINVOICE_TABLE, ['series_code']);
+    await queryInterface.addIndex(SALESINVOICE_TABLE, ['movement_id']); // Índice para DocumentTax
   },
 
   down: async (queryInterface) => {
     await queryInterface.dropTable(SALESINVOICE_TABLE);
+    // Limpieza de tipos ENUM en Postgres
     await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_invoices_type_invoice";');
     await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_invoices_status";');
     await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_invoices_rectification_type";');
