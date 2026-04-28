@@ -46,6 +46,24 @@ router.get('/count',
     }
 );
 
+// Obtener presupuestos aprobados por código de cliente (para selector en facturas)
+router.get('/by-customer/:entityCode',
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowSales'),
+    async (req, res, next) => {
+        try {
+            const { entityCode } = req.params;
+            const budgets = await service.findByCustomer(entityCode);
+            res.json({
+                success: true,
+                data: budgets
+            });
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
 // Obtener un presupuesto específico por su ID (PK)
 // Cambiado :code por :id para sincronizar con getSalesBudgetSchema
 router.get('/:id',

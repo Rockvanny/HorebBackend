@@ -105,139 +105,167 @@ class salesBudgetService {
     }
   }
 
-  async create(data) {
-  const { lines, ...headerData } = data;
-  const transaction = await sequelize.transaction();
-
-  try {
-    // 1. Crear cabecera (Genera UUID 'movementId' en el Hook)
-    const newSalesBudget = await salesBudget.create(headerData, { transaction });
-
-    // 2. Calcular todo usando la librería
-    // La librería ahora procesa taxType (IVA, IRPF, etc.)
-    const { processedLines, taxesToInsert, totals } = calculateDocumentTotals(
-      lines || [],
-      newSalesBudget.movementId,
-      'budget'
-    );
-
-    // 3. Insertar Líneas
-    if (processedLines.length > 0) {
-      // El spread (...l) ya incluye el taxType procesado por la librería
-      const finalLines = processedLines.map(l => ({
-        ...l,
-        codeDocument: newSalesBudget.code
-      }));
-      await salesBudgetLine.bulkCreate(finalLines, { transaction });
-    } else {
-      // Línea por defecto corregida con taxType
-      await salesBudgetLine.create({
-        codeDocument: newSalesBudget.code,
-        lineNo: 1,
-        description: 'Nueva línea',
-        quantity: 1,
-        unitPrice: 0,
-        amountLine: 0,
-        taxType: 'IVA' // Valor por defecto para líneas vacías
-      }, { transaction });
+  /**
+   * Busca presupuestos aprobados vinculados a un cliente específico.
+   * Útil para el selector de presupuestos en la pantalla de facturación.
+   */
+  async findByCustomer(entityCode) {
+    console.log("DEBUG: Buscando presupuestos para el cliente:", entityCode);
+    if (!entityCode) {
+      throw boom.badRequest('Se requiere el código del cliente');
     }
 
-    // 4. Insertar Impuestos Desglosados (Ya vienen agrupados por tipo y % desde la lib)
-    if (taxesToInsert.length > 0) {
-      await DocumentTax.bulkCreate(taxesToInsert, { transaction });
+    try {
+      const budgets = await salesBudget.findAll({
+        where: {
+          entityCode: entityCode,
+          status: 'Aprobado' // Solo los que se pueden facturar
+        },
+
+        attributes: ['id', 'code', 'name'], // Solo enviamos lo necesario para el select
+        order: [['created_at', 'DESC']]
+
+      });
+
+      return budgets;
+    } catch (error) {
+      throw boom.badImplementation('Error al consultar presupuestos por cliente', error);
     }
-
-    // 5. Actualizar totales en cabecera
-    await newSalesBudget.update(totals, { transaction });
-
-    await transaction.commit();
-    return await this.findOne(newSalesBudget.id, { includeLines: true });
-
-  } catch (error) {
-    if (transaction) await transaction.rollback();
-    throw error;
   }
-}
 
-async update(id, changes) {
-  const { lines, ...headerChanges } = changes;
-  const transaction = await sequelize.transaction();
+  async create(data) {
+    const { lines, ...headerData } = data;
+    const transaction = await sequelize.transaction();
 
-  try {
-    const isNumeric = !isNaN(id) && !isNaN(parseFloat(id));
-    const instance = await salesBudget.findOne({
-      where: isNumeric ? { id } : { code: id },
-      transaction
-    });
+    try {
+      // 1. Crear cabecera (Genera UUID 'movementId' en el Hook)
+      const newSalesBudget = await salesBudget.create(headerData, { transaction });
 
-    if (!instance) throw boom.notFound('Registro no encontrado');
-
-    const currentStatus = String(instance.status).trim();
-
-    // --- REGLAS DE NEGOCIO ---
-    if (currentStatus === 'Aprobado' || currentStatus === 'Rechazado') {
-      const allowedFields = ['comments', 'username'];
-      const isAttemptingForbidden = Object.keys(headerChanges).some(key => !allowedFields.includes(key));
-      if (isAttemptingForbidden || lines) {
-        throw boom.forbidden(`En estado ${currentStatus} solo se pueden modificar comentarios`);
-      }
-    }
-
-    if (currentStatus === 'Enviado') {
-      if (headerChanges.entityCode && headerChanges.entityCode !== instance.entityCode) {
-        throw boom.forbidden('No se puede cambiar el cliente de una oferta enviada');
-      }
-      if (headerChanges.status === 'Borrador') {
-        throw boom.forbidden('No se puede volver a Borrador una oferta enviada');
-      }
-    }
-
-    // --- PROCESAMIENTO DE LÓGICA Y CÁLCULOS ---
-    let totalsUpdate = {};
-
-    if (lines) {
+      // 2. Calcular todo usando la librería
+      // La librería ahora procesa taxType (IVA, IRPF, etc.)
       const { processedLines, taxesToInsert, totals } = calculateDocumentTotals(
-        lines,
-        instance.movementId,
+        lines || [],
+        newSalesBudget.movementId,
         'budget'
       );
 
-      totalsUpdate = totals;
+      // 3. Insertar Líneas
+      if (processedLines.length > 0) {
+        // El spread (...l) ya incluye el taxType procesado por la librería
+        const finalLines = processedLines.map(l => ({
+          ...l,
+          codeDocument: newSalesBudget.code
+        }));
+        await salesBudgetLine.bulkCreate(finalLines, { transaction });
+      } else {
+        // Línea por defecto corregida con taxType
+        await salesBudgetLine.create({
+          codeDocument: newSalesBudget.code,
+          lineNo: 1,
+          description: 'Nueva línea',
+          quantity: 1,
+          unitPrice: 0,
+          amountLine: 0,
+          taxType: 'IVA' // Valor por defecto para líneas vacías
+        }, { transaction });
+      }
 
-      // Sincronizar Líneas
-      await salesBudgetLine.destroy({ where: { codeDocument: instance.code }, transaction });
+      // 4. Insertar Impuestos Desglosados (Ya vienen agrupados por tipo y % desde la lib)
+      if (taxesToInsert.length > 0) {
+        await DocumentTax.bulkCreate(taxesToInsert, { transaction });
+      }
 
-      const finalLines = processedLines.map(l => ({
-        ...l, // Aquí ya viaja el taxType (IVA/IRPF)
-        codeDocument: instance.code,
-        username: headerChanges.username || instance.username || 'system'
-      }));
-      await salesBudgetLine.bulkCreate(finalLines, { transaction });
+      // 5. Actualizar totales en cabecera
+      await newSalesBudget.update(totals, { transaction });
 
-      // Sincronizar Impuestos
-      await DocumentTax.destroy({
-        where: { movementId: instance.movementId, codeDocument: 'budget' },
+      await transaction.commit();
+      return await this.findOne(newSalesBudget.id, { includeLines: true });
+
+    } catch (error) {
+      if (transaction) await transaction.rollback();
+      throw error;
+    }
+  }
+
+  async update(id, changes) {
+    const { lines, ...headerChanges } = changes;
+    const transaction = await sequelize.transaction();
+
+    try {
+      const isNumeric = !isNaN(id) && !isNaN(parseFloat(id));
+      const instance = await salesBudget.findOne({
+        where: isNumeric ? { id } : { code: id },
         transaction
       });
-      await DocumentTax.bulkCreate(taxesToInsert, { transaction });
+
+      if (!instance) throw boom.notFound('Registro no encontrado');
+
+      const currentStatus = String(instance.status).trim();
+
+      // --- REGLAS DE NEGOCIO ---
+      if (currentStatus === 'Aprobado' || currentStatus === 'Rechazado') {
+        const allowedFields = ['comments', 'username'];
+        const isAttemptingForbidden = Object.keys(headerChanges).some(key => !allowedFields.includes(key));
+        if (isAttemptingForbidden || lines) {
+          throw boom.forbidden(`En estado ${currentStatus} solo se pueden modificar comentarios`);
+        }
+      }
+
+      if (currentStatus === 'Enviado') {
+        if (headerChanges.entityCode && headerChanges.entityCode !== instance.entityCode) {
+          throw boom.forbidden('No se puede cambiar el cliente de una oferta enviada');
+        }
+        if (headerChanges.status === 'Borrador') {
+          throw boom.forbidden('No se puede volver a Borrador una oferta enviada');
+        }
+      }
+
+      // --- PROCESAMIENTO DE LÓGICA Y CÁLCULOS ---
+      let totalsUpdate = {};
+
+      if (lines) {
+        const { processedLines, taxesToInsert, totals } = calculateDocumentTotals(
+          lines,
+          instance.movementId,
+          'budget'
+        );
+
+        totalsUpdate = totals;
+
+        // Sincronizar Líneas
+        await salesBudgetLine.destroy({ where: { codeDocument: instance.code }, transaction });
+
+        const finalLines = processedLines.map(l => ({
+          ...l, // Aquí ya viaja el taxType (IVA/IRPF)
+          codeDocument: instance.code,
+          username: headerChanges.username || instance.username || 'system'
+        }));
+        await salesBudgetLine.bulkCreate(finalLines, { transaction });
+
+        // Sincronizar Impuestos
+        await DocumentTax.destroy({
+          where: { movementId: instance.movementId, codeDocument: 'budget' },
+          transaction
+        });
+        await DocumentTax.bulkCreate(taxesToInsert, { transaction });
+      }
+
+      // --- ACTUALIZACIÓN FINAL ---
+      const cleanHeader = { ...headerChanges, ...totalsUpdate };
+      delete cleanHeader.id;
+      delete cleanHeader.movementId;
+      delete cleanHeader.code;
+
+      await instance.update(cleanHeader, { transaction });
+
+      await transaction.commit();
+      return await this.findOne(instance.id, { includeLines: true });
+
+    } catch (error) {
+      if (transaction) await transaction.rollback();
+      throw error;
     }
-
-    // --- ACTUALIZACIÓN FINAL ---
-    const cleanHeader = { ...headerChanges, ...totalsUpdate };
-    delete cleanHeader.id;
-    delete cleanHeader.movementId;
-    delete cleanHeader.code;
-
-    await instance.update(cleanHeader, { transaction });
-
-    await transaction.commit();
-    return await this.findOne(instance.id, { includeLines: true });
-
-  } catch (error) {
-    if (transaction) await transaction.rollback();
-    throw error;
   }
-}
 
   async delete(id) {
     // 1. Búsqueda inteligente para evitar error de tipos en Postgres

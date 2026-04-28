@@ -39,7 +39,7 @@ class VerifactuService {
       const payload = {
         // 1. Datos del Sistema (Obligatorio por ley)
         sistema_informatico: {
-          nombre: "NombreDeTuSoftware", // Ej: "Skayer ERP"
+          nombre: "HOREB",
           version: "1.0.0",
           nif_desarrollador: "B12345678" // El NIF de tu empresa o el tuyo
         },
