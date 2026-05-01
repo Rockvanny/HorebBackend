@@ -15,7 +15,7 @@ module.exports = {
         field: 'invoice_code',
         allowNull: false,
         type: Sequelize.DataTypes.STRING,
-        unique: true, // Aseguramos unicidad a nivel de DB también
+        unique: true,
         references: {
           model: 'sales_post_invoices',
           key: 'code'
@@ -33,13 +33,11 @@ module.exports = {
         allowNull: true,
         type: Sequelize.DataTypes.TEXT,
       },
-      // --- NUEVO CAMPO QR ---
       qrData: {
         field: 'qr_data',
         allowNull: true,
         type: Sequelize.DataTypes.TEXT,
       },
-      // ----------------------
       payload: {
         field: 'payload',
         allowNull: false,
@@ -54,6 +52,13 @@ module.exports = {
         type: Sequelize.DataTypes.BOOLEAN,
         defaultValue: false
       },
+      // --- NUEVO CAMPO PARA EXPORTACIÓN ---
+      exportedAt: {
+        field: 'exported_at',
+        allowNull: true,
+        type: Sequelize.DataTypes.DATE,
+      },
+      // ------------------------------------
       createdAt: {
         field: 'created_at',
         allowNull: false,
@@ -62,9 +67,8 @@ module.exports = {
       }
     });
 
-    // Índices para velocidad de respuesta
+    // Índice para velocidad en el encadenamiento de huellas
     await queryInterface.addIndex(VERIFACTU_LOG_TABLE, ['fingerprint']);
-    await queryInterface.addIndex(VERIFACTU_LOG_TABLE, ['invoice_code']);
   },
 
   down: async (queryInterface) => {

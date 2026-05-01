@@ -50,6 +50,12 @@ const verifactuLogSchema = {
     type: DataTypes.BOOLEAN,
     defaultValue: false
   },
+  // Nuevo campo: Fecha de exportación del XML
+  exportedAt: {
+    field: 'exported_at',
+    allowNull: true,
+    type: DataTypes.DATE, // Almacena cuándo se descargó/envió el XML
+  },
   createdAt: {
     field: 'created_at',
     allowNull: false,
@@ -62,7 +68,8 @@ class VerifactuLog extends Model {
   static associate(models) {
     this.belongsTo(models.salesPostInvoice, {
       as: 'invoice',
-      foreignKey: 'invoiceCode'
+      foreignKey: 'invoiceCode',
+      targetKey: 'code' // Asegura que apunte a la columna 'code' de facturas
     });
   }
 
