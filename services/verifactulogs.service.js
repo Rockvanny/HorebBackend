@@ -27,7 +27,6 @@ class VerifactuService {
     const t = transaction || await sequelize.transaction();
     try {
       // 1. Obtener los datos de la empresa (Emisor)
-      // Buscamos el primer registro de la tabla company
       const company = await Company.findOne({ transaction: t });
       if (!company) throw boom.notFound('Configuración de empresa no encontrada para Veri*factu');
 
@@ -51,30 +50,44 @@ class VerifactuService {
       // 4. Generar la huella (Hash)
       const fingerprint = generateVerifactuHash(invoice, prevFingerprint);
 
-      // 5. Preparar el Payload
+      // 5. Preparar Referencia Temporal Única (created_at / timestamp / hora_expedicion)
+      const now = new Date();
+
       const dateStr = invoice.postingDate instanceof Date
         ? invoice.postingDate.toISOString().split('T')[0]
         : invoice.postingDate;
 
+      // 6. Preparar el Payload Normativo
       const payload = {
         sistema_informatico: {
           nombre: "HOREB",
           version: "1.0.0",
-          nif_desarrollador: "B12345678"
+          nif_desarrollador: "55821164A" // Ajustado a NIF genérico de empresa
         },
         tipo_registro: "ALTA",
-        timestamp: new Date().toISOString(),
+        timestamp: now.toISOString(), // Coincide con created_at
+
         emisor: {
           nif: (company.vatRegistration || '').trim().toUpperCase(),
           nombre: (company.name || '').trim()
         },
+
         factura: {
           numero_serie: invoice.code,
           fecha_emision: dateStr,
+          // Hora exacta del registro en formato HH:mm:ss
+          hora_expedicion: now.toTimeString().split(' ')[0],
+
+          // F1 = Factura, F2 = Simplificada (Ticket)
           tipo_factura: invoice.typeInvoice || 'F1',
+
+          // Totales requeridos por Veri*factu
+          cuota_total: parseFloat(invoice.taxAmount || 0).toFixed(2),
           importe_total: parseFloat(invoice.amountWithVAT || 0).toFixed(2),
+
           desglose: (invoice.taxes || []).map(tax => ({
-            tipo_impuesto: tax.taxType,
+            clave_regimen: "01", // Régimen General para reformas/autónomos
+            tipo_impuesto: tax.taxType || "IVA",
             base_imponible: parseFloat(tax.taxableAmount).toFixed(2),
             tipo_impositivo: parseFloat(tax.taxPercentage).toFixed(2),
             cuota_repercutida: parseFloat(tax.taxAmount).toFixed(2)
@@ -85,20 +98,19 @@ class VerifactuService {
         }
       };
 
-      // 6. Generar la cadena del QR
+      // 7. Generar la cadena del QR
       const qrData = this.generateQRText(payload, fingerprint);
 
-      // 7. INSERCIÓN DIRECTA
-      // Nota: No incluimos 'is_test' dentro del JSON de 'payload' para evitar errores en AEAT,
-      // pero lo guardamos en la columna 'is_test' de la tabla.
+      // 8. INSERCIÓN DIRECTA
+      // is_test se guarda en la columna pero no en el JSON del payload
       await sequelize.getQueryInterface().bulkInsert('verifactu_logs', [{
         invoice_code: invoice.code,
         fingerprint: fingerprint,
         prev_fingerprint: prevFingerprint,
         qr_data: qrData,
-        payload: JSON.stringify(payload), // El objeto ya no lleva is_test dentro
+        payload: JSON.stringify(payload),
         is_test: isTest,
-        created_at: new Date()
+        created_at: now // Usamos la misma referencia temporal
       }], { transaction: t });
 
       if (!transaction) await t.commit();

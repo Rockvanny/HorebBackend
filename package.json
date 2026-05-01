@@ -58,7 +58,8 @@
     "socket.io": "^4.8.1",
     "umzug": "^3.8.2",
     "uuid": "^14.0.0",
-    "winston": "^3.19.0"
+    "winston": "^3.19.0",
+    "xmlbuilder2": "^4.0.3"
   },
   "engines": {
     "node": "14.x"
