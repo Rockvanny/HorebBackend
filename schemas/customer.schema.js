@@ -8,6 +8,12 @@ const phone =  Joi.string();
 const address = Joi.string();
 const postCode = Joi.string();
 const city =  Joi.string();
+const paymentMethod = Joi.string().valid(
+  'Transferencia',
+  'Efectivo',
+  'Tarjeta',
+  'Bizum'
+);
 
 const limit = Joi.number().integer();
 const offset = Joi.number().integer();
@@ -26,6 +32,7 @@ const createCustomerSchema = Joi.object({
   address: address.required(),
   postCode: postCode.required(),
   city: city.required(),
+  paymentMethod: paymentMethod.default('Transferencia'),
 });
 
 const updateCustomerSchema = Joi.object({
@@ -36,6 +43,7 @@ const updateCustomerSchema = Joi.object({
   address: address.required(),
   postCode: postCode.required(),
   city: city.required(),
+  paymentMethod: paymentMethod.optional(),
 });
 
 const queryCustomerSchema = Joi.object({

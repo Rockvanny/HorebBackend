@@ -50,14 +50,24 @@ const CompanySchema = {
     type: DataTypes.STRING,
   },
 
-  bank: {
-    field: 'bank',
+  bankName: {
+    field: 'bank_name', // Mantenemos el mapeo a la columna de la DB si es necesario
     type: DataTypes.STRING,
   },
 
-  accountBank: {
-    field: 'account_bank',
+  iban: {
+    field: 'iban',
     type: DataTypes.STRING,
+  },
+
+  swift: {
+    field: 'swift',
+    type: DataTypes.STRING,
+  },
+
+  signature_base64: {
+    field: "signature",
+    type: DataTypes.TEXT,
   },
 
   WebSite: {

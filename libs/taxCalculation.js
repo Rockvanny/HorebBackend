@@ -6,7 +6,7 @@
  */
 const calculateDocumentTotals = (lines, movementId, docType) => {
   let totalNeto = 0;
-  let totalImpuestos = 0; // Cambiamos totalIva por totalImpuestos (suma y resta)
+  let totalImpuestos = 0;
   const taxGroups = {};
 
   const processedLines = lines.map((line, index) => {
@@ -14,45 +14,49 @@ const calculateDocumentTotals = (lines, movementId, docType) => {
     const price = parseFloat(line.unitPrice) || 0;
     const factor = parseFloat(line.quantityUnitMeasure) || 1;
     const vatPerc = parseFloat(line.vat) || 0;
-    const type = line.taxType || 'IVA'; // <--- Tomamos el tipo de la línea
+    const type = line.taxType || 'IVA';
 
-    const lineAmount = qty * factor * price;
+    // Base imponible de la línea
+    const lineNeto = qty * factor * price;
 
     // Cálculo de la cuota: El IRPF resta, el IVA suma
     const isRetencion = type === 'IRPF';
-    const lineVat = lineAmount * (vatPerc / 100);
+    const lineTaxAmount = lineNeto * (vatPerc / 100);
 
-    totalNeto += lineAmount;
+    totalNeto += lineNeto;
 
-    // Si es retención, resta del total a pagar; si no, suma.
+    // Ajuste de la línea para incluir el impuesto en amountLine
+    let lineFinalAmount = lineNeto;
     if (isRetencion) {
-      totalImpuestos -= lineVat;
+      totalImpuestos -= lineTaxAmount;
+      lineFinalAmount -= lineTaxAmount; // Resta el IRPF del total de línea
     } else {
-      totalImpuestos += lineVat;
+      totalImpuestos += lineTaxAmount;
+      lineFinalAmount += lineTaxAmount; // Suma el IVA al total de línea
     }
 
-    // CLAVE ÚNICA: Agrupamos por TIPO + PORCENTAJE (ej: "IVA_21" o "IRPF_15")
+    // Agrupación para el desglose de impuestos
     const groupKey = `${type}_${vatPerc}`;
 
     if (!taxGroups[groupKey]) {
       taxGroups[groupKey] = {
         movementId: movementId,
         codeDocument: docType,
-        taxType: type, // <--- Dinámico: IVA, IRPF, RE, etc.
+        taxType: type,
         taxPercentage: vatPerc,
         taxableAmount: 0,
         taxAmount: 0
       };
     }
 
-    taxGroups[groupKey].taxableAmount += lineAmount;
-    taxGroups[groupKey].taxAmount += lineVat;
+    taxGroups[groupKey].taxableAmount += lineNeto;
+    taxGroups[groupKey].taxAmount += lineTaxAmount;
 
     return {
       ...line,
       lineNo: line.lineNo || (index + 1),
-      amountLine: lineAmount,
-      taxType: type // Aseguramos que la línea procesada mantenga el tipo
+      amountLine: lineFinalAmount, // <--- AHORA CON IVA/IRPF INCLUIDO
+      taxType: type
     };
   });
 
@@ -61,7 +65,7 @@ const calculateDocumentTotals = (lines, movementId, docType) => {
     taxesToInsert: Object.values(taxGroups),
     headerTotals: {
       amountWithoutVAT: totalNeto,
-      amountVAT: totalImpuestos, // Refleja el neto de impuestos (IVA - IRPF)
+      amountVAT: totalImpuestos,
       amountWithVAT: totalNeto + totalImpuestos
     }
   };

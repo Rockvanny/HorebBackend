@@ -56,6 +56,18 @@ const CustomerSchema = {
     allowNull: false,
   },
 
+  paymentMethod: {
+    field: 'payment_method',
+    type: DataTypes.ENUM(
+      'Transferencia',
+          'Efectivo',
+          'Tarjeta',
+          'Bizum',
+    ),
+    allowNull: false,
+    defaultValue: 'Transferencia'
+  },
+
   username: {
     field: 'user_name',
     type: DataTypes.STRING,

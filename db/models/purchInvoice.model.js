@@ -91,9 +91,14 @@ const purchInvoiceSchema = {
   },
   paymentMethod: {
     field: 'payment_method',
-    type: DataTypes.ENUM('Tarjeta', 'Efectivo', 'Transferencia'),
+    type: Sequelize.DataTypes.ENUM(
+      'Transferencia',
+      'Efectivo',
+      'Tarjeta',
+      'Bizum',
+    ),
     allowNull: false,
-    defaultValue: 'Tarjeta'
+    defaultValue: 'Transferencia'
   },
   amountWithoutVAT: {
     field: 'amount_without_vat',

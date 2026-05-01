@@ -14,7 +14,12 @@ const phone = Joi.string();
 const address = Joi.string();
 const postCode = Joi.string();
 const city = Joi.string();
-const paymentMethod = Joi.string();
+const paymentMethod = Joi.string().valid(
+  'Transferencia',
+  'Efectivo',
+  'Tarjeta',
+  'Bizum'
+);
 const status = Joi.string();
 const amountWithoutVAT = Joi.number().precision(2);
 const amountVAT = Joi.number().precision(2);
@@ -55,7 +60,7 @@ const createPurchPostInvoiceSchema = Joi.object({
   address: address.required(),
   postCode: postCode.required(),
   city: city.required(),
-  paymentMethod: paymentMethod.required(),
+  paymentMethod: paymentMethod.default('Transferencia'),
   status: status.optional(),
   category: category.required(), // Requerido para que la "dona" siempre sume correctamente
   amountWithoutVAT: amountWithoutVAT.optional(),

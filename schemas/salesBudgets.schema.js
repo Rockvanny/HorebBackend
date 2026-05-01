@@ -18,6 +18,12 @@ const address = Joi.string().allow('', null);
 const postCode = Joi.string().allow('', null);
 const city = Joi.string().allow('', null);
 const status = Joi.string().default('Borrador');
+const paymentMethod = Joi.string().valid(
+  'Transferencia',
+  'Efectivo',
+  'Tarjeta',
+  'Bizum'
+);
 const comments = Joi.string().allow('', null);
 
 // Sincronizado con DECIMAL(12, 4)
@@ -61,6 +67,7 @@ const createSalesBudgetSchema = Joi.object({
   postCode: postCode.optional(),
   city: city.optional(),
   status: status.optional(),
+  paymentMethod: paymentMethod.default('Transferencia'),
   comments: comments.optional(),
 
   amountWithoutVAT: money.optional(),
@@ -89,6 +96,7 @@ const updateSalesBudgetSchema = Joi.object({
   postCode: postCode.optional(),
   city: city.optional(),
   status: status.optional(),
+  paymentMethod: paymentMethod.optional(),
   comments: comments.optional(),
 
   amountWithoutVAT: money.optional(),

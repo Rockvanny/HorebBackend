@@ -1,51 +1,79 @@
 const Joi = require('joi');
 
-const id = Joi.number();
-const logo_base64 = Joi.string().allow(null, '').pattern(/^data:image\/(png|jpeg|jpg);base64,([A-Za-z0-9+/=])+$/);
-const name = Joi.string().min(3).max(50);
-const vatRegistration = Joi.string();
-const email = Joi.string().email();
-const phone =  Joi.string();
-const address = Joi.string();
-const postCode = Joi.string();
-const city =  Joi.string();
-const bank = Joi.string();
-const accountBank = Joi.string();
-const WebSite = Joi.string();
-const footerText = Joi.string();
+// --- Definición de tipos basados en tu CompanySchema ---
+const id = Joi.number().integer();
+
+// Regex para validar el formato Base64 que genera el frontend
+const imageBase64 = Joi.string().allow(null, '').pattern(/^data:image\/(png|jpeg|jpg);base64,([A-Za-z0-9+/=])+$/);
+
+const name = Joi.string().min(3).max(100).allow(null, '');
+const vatRegistration = Joi.string().allow(null, ''); // Mismo nombre que en el modelo
+const email = Joi.string().email().allow(null, '');
+const phone = Joi.string().allow(null, '');
+const address = Joi.string().allow(null, '');
+const postCode = Joi.string().allow(null, ''); // Mismo nombre que la llave
+const city = Joi.string().allow(null, '');
+const bankName = Joi.string().allow(null, '');
+const iban = Joi.string().allow(null, '');
+const swift = Joi.string().allow(null, '');
+const WebSite = Joi.string().allow(null, ''); // Respetando la mayúscula del modelo
+const footerText = Joi.string().allow(null, '');
+
+
+const limit = Joi.number().integer();
+const offset = Joi.number().integer();
+// --- Esquemas de Objeto ---
 
 const getCompanySchema = Joi.object({
-  id: id.optional(),
+    id: id.optional(),
 });
 
 const createCompanySchema = Joi.object({
-  logo_base64: logo_base64.optional(),
-  vatRegistration: vatRegistration.optional(),
-  name: name.optional(),
-  email: email.optional(),
-  phone: phone.optional(),
-  address: address.optional(),
-  postCode: postCode.optional(),
-  city: city.optional(),
-  bank: bank.optional(),
-  accountBank: accountBank.optional(),
-  WebSite: WebSite.optional(),
-  footerText: footerText.optional()
+    // id es auto-incremental, por lo que suele ser opcional en la creación
+    id: id.optional(),
+    logo_base64: imageBase64.optional(),
+    name: name.optional(),
+    vatRegistration: vatRegistration.optional(),
+    email: email.optional(),
+    phone: phone.optional(),
+    address: address.optional(),
+    postCode: postCode.optional(),
+    city: city.optional(),
+    bankName: bankName.optional(),
+    iban: iban.optional(),
+    swift: swift.optional(),
+    signature_base64: imageBase64.optional(),
+    WebSite: WebSite.optional(),
+    footerText: footerText.optional()
 });
 
 const updateCompanySchema = Joi.object({
-  logo_base64: logo_base64.optional(),
-  vatRegistration: vatRegistration.optional(),
-  name: name.optional(),
-  email: email.optional(),
-  phone: phone.optional(),
-  address: address.optional(),
-  postCode: postCode.optional(),
-  city: city.optional(),
-  bank: bank.optional(),
-  accountBank: accountBank.optional(),
-  WebSite: WebSite.optional(),
-  footerText: footerText.optional()
+    // En actualización no pasamos el ID en el body, se suele pasar por URL
+    logo_base64: imageBase64.optional(),
+    name: name.optional(),
+    vatRegistration: vatRegistration.optional(),
+    email: email.optional(),
+    phone: phone.optional(),
+    address: address.optional(),
+    postCode: postCode.optional(),
+    city: city.optional(),
+    bankName: bankName.optional(),
+    iban: iban.optional(),
+    swift: swift.optional(),
+    signature_base64: imageBase64.optional(),
+    WebSite: WebSite.optional(),
+    footerText: footerText.optional()
 });
 
-module.exports = { getCompanySchema, createCompanySchema, updateCompanySchema };
+const queryCompanySchema = Joi.object({
+  limit,
+  offset,
+  searchTerm: Joi.string().allow(null, '')
+});
+
+module.exports = {
+    getCompanySchema,
+    createCompanySchema,
+    updateCompanySchema,
+    queryCompanySchema
+};

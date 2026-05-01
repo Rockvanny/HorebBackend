@@ -144,9 +144,18 @@ class salesInvoiceService {
     }
   }
 
-  async archiveInvoice(code, userId) {
+  async archiveInvoice(idOrCode, userId) {
+    // 1. Detectar si el valor recibido es numérico (ID) o string (Code)
+    const isNumeric = !isNaN(idOrCode) && !isNaN(parseFloat(idOrCode));
+
+    // 2. Construir la condición dinámica
+    const whereCondition = isNumeric
+      ? { id: idOrCode }
+      : { code: idOrCode };
+
+    // 3. Buscar la factura
     const invoice = await salesInvoice.findOne({
-      where: { code },
+      where: whereCondition,
       include: [
         { model: salesInvoiceLine, as: 'lines' },
         { model: DocumentTax, as: 'taxes' }
@@ -154,14 +163,17 @@ class salesInvoiceService {
     });
 
     if (!invoice) throw boom.notFound('Factura no encontrada');
+
     const invoiceData = invoice.get({ plain: true });
 
-    invoiceData.preInvoice = invoiceData.code;
+    // 4. Preparar datos para el histórico
+    invoiceData.preInvoice = invoiceData.code; // Guardamos el código original
     invoiceData.username = userId;
     invoiceData.seriesCode = invoiceData.codePosting;
-    invoiceData.code = null;
-    delete invoiceData.id;
+    invoiceData.code = null; // Se anula para que la nueva tabla genere su propio código si es necesario
+    delete invoiceData.id;   // Eliminamos el ID antiguo para evitar conflictos de Primary Key en la tabla destino
 
+    // 5. Crear en la tabla de facturas registradas y borrar de la temporal
     const result = await postService.create(invoiceData);
 
     if (result) {

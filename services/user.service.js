@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const { models } = require('../libs/sequelize');
 const { config } = require('../config/config');
 
-const ROLES = ['master', 'admin', 'financiero', 'vendedor', 'almacen', 'externo', 'viewer'];
+const ROLES = ['master', 'admin', 'financiero', 'vendedor', 'externo', 'viewer'];
 
 class UserService {
   constructor() { }

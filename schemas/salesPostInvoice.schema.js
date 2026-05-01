@@ -22,7 +22,12 @@ const phone = Joi.string().allow('', null);
 const address = Joi.string().allow('', null);
 const postCode = Joi.string().allow('', null);
 const city = Joi.string().allow('', null);
-const paymentMethod = Joi.string().valid('Tarjeta', 'Efectivo', 'Transferencia').default('Tarjeta');
+const paymentMethod = Joi.string().valid(
+  'Transferencia',
+  'Efectivo',
+  'Tarjeta',
+  'Bizum'
+);
 const status = Joi.string().valid('Abierto', 'Pagado').default('Abierto');
 const comments = Joi.string().allow('', null);
 const money = Joi.number().precision(4).default(0);
@@ -31,51 +36,51 @@ const username = Joi.string();
 const getSalesPostInvoiceSchema = Joi.object({ code: code.required() });
 
 const createSalesPostInvoiceSchema = Joi.object({
-    movementId: movementId.required(), // Obligatorio para heredar la trazabilidad
-    code: code.required(),
-    seriesCode: seriesCode.optional(),
-    preInvoice: preInvoice.required(),
-    typeInvoice: typeInvoice.required(),
-    parentCode: parentCode.optional(),
-    rectificationType: rectificationType.optional(),
-    budgetCode: budgetCode.optional(),
-    postingDate: postingDate.required(),
-    dueDate: dueDate.optional(),
-    entityCode: entityCode.required(),
-    name: name.required(),
-    nif: nif.required(),
-    email: email.optional(),
-    phone: phone.optional(),
-    address: address.required(),
-    postCode: postCode.optional(),
-    city: city.optional(),
-    paymentMethod: paymentMethod.optional(),
-    status: status.optional(),
-    comments: comments.optional(),
-    amountWithoutVAT: money.required(),
-    amountVAT: money.required(),
-    amountWithVAT: money.required(),
-    username: username.optional(),
-    lines: Joi.array().items(createSalesPostInvoiceLineSchema).min(1).required(),
+  movementId: movementId.required(), // Obligatorio para heredar la trazabilidad
+  code: code.required(),
+  seriesCode: seriesCode.optional(),
+  preInvoice: preInvoice.required(),
+  typeInvoice: typeInvoice.required(),
+  parentCode: parentCode.optional(),
+  rectificationType: rectificationType.optional(),
+  budgetCode: budgetCode.optional(),
+  postingDate: postingDate.required(),
+  dueDate: dueDate.optional(),
+  entityCode: entityCode.required(),
+  name: name.required(),
+  nif: nif.required(),
+  email: email.optional(),
+  phone: phone.optional(),
+  address: address.required(),
+  postCode: postCode.optional(),
+  city: city.optional(),
+  paymentMethod: paymentMethod.default('Transferencia'),
+  status: status.optional(),
+  comments: comments.optional(),
+  amountWithoutVAT: money.required(),
+  amountVAT: money.required(),
+  amountWithVAT: money.required(),
+  username: username.optional(),
+  lines: Joi.array().items(createSalesPostInvoiceLineSchema).min(1).required(),
 });
 
 const updateSalesPostInvoiceSchema = Joi.object({
-    id: id.optional(),
-    status: status.optional(),
-    dueDate: dueDate.optional(),
-    comments: comments.optional(),
-    paymentMethod: paymentMethod.optional(),
+  id: id.optional(),
+  status: status.optional(),
+  dueDate: dueDate.optional(),
+  comments: comments.optional(),
+  paymentMethod: paymentMethod.optional(),
 });
 
 const querySalesPostInvoiceSchema = Joi.object({
-    limit: Joi.number().integer(),
-    offset: Joi.number().integer(),
-    searchTerm: Joi.string().allow('').optional(),
+  limit: Joi.number().integer(),
+  offset: Joi.number().integer(),
+  searchTerm: Joi.string().allow('').optional(),
 });
 
 module.exports = {
-    getSalesPostInvoiceSchema,
-    createSalesPostInvoiceSchema,
-    updateSalesPostInvoiceSchema,
-    querySalesPostInvoiceSchema
+  getSalesPostInvoiceSchema,
+  createSalesPostInvoiceSchema,
+  updateSalesPostInvoiceSchema,
+  querySalesPostInvoiceSchema
 };

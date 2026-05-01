@@ -72,6 +72,18 @@ const VendorSchema = {
     defaultValue: 'Gastos de Oficina y Varios'
   },
 
+  paymentMethod: {
+    field: 'payment_method',
+    type: DataTypes.ENUM(
+      'Transferencia',
+      'Efectivo',
+      'Tarjeta',
+      'Bizum',
+    ),
+    allowNull: false,
+    defaultValue: 'Transferencia'
+  },
+
   username: {
     field: 'user_name',
     type: DataTypes.STRING,

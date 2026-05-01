@@ -59,6 +59,19 @@ module.exports = {
         allowNull: false, // Cambiado a false para obligar integridad
         defaultValue: 'Gastos de Oficina y Varios'
       },
+
+      paymentMethod: {
+        field: 'payment_method',
+        type: Sequelize.DataTypes.ENUM(
+          'Transferencia',
+          'Efectivo',
+          'Tarjeta',
+          'Bizum',
+        ),
+        allowNull: false,
+        defaultValue: 'Transferencia'
+      },
+
       username: {
         field: 'user_name',
         type: Sequelize.DataTypes.STRING,

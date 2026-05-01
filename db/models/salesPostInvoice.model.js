@@ -129,9 +129,14 @@ const salesPostInvoiceSchema = {
 
   paymentMethod: {
     field: 'payment_method',
-    type: DataTypes.ENUM('Tarjeta', 'Efectivo', 'Transferencia'),
+    type: Sequelize.DataTypes.ENUM(
+      'Transferencia',
+      'Efectivo',
+      'Tarjeta',
+      'Bizum',
+    ),
     allowNull: false,
-    defaultValue: 'Tarjeta'
+    defaultValue: 'Transferencia'
   },
 
   amountWithoutVAT: {
@@ -197,7 +202,8 @@ class salesPostInvoice extends Model {
     this.hasMany(models.DocumentTax, {
       as: 'taxes',
       foreignKey: 'movementId',
-      sourceKey: 'movementId'
+      sourceKey: 'movementId',
+      scope: { codeDocument: 'salespostinvoices' }
     });
   }
 

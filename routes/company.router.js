@@ -1,27 +1,38 @@
 const express = require('express');
-const passport = require('passport'); // 1. Importamos passport
+const passport = require('passport');
 const CompanyService = require('../services/company.service');
 const validatorHandler = require('./../middlewares/validator.handler');
-const { checkPermission } = require('../middlewares/auth.handler'); // 2. Importamos el verificador de permisos
-const { createCompanySchema, getCompanySchema, updateCompanySchema } = require('../schemas/company.schema');
+const { checkPermission } = require('../middlewares/auth.handler');
+const { createCompanySchema, getCompanySchema, updateCompanySchema, queryCompanySchema } = require('../schemas/company.schema');
 
 const router = express.Router();
 const service = new CompanyService();
 
-/**
- * RUTAS DE EMPRESA PROTEGIDAS
- */
-
-// Obtener datos de la empresa
-router.get('/',
-  passport.authenticate('jwt', { session: false }), // 3. Primero autenticamos
+// 1. RUTAS DE BÚSQUEDA Y PAGINACIÓN (Siempre antes que :id)
+router.get('/company-paginated',
+  passport.authenticate('jwt', { session: false }),
   checkPermission('allowGestion'),
+  validatorHandler(queryCompanySchema, 'query'),
+  async (req, res, next) => {
+    try {
+      const { limit, offset, searchTerm } = req.query;
+      const result = await service.findPaginated({ limit, offset, searchTerm });
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// 2. RUTAS BASE (GET / POST / etc.)
+router.get('/',
+  passport.authenticate('jwt', { session: false }),
+  checkPermission('allowGestion'),
+  // Eliminamos o relajamos el validador aquí si quieres que el logo cargue sin enviar parámetros
   validatorHandler(getCompanySchema, 'query'),
   async (req, res, next) => {
-    console.time("Tiempo de consulta a empresa");
     try {
       const company = await service.find(req.query);
-      console.timeEnd("Tiempo de consulta a empresa");
       res.json(company);
     } catch (error) {
       next(error);
@@ -29,10 +40,9 @@ router.get('/',
   }
 );
 
-// Crear empresa (Generalmente solo el Maestro o Admin)
 router.post('/',
   passport.authenticate('jwt', { session: false }),
-  checkPermission('allowGestion'), // Solo usuarios con permiso de configuración
+  checkPermission('allowGestion'),
   validatorHandler(createCompanySchema, 'body'),
   async (req, res, next) => {
     try {
@@ -40,19 +50,27 @@ router.post('/',
       const newCompany = await service.create(body);
       res.status(201).json(newCompany);
     } catch (error) {
-      if (error.name === "SequelizeUniqueConstraintError") {
-        return res.status(409).json({
-          success: false,
-          message: `El código de empresa '${req.body.code}' ya existe. Intenta otro.`,
-          error: error.errors
-        });
-      }
       next(error);
     }
   }
 );
 
-// Actualizar datos de la empresa
+// 3. RUTAS CON PARÁMETROS DINÁMICOS (:id) - Siempre al final
+router.get('/:id',
+  passport.authenticate('jwt', { session: false }),
+  checkPermission('allowGestion'),
+  validatorHandler(getCompanySchema, 'params'),
+  async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const company = await service.findOne(id);
+      res.json(company);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 router.patch('/:id',
   passport.authenticate('jwt', { session: false }),
   checkPermission('allowGestion'),
@@ -70,7 +88,6 @@ router.patch('/:id',
   }
 );
 
-// Eliminar datos de empresa
 router.delete('/:id',
   passport.authenticate('jwt', { session: false }),
   checkPermission('allowGestion'),
@@ -79,7 +96,7 @@ router.delete('/:id',
     try {
       const { id } = req.params;
       await service.delete(id);
-      res.status(200).json({ id }); // 200 es más apropiado para delete que 201
+      res.status(200).json({ id });
     } catch (error) {
       next(error);
     }

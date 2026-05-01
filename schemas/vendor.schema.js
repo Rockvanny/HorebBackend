@@ -16,6 +16,12 @@ const category = Joi.string().valid(
   'Vehículos y Movilidad',
   'Gastos de Oficina y Varios'
 );
+const paymentMethod = Joi.string().valid(
+  'Transferencia',
+  'Efectivo',
+  'Tarjeta',
+  'Bizum'
+);
 
 const limit = Joi.number().integer();
 const offset = Joi.number().integer();
@@ -35,6 +41,7 @@ const createVendorSchema = Joi.object({
   postCode: postCode.required(),
   city: city.required(),
   category: category.required(),
+  paymentMethod: paymentMethod.default('Transferencia'),
 });
 
 const updateVendorSchema = Joi.object({
@@ -46,6 +53,7 @@ const updateVendorSchema = Joi.object({
   postCode: postCode.required(),
   city: city.required(),
   category: category.optional(),
+  paymentMethod: paymentMethod.optional(),
 });
 
 const queryVendorSchema = Joi.object({

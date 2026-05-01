@@ -28,7 +28,12 @@ const category = Joi.string().valid(
   'Gastos de Oficina y Varios'
 );
 
-const paymentMethod = Joi.string().valid('Tarjeta', 'Efectivo', 'Transferencia').default('Tarjeta');
+const paymentMethod = Joi.string().valid(
+  'Transferencia',
+  'Efectivo',
+  'Tarjeta',
+  'Bizum'
+);
 const money = Joi.number().precision(4).default(0);
 const comments = Joi.string().allow('', null);
 const username = Joi.string();
@@ -39,78 +44,78 @@ const username = Joi.string();
  * Esquema para CREACIÓN
  */
 const createPurchInvoiceSchema = Joi.object({
-    code: code.optional(),
-    selectedSerie: selectedSerie.optional(), // Para el Hook de generación de código
+  code: code.optional(),
+  selectedSerie: selectedSerie.optional(), // Para el Hook de generación de código
 
-    // Campos de enlace sincronizados con el modelo
-    codePosting: codePosting.optional(),
-    budgetCode: budgetCode.optional(),
+  // Campos de enlace sincronizados con el modelo
+  codePosting: codePosting.optional(),
+  budgetCode: budgetCode.optional(),
 
-    postingDate: postingDate.default(() => new Date()).required(), // Obligatorio legal
-    dueDate: dueDate.optional(),
+  postingDate: postingDate.default(() => new Date()).required(), // Obligatorio legal
+  dueDate: dueDate.optional(),
 
-    // Identificación del Proveedor (Obligatorios)
-    entityCode: entityCode.required(),
-    name: name.required(),
-    nif: nif.required(),
-    address: address.required(), // Obligatorio legal
+  // Identificación del Proveedor (Obligatorios)
+  entityCode: entityCode.required(),
+  name: name.required(),
+  nif: nif.required(),
+  address: address.required(), // Obligatorio legal
 
-    email: email.optional(),
-    phone: phone.optional(),
-    postCode: postCode.optional(),
-    city: city.optional(),
+  email: email.optional(),
+  phone: phone.optional(),
+  postCode: postCode.optional(),
+  city: city.optional(),
 
-    // Clasificación y Pago
-    category: category.required(),
-    paymentMethod: paymentMethod.optional(),
-    status: status.optional(),
+  // Clasificación y Pago
+  category: category.required(),
+  paymentMethod: paymentMethod.default('Transferencia'),
+  status: status.optional(),
 
-    // Totales
-    amountWithoutVAT: money.optional(),
-    amountVAT: money.optional(),
-    amountWithVAT: money.optional(),
+  // Totales
+  amountWithoutVAT: money.optional(),
+  amountVAT: money.optional(),
+  amountWithVAT: money.optional(),
 
-    comments: comments.optional(),
-    username: username.optional(),
+  comments: comments.optional(),
+  username: username.optional(),
 
-    // Líneas de la factura
-    lines: Joi.array().items(createPurchInvoiceLineSchema).optional(),
+  // Líneas de la factura
+  lines: Joi.array().items(createPurchInvoiceLineSchema).optional(),
 });
 
 /**
  * Esquema para ACTUALIZACIÓN
  */
 const updatePurchInvoiceSchema = Joi.object({
-    codePosting: codePosting.optional(),
-    budgetCode: budgetCode.optional(),
-    postingDate: postingDate.optional(),
-    dueDate: dueDate.optional(),
-    entityCode: entityCode.optional(),
-    name: name.optional(),
-    nif: nif.optional(),
-    address: address.optional(),
-    email: email.optional(),
-    phone: phone.optional(),
-    postCode: postCode.optional(),
-    city: city.optional(),
-    category: category.optional(),
-    paymentMethod: paymentMethod.optional(),
-    status: status.optional(),
-    amountWithoutVAT: money.optional(),
-    amountVAT: money.optional(),
-    amountWithVAT: money.optional(),
-    comments: comments.optional(),
-    username: username.optional(),
-    lines: Joi.array().items(updatePurchInvoiceLineSchema).optional(),
+  codePosting: codePosting.optional(),
+  budgetCode: budgetCode.optional(),
+  postingDate: postingDate.optional(),
+  dueDate: dueDate.optional(),
+  entityCode: entityCode.optional(),
+  name: name.optional(),
+  nif: nif.optional(),
+  address: address.optional(),
+  email: email.optional(),
+  phone: phone.optional(),
+  postCode: postCode.optional(),
+  city: city.optional(),
+  category: category.optional(),
+  paymentMethod: paymentMethod.optional(),
+  status: status.optional(),
+  amountWithoutVAT: money.optional(),
+  amountVAT: money.optional(),
+  amountWithVAT: money.optional(),
+  comments: comments.optional(),
+  username: username.optional(),
+  lines: Joi.array().items(updatePurchInvoiceLineSchema).optional(),
 });
 
 module.exports = {
-    getPurchInvoiceSchema: Joi.object({ code: code.required() }),
-    createPurchInvoiceSchema,
-    updatePurchInvoiceSchema,
-    queryPurchInvoiceSchema: Joi.object({
-        limit: Joi.number().integer(),
-        offset: Joi.number().integer(),
-        searchTerm: Joi.string().allow('')
-    })
+  getPurchInvoiceSchema: Joi.object({ code: code.required() }),
+  createPurchInvoiceSchema,
+  updatePurchInvoiceSchema,
+  queryPurchInvoiceSchema: Joi.object({
+    limit: Joi.number().integer(),
+    offset: Joi.number().integer(),
+    searchTerm: Joi.string().allow('')
+  })
 };

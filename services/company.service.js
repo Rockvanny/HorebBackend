@@ -21,10 +21,49 @@ class CompanyService {
     return company;
   }
 
-  async findOne(code) {
+  /**
+   * Búsqueda avanzada con paginación y filtrado por término.
+   */
+  async findPaginated({ limit, offset, searchTerm }) {
+    const parsedLimit = parseInt(limit, 10) || 100;
+    const parsedOffset = parseInt(offset, 10) || 0;
+
+    const options = {
+      limit: parsedLimit,
+      offset: parsedOffset,
+      order: [['id', 'ASC']],
+      where: {},
+    }
+
+    if (searchTerm) {
+      const term = searchTerm.trim();
+      const searchPattern = `%${term}%`;
+
+      // Quitamos el ID de aquí para que no de error
+      options.where[Op.or] = [
+        { vatRegistration: { [Op.iLike]: searchPattern } },
+        { name: { [Op.iLike]: searchPattern } }
+      ];
+    }
+
+    try {
+      const { count, rows } = await models.Company.findAndCountAll(options);
+
+      return {
+        records: rows,
+        hasMore: (parsedOffset + rows.length) < count,
+        total: count,
+      };
+    } catch (error) {
+      console.error('Error en CompanyService.findPaginated: ', error);
+      throw boom.badImplementation('Error al consultar empresa paginados');
+    }
+  }
+
+  async findOne(id) {
     const queryOptions = {};
 
-    const company = await models.Company.findByPk(code, queryOptions);
+    const company = await models.Company.findByPk(id, queryOptions);
     if (!company) {
       throw boom.notFound('Empresa no encontrada');
     }
@@ -46,20 +85,13 @@ class CompanyService {
     return updatedCompany;
   }
 
-  async delete(code) {
-    const companyToDelete = await this.findOne(code); // Tampoco es necesario que delete traiga las asociaciones completas
-    if (!companyToDelete) {
-      throw new Error(`empresa con código ${code} no encontrado`);
-    }
+  async delete(id) {
+    const companyToDelete = await this.findOne(id);
 
-    // Aquí, onDelete: 'RESTRICT' en las FK de las facturas se encargará de que falle si tiene documentos asociados
-    await models.Company.destroy({
-      where: {
-        code: code
-      }
-    });
+    // Usamos el id que encontramos para asegurar consistencia
+    await companyToDelete.destroy();
 
-    return { code };
+    return { id };
   }
 
 }

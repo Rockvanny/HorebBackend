@@ -67,7 +67,14 @@ const purchPostInvoiceSchema = {
 
   paymentMethod: {
     field: 'payment_method',
-    type: DataTypes.STRING,
+    type: Sequelize.DataTypes.ENUM(
+      'Transferencia',
+      'Efectivo',
+      'Tarjeta',
+      'Bizum',
+    ),
+    allowNull: false,
+    defaultValue: 'Transferencia'
   },
 
   status: {

@@ -40,9 +40,14 @@ module.exports = {
       city: { field: 'city', type: Sequelize.DataTypes.STRING },
       paymentMethod: {
         field: 'payment_method',
-        type: Sequelize.DataTypes.ENUM('Tarjeta', 'Efectivo', 'Transferencia'),
+        type: Sequelize.DataTypes.ENUM(
+          'Transferencia',
+          'Efectivo',
+          'Tarjeta',
+          'Bizum',
+        ),
         allowNull: false,
-        defaultValue: 'Tarjeta'
+        defaultValue: 'Transferencia'
       },
       status: {
         field: 'status',
@@ -59,6 +64,17 @@ module.exports = {
         allowNull: false,
         defaultValue: 'Gastos de Oficina y Varios'
       },
+      paymentMethod: {
+          field: 'payment_method',
+          type: Sequelize.DataTypes.ENUM(
+            'Transferencia',
+            'Efectivo',
+            'Tarjeta',
+            'Bizum',
+          ),
+          allowNull: false,
+          defaultValue: 'Transferencia'
+        },
       amountWithoutVAT: {
         field: 'amount_without_vat',
         type: Sequelize.DataTypes.DECIMAL(12, 4),

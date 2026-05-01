@@ -36,7 +36,7 @@ router.get('/customers-paginated',
 );
 
 router.get('/search',
-  passport.authenticate('jwt', { session: false }), // <--- Faltaba
+  passport.authenticate('jwt', { session: false }),
   checkPermission('allowGestion'),
   async (req, res, next) => {
     try {

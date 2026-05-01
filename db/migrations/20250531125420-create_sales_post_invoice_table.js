@@ -109,9 +109,14 @@ module.exports = {
       },
       paymentMethod: {
         field: 'payment_method',
-        type: Sequelize.DataTypes.ENUM('Tarjeta', 'Efectivo', 'Transferencia'),
+        type: Sequelize.DataTypes.ENUM(
+          'Transferencia',
+          'Efectivo',
+          'Tarjeta',
+          'Bizum',
+        ),
         allowNull: false,
-        defaultValue: 'Tarjeta'
+        defaultValue: 'Transferencia'
       },
       status: {
         field: 'status',

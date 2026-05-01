@@ -72,6 +72,17 @@ const salesBudgetSchema = {
     allowNull: false,
     defaultValue: 'Borrador'
   },
+  paymentMethod: {
+    field: 'payment_method',
+    type: Sequelize.DataTypes.ENUM(
+      'Transferencia',
+      'Efectivo',
+      'Tarjeta',
+      'Bizum',
+    ),
+    allowNull: false,
+    defaultValue: 'Transferencia'
+  },
   amountWithoutVAT: {
     field: 'amount_without_vat',
     type: DataTypes.DECIMAL(12, 4),
@@ -162,8 +173,8 @@ class salesBudget extends Model {
         afterDestroy: async (instance, options) => {
           await sequelize.models.DocumentTax.destroy({
             where: {
-                movementId: instance.movementId,
-                codeDocument: 'budget'
+              movementId: instance.movementId,
+              codeDocument: 'budget'
             },
             transaction: options.transaction
           });

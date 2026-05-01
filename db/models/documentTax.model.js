@@ -12,7 +12,7 @@ const documentTaxSchema = {
   // Mantenemos el contexto para saber de qué carpeta/entidad viene
   codeDocument: {
     field: 'code_document',
-    type: DataTypes.ENUM('budget', 'salesinvoice', 'salespostinvoice', 'purchinvoice', 'purchpostinvoice'),
+    type: DataTypes.ENUM('budget', 'salesinvoice', 'salespostinvoices', 'purchinvoice', 'purchpostinvoice'),
     allowNull: false
   },
   // NUEVO: La clave de unión universal (UUID)

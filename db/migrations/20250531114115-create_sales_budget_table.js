@@ -53,6 +53,17 @@ module.exports = {
         allowNull: false,
         defaultValue: 'Borrador'
       },
+      paymentMethod: {
+        field: 'payment_method',
+        type: Sequelize.DataTypes.ENUM(
+          'Transferencia',
+          'Efectivo',
+          'Tarjeta',
+          'Bizum',
+        ),
+        allowNull: false,
+        defaultValue: 'Transferencia'
+      },
       comments: {
         field: 'comments',
         type: Sequelize.DataTypes.TEXT,

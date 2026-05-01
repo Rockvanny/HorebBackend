@@ -12,8 +12,14 @@ module.exports = {
         autoIncrement: true,
       },
 
-      logo_base64: { // Campo para el logo Base64
+      logo_base64: {
         field: "logo",
+        type: Sequelize.DataTypes.TEXT,
+      },
+
+      // Nuevo campo para la imagen de la firma
+      signature_base64: {
+        field: "signature",
         type: Sequelize.DataTypes.TEXT,
       },
 
@@ -31,31 +37,43 @@ module.exports = {
         field: 'email',
         type: Sequelize.DataTypes.STRING,
       },
+
       phone: {
         field: 'phone',
         type: Sequelize.DataTypes.STRING,
       },
+
       address: {
         field: 'address',
         type: Sequelize.DataTypes.STRING,
       },
+
       postCode: {
         field: 'post_code',
         type: Sequelize.DataTypes.STRING,
       },
+
       city: {
         field: 'city',
         type: Sequelize.DataTypes.STRING,
       },
 
-      bank: {
-        field: 'bank',
+      // Reemplazo de 'bank' por 'bank_name'
+      bankName: {
+        field: 'bank_name',
         type: Sequelize.DataTypes.STRING,
       },
 
-      accountBank: {
-        field: 'account_bank',
+      // Reemplazo de 'account_bank' por 'iban'
+      iban: {
+        field: 'iban',
         type: Sequelize.DataTypes.STRING,
+      },
+
+      // Nuevo campo para transferencias internacionales
+      swift: {
+        field: 'swift',
+        type: Sequelize.DataTypes.STRING(11),
       },
 
       WebSite: {
