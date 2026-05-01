@@ -3,7 +3,7 @@ const boom = require('@hapi/boom');
 const sequelize = require('../libs/sequelize');
 const generateVerifactuHash = require('../libs/hasInvoice');
 
-const { VerifactuLog, salesPostInvoice, DocumentTax } = sequelize.models;
+const { VerifactuLog, salesPostInvoice, DocumentTax, Company } = sequelize.models;
 
 class VerifactuService {
   constructor() { }
@@ -26,16 +26,21 @@ class VerifactuService {
   async createLog(invoiceCode, isTest = false, transaction = null) {
     const t = transaction || await sequelize.transaction();
     try {
-      // 1. Obtener los datos de la factura e incluir sus impuestos (taxes)
+      // 1. Obtener los datos de la empresa (Emisor)
+      // Buscamos el primer registro de la tabla company
+      const company = await Company.findOne({ transaction: t });
+      if (!company) throw boom.notFound('Configuración de empresa no encontrada para Veri*factu');
+
+      // 2. Obtener los datos de la factura e incluir sus impuestos (taxes)
       const invoice = await salesPostInvoice.findOne({
         where: { code: invoiceCode },
-        include: [{ model: DocumentTax, as: 'taxes' }], // Traemos el desglose
+        include: [{ model: DocumentTax, as: 'taxes' }],
         transaction: t
       });
 
       if (!invoice) throw boom.notFound('Factura no encontrada para Veri*factu');
 
-      // 2. Buscar el registro anterior para el encadenamiento
+      // 3. Buscar el registro anterior para el encadenamiento
       const lastLog = await VerifactuLog.findOne({
         order: [['id', 'DESC']],
         transaction: t
@@ -43,39 +48,31 @@ class VerifactuService {
 
       const prevFingerprint = lastLog ? lastLog.fingerprint : null;
 
-      // 3. Generar la huella
+      // 4. Generar la huella (Hash)
       const fingerprint = generateVerifactuHash(invoice, prevFingerprint);
 
-      // 4. Preparar el Payload con DESGLOSE
+      // 5. Preparar el Payload
       const dateStr = invoice.postingDate instanceof Date
         ? invoice.postingDate.toISOString().split('T')[0]
         : invoice.postingDate;
 
       const payload = {
-        // 1. Datos del Sistema (Obligatorio por ley)
         sistema_informatico: {
           nombre: "HOREB",
           version: "1.0.0",
-          nif_desarrollador: "B12345678" // El NIF de tu empresa o el tuyo
+          nif_desarrollador: "B12345678"
         },
-
-        // 2. Datos del Registro
-        tipo_registro: "ALTA", // Siempre ALTA para facturas nuevas
+        tipo_registro: "ALTA",
         timestamp: new Date().toISOString(),
-        is_test: isTest,
-
         emisor: {
-          nif: (invoice.nif || '').trim().toUpperCase(),
-          nombre: (invoice.name || '').trim()
+          nif: (company.vatRegistration || '').trim().toUpperCase(),
+          nombre: (company.name || '').trim()
         },
-
         factura: {
           numero_serie: invoice.code,
           fecha_emision: dateStr,
-          tipo_factura: invoice.typeInvoice || 'F1', // F1 (Normal), R1 (Rectificativa), etc.
+          tipo_factura: invoice.typeInvoice || 'F1',
           importe_total: parseFloat(invoice.amountWithVAT || 0).toFixed(2),
-
-          // El desglose que ya ajustamos
           desglose: (invoice.taxes || []).map(tax => ({
             tipo_impuesto: tax.taxType,
             base_imponible: parseFloat(tax.taxableAmount).toFixed(2),
@@ -83,23 +80,23 @@ class VerifactuService {
             cuota_repercutida: parseFloat(tax.taxAmount).toFixed(2)
           }))
         },
-
-        // 3. Encadenamiento (La "huella" del bloque anterior)
         encadenamiento: {
-          huella_anterior: prevFingerprint || "0".repeat(64) // El hash que une esta factura con la anterior
+          huella_anterior: prevFingerprint || "0".repeat(64)
         }
       };
 
-      // 5. Generar la cadena del QR
+      // 6. Generar la cadena del QR
       const qrData = this.generateQRText(payload, fingerprint);
 
-      // 6. INSERCIÓN DIRECTA
+      // 7. INSERCIÓN DIRECTA
+      // Nota: No incluimos 'is_test' dentro del JSON de 'payload' para evitar errores en AEAT,
+      // pero lo guardamos en la columna 'is_test' de la tabla.
       await sequelize.getQueryInterface().bulkInsert('verifactu_logs', [{
         invoice_code: invoice.code,
         fingerprint: fingerprint,
         prev_fingerprint: prevFingerprint,
-        qr_data: qrData, // Campo nuevo para el QR
-        payload: JSON.stringify(payload),
+        qr_data: qrData,
+        payload: JSON.stringify(payload), // El objeto ya no lleva is_test dentro
         is_test: isTest,
         created_at: new Date()
       }], { transaction: t });
