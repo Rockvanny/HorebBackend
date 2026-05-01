@@ -15,12 +15,13 @@ module.exports = {
         field: 'invoice_code',
         allowNull: false,
         type: Sequelize.DataTypes.STRING,
+        unique: true, // Aseguramos unicidad a nivel de DB también
         references: {
           model: 'sales_post_invoices',
           key: 'code'
         },
         onUpdate: 'CASCADE',
-        onDelete: 'RESTRICT' // No se puede borrar una factura si tiene registro Veri*factu
+        onDelete: 'RESTRICT'
       },
       fingerprint: {
         field: 'fingerprint',
@@ -32,6 +33,13 @@ module.exports = {
         allowNull: true,
         type: Sequelize.DataTypes.TEXT,
       },
+      // --- NUEVO CAMPO QR ---
+      qrData: {
+        field: 'qr_data',
+        allowNull: true,
+        type: Sequelize.DataTypes.TEXT,
+      },
+      // ----------------------
       payload: {
         field: 'payload',
         allowNull: false,
@@ -54,8 +62,9 @@ module.exports = {
       }
     });
 
-    // Índice para búsquedas de trazabilidad
+    // Índices para velocidad de respuesta
     await queryInterface.addIndex(VERIFACTU_LOG_TABLE, ['fingerprint']);
+    await queryInterface.addIndex(VERIFACTU_LOG_TABLE, ['invoice_code']);
   },
 
   down: async (queryInterface) => {

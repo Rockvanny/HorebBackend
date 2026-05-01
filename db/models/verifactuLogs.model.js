@@ -27,6 +27,12 @@ const verifactuLogSchema = {
     allowNull: true, // El primero de la historia será null
     type: DataTypes.TEXT,
   },
+  // URL o cadena de texto que genera el código QR
+  qrData: {
+    field: 'qr_data',
+    allowNull: true,
+    type: DataTypes.TEXT, // Almacena la URL completa de la AEAT
+  },
   // Contenido enviado/generado (XML o JSON formateado)
   payload: {
     field: 'payload',
@@ -65,7 +71,7 @@ class VerifactuLog extends Model {
       sequelize,
       tableName: VERIFACTU_LOG_TABLE,
       modelName: 'VerifactuLog',
-      timestamps: false, // Solo usamos createdAt para el sello de tiempo
+      timestamps: false,
       underscored: true
     };
   }

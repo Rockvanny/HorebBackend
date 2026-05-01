@@ -4,6 +4,7 @@ const Joi = require('joi');
 const id = Joi.number().integer();
 const invoiceCode = Joi.string().max(50);
 const isTest = Joi.boolean();
+const qrData = Joi.string().uri().max(2048); // Validamos que sea una URL válida y larga
 const limit = Joi.number().integer().min(1).max(100);
 const offset = Joi.number().integer().min(0);
 
@@ -16,7 +17,6 @@ const getVerifactuLogSchema = Joi.object({
 
 /**
  * Esquema para el listado paginado y filtros
- * Útil para cuando el gestor quiera ver solo los reales o filtrar por factura
  */
 const queryVerifactuLogSchema = Joi.object({
   limit,
@@ -27,13 +27,12 @@ const queryVerifactuLogSchema = Joi.object({
 
 /**
  * Esquema de creación (Internal Only)
- * Aunque se usa internamente, tenerlo definido ayuda a documentar
- * la estructura que espera el servicio.
  */
 const createVerifactuLogSchema = Joi.object({
   invoiceCode: invoiceCode.required(),
   isTest: isTest.default(false),
-  // No incluimos el hash aquí porque se genera automáticamente en el backend
+  qrData: qrData.optional(),
+  fingerprint: Joi.string().optional(),
 });
 
 module.exports = {

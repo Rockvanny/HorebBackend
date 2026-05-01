@@ -8,6 +8,21 @@ const { VerifactuLog, salesPostInvoice, DocumentTax } = sequelize.models;
 class VerifactuService {
   constructor() { }
 
+  /**
+   * Genera la URL del código QR según el estándar Veri*factu de la AEAT
+   */
+  generateQRText(payload, fingerprint) {
+    const baseUrl = "https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/v1/qr";
+    const params = new URLSearchParams({
+      nif: payload.emisor.nif,
+      numserie: payload.factura.numero_serie,
+      fecha: payload.factura.fecha_emision,
+      importe: payload.factura.importe_total,
+      huella: fingerprint
+    });
+    return `${baseUrl}?${params.toString()}`;
+  }
+
   async createLog(invoiceCode, isTest = false, transaction = null) {
     const t = transaction || await sequelize.transaction();
     try {
@@ -75,11 +90,15 @@ class VerifactuService {
         }
       };
 
-      // 5. INSERCIÓN DIRECTA
+      // 5. Generar la cadena del QR
+      const qrData = this.generateQRText(payload, fingerprint);
+
+      // 6. INSERCIÓN DIRECTA
       await sequelize.getQueryInterface().bulkInsert('verifactu_logs', [{
         invoice_code: invoice.code,
         fingerprint: fingerprint,
         prev_fingerprint: prevFingerprint,
+        qr_data: qrData, // Campo nuevo para el QR
         payload: JSON.stringify(payload),
         is_test: isTest,
         created_at: new Date()
@@ -87,7 +106,11 @@ class VerifactuService {
 
       if (!transaction) await t.commit();
 
-      return { invoiceCode: invoice.code, fingerprint };
+      return {
+        invoiceCode: invoice.code,
+        fingerprint,
+        qrData
+      };
 
     } catch (error) {
       if (!transaction && t) await t.rollback();
@@ -96,7 +119,30 @@ class VerifactuService {
     }
   }
 
-  // ... resto de métodos (getTraceability, findPaginated) se mantienen igual
+  async getTraceability(invoiceCode) {
+    const log = await VerifactuLog.findOne({
+      where: { invoiceCode },
+      include: ['invoice']
+    });
+    if (!log) throw boom.notFound('Registro Veri*factu no encontrado');
+    return log;
+  }
+
+  async findPaginated(query) {
+    const { limit = 10, offset = 0, isTest, invoiceCode } = query;
+    const where = {};
+    if (isTest !== undefined) where.isTest = isTest;
+    if (invoiceCode) where.invoiceCode = { [Op.iLike]: `%${invoiceCode}%` };
+
+    const { count, rows } = await VerifactuLog.findAndCountAll({
+      where,
+      limit,
+      offset,
+      order: [['id', 'DESC']]
+    });
+
+    return { total: count, data: rows };
+  }
 }
 
 module.exports = VerifactuService;
