@@ -1,93 +1,100 @@
 const express = require('express');
-const passport = require('passport'); // 1. Importamos Passport
-const SalesPostInvoiceService = require('../services/salesPostInvoice.service');
+const passport = require('passport');
+const PurchPostInvoiceService = require('../services/purchPostInvoice.service');
 const validatorHandler = require('../middlewares/validator.handler');
 const { checkPermission } = require('../middlewares/auth.handler');
 const {
-    getSalesPostInvoiceSchema,
-    createSalesPostInvoiceSchema,
-    querySalesPostInvoiceSchema
-} = require('../schemas/salesPostInvoice.schema');
+  createPurchPostInvoiceSchema,
+  getPurchPostInvoiceSchema,
+  queryPurchPostInvoiceSchema
+} = require('../schemas/purchPostInvoice.schema');
 
 const router = express.Router();
-const service = new SalesPostInvoiceService();
+const service = new PurchPostInvoiceService();
 
 /**
- * CONSULTAS (READ-ONLY)
+ * CONSULTAS (READ-ONLY) - HISTÓRICO DE COMPRAS
  */
 
-// Listado paginado
-router.get('/salesPostInvoices-paginated',
-    passport.authenticate('jwt', { session: false }), // 2. Autenticación obligatoria
-    checkPermission('allowSales'), // 3. Permiso unificado con el token
-    async(req, res, next) => {
+// Listado paginado y filtrado (Efecto Espejo con Ventas)
+router.get('/purchPostInvoices-paginated',
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowPurchases'),
+    validatorHandler(queryPurchPostInvoiceSchema, 'query'),
+    async (req, res, next) => {
         try {
-            const { limit, offset, searchTerm } = req.query;
-            const result = await service.findPaginated({ limit, offset, searchTerm });
+            const { limit, offset, searchTerm, overdue } = req.query;
+            const result = await service.findPaginated({
+                limit,
+                offset,
+                searchTerm,
+                // Filtro para facturas vencidas (overdue) igual que en ventas
+                filter: overdue === 'true' ? 'overdue' : null
+            });
             res.json(result);
-        } catch (error) {
-            next(error);
-        }
+        } catch (error) { next(error); }
     }
 );
 
-// Estadísticas / Contador (Ruta que suele llamar el Dashboard)
+// Estadísticas para Dashboard de Compras
 router.get('/count',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSales'),
+    checkPermission('allowPurchases'),
     async (req, res, next) => {
         try {
             const total = await service.countAll();
             res.status(200).json({ total });
-        } catch (error) {
-            next(error);
-        }
+        } catch (error) { next(error); }
     }
 );
 
-// Obtener una factura específica
-router.get('/:code',
-  passport.authenticate('jwt', { session: false }),
-  checkPermission('allowSales'),
-  validatorHandler(getSalesPostInvoiceSchema, 'params'),
-  async (req, res, next) => {
-    try {
-      const { code } = req.params;
-      const includeLines = req.query.include_lines === 'true';
+// Obtener una factura registrada por su ID o CÓDIGO
+// (Usamos ID para consistencia con el resto de la API, pero soportamos includeLines)
+router.get('/:id',
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowPurchases'),
+    validatorHandler(getPurchPostInvoiceSchema, 'params'),
+    async (req, res, next) => {
+        try {
+            const { id } = req.params;
+            const includeLines = req.query.include_lines === 'true';
 
-      const record = await service.findOne(code, { includeLines });
-
-      res.json({
-        success: true,
-        data: record
-      });
-    } catch (error) {
-      next(error);
+            const invoice = await service.findOne(id, { includeLines });
+            res.json({
+                success: true,
+                data: invoice
+            });
+        } catch (error) { next(error); }
     }
-  }
 );
 
 /**
- * ACCIONES DE REGISTRO (SOLO CREACIÓN)
+ * ACCIONES DE REGISTRO (INMUTABLES)
  */
 
-// Registrar factura (Acción irreversible)
+// Registrar factura de compra (Paso de borrador a histórico)
 router.post('/',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSales'),
-    validatorHandler(createSalesPostInvoiceSchema, 'body'),
+    checkPermission('allowPurchases'),
+    validatorHandler(createPurchPostInvoiceSchema, 'body'),
     async (req, res, next) => {
         try {
-            const body = req.body;
-            // Usamos req.user.userId para la auditoría de quién registró la factura
             const userId = req.user.userId || req.user.sub;
-            const newInvoice = await service.create(body, userId);
-            res.status(201).json(newInvoice);
+            const userName = req.user.username || req.user.email || 'system';
+
+            const data = {
+                ...req.body,
+                userName: userName // Mapeo al campo del modelo
+            };
+
+            const newPostInvoice = await service.create(data, userId);
+            res.status(201).json(newPostInvoice);
         } catch (error) {
+            // Manejo de conflicto por si la factura ya fue registrada
             if (error.name === "SequelizeUniqueConstraintError") {
                 return res.status(409).json({
                     success: false,
-                    message: `La factura con código '${req.body.code}' ya está registrada y no puede ser modificada.`,
+                    message: `La factura '${req.body.code}' ya consta en el histórico y no puede duplicarse.`,
                     error: error.errors
                 });
             }
