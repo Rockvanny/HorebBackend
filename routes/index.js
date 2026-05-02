@@ -15,6 +15,7 @@ const salesPostInvoiceTaxesRouter = require('./salesPostInvoiceTax.router');
 const purchInvoiceRouter = require('./purchInvoice.router');
 const purchInvoiceLinesRouter = require('./purchInvoiceLines.router');
 const purchPostInvoiceRouter = require('./purchPostInvoice.router');
+const purchPostInvoiceLinesRouter = require('./purchPostInvoiceLines.router');
 const seiresNumberRouter = require('./seriesNumber.router');
 const verifactuLogsRouter = require('./verifactuLogs.router');
 const configRouter = require('./config.router');
@@ -42,6 +43,7 @@ function routerApi(app) {
   router.use('/purchInvoices', purchInvoiceRouter);
   router.use('/purchInvoiceLines', purchInvoiceLinesRouter);
   router.use('/purchPostInvoices', purchPostInvoiceRouter);
+  router.use('/purchPostInvoiceLines', purchPostInvoiceLinesRouter);
   router.use('/seriesNumber', seiresNumberRouter);
   router.use('/verifactuLogs', verifactuLogsRouter);
   router.use('/config', configRouter);

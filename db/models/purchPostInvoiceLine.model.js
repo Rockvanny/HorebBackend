@@ -3,17 +3,21 @@ const { Model, DataTypes, Sequelize } = require('sequelize');
 const PURCHPOSTINVOICELINE_TABLE = 'purch_post_invoice_lines';
 
 const purchPostInvoiceLineSchema = {
-   codeInvoice: {
-    field: 'code_invoice',
+  id: {
     allowNull: false,
+    autoIncrement: true,
     primaryKey: true,
-    type: DataTypes.STRING,
+    type: DataTypes.INTEGER
+  },
 
+  codeDocument: {
+    field: 'code_document',
+    allowNull: false,
+    type: DataTypes.STRING,
     references: {
-      model: 'purch_post_invoices',
+      model: 'purch_post_invoices', // Nombre de la tabla de cabecera
       key: 'code'
     },
-
     onUpdate: 'CASCADE',
     onDelete: 'CASCADE'
   },
@@ -21,26 +25,26 @@ const purchPostInvoiceLineSchema = {
   lineNo: {
     field: 'line_no',
     allowNull: false,
-    primaryKey: true, // Parte de la clave primaria compuesta
     type: DataTypes.INTEGER,
   },
 
   codeItem: {
     field: 'item_code',
-    allowNull: false,
     type: DataTypes.STRING,
+    allowNull: true // Puede ser un gasto directo sin código de artículo
   },
 
   description: {
     field: 'description',
-    allowNull: true, // Asumo que la descripción puede ser opcional
-    type: DataTypes.STRING
+    type: DataTypes.TEXT,
+    allowNull: false
   },
 
   quantity: {
     field: 'quantity',
+    type: DataTypes.DECIMAL(12, 4),
     allowNull: false,
-    type: DataTypes.INTEGER,
+    defaultValue: 0
   },
 
   unitMeasure: {
@@ -50,42 +54,50 @@ const purchPostInvoiceLineSchema = {
   },
 
   quantityUnitMeasure: {
-    field:'quantity_unit_measure',
+    field: 'quantity_unit_measure',
+    type: DataTypes.DECIMAL(12, 4),
     allowNull: false,
-    type: DataTypes.INTEGER,
+    defaultValue: 1
   },
 
   unitPrice: {
     field: 'unit_price',
+    type: DataTypes.DECIMAL(12, 4),
     allowNull: false,
-    type: DataTypes.DECIMAL(10, 2),
-    defaultValue: 0.00
+    defaultValue: 0
+  },
+
+  taxType: {
+    field: 'tax_type',
+    type: DataTypes.ENUM('IVA', 'IRPF', 'RE', 'EXENTO'),
+    allowNull: false,
+    defaultValue: 'IVA'
   },
 
   vat: {
     field: 'vat',
+    type: DataTypes.DECIMAL(12, 4),
     allowNull: false,
-    type: DataTypes.DECIMAL(10, 2),
-    defaultValue: 0.00
+    defaultValue: 21
   },
 
   amountLine: {
     field: 'amount_line',
+    type: DataTypes.DECIMAL(12, 4),
     allowNull: false,
-    type: DataTypes.DECIMAL(10, 2),
-    defaultValue: 0.00
+    defaultValue: 0
   },
 
   userName: {
     field: 'user_name',
-    type: DataTypes.STRING,
+    type: DataTypes.STRING
   },
 
   createdAt: {
     field: 'created_at',
     allowNull: false,
     type: DataTypes.DATE,
-    defaultValue: Sequelize.NOW,
+    defaultValue: Sequelize.NOW
   },
 
   updatedAt: {
@@ -98,22 +110,26 @@ const purchPostInvoiceLineSchema = {
 
 class purchPostInvoiceLine extends Model {
   static associate(models) {
-    this.belongsTo(models.purchPostInvoice, { // 'models.salesBudget' es el modelo al que pertenece
-      as: 'invoice',                       // Alias para acceder a la factura regsitrada desde la línea (ej. line.budget)
-      foreignKey: 'code_invoice'            // La clave foránea en ESTA tabla (purch_Invoice_lines)
+    this.belongsTo(models.purchPostInvoice, {
+      as: 'parentInvoice',
+      foreignKey: 'codeInvoice',
+      targetKey: 'code'
     });
   }
 
-  // Método para la configuración del modelo
   static config(sequelize) {
     return {
-      sequelize,                      // Instancia de Sequelize
-      tableName: PURCHPOSTINVOICELINE_TABLE, // Nombre de la tabla en la base de datos
-      modelName: 'purchPostInvoiceLine',   // Nombre del modelo en Sequelize
-      timestamps: true,               // Ajusta a true si quieres que Sequelize maneje createdAt y updatedAt automáticamente
+      sequelize,
+      tableName: PURCHPOSTINVOICELINE_TABLE,
+      modelName: 'purchPostInvoiceLine',
+      timestamps: true,
       underscored: true,
-      id: false,
-      primaryKey: ['code_invoice', 'line_no']
+      indexes: [
+        {
+          unique: true,
+          fields: ['code_invoice', 'line_no']
+        }
+      ]
     };
   }
 }

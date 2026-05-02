@@ -1,10 +1,10 @@
 'use strict';
 
-const { SALESPOSTINVOICELINE_TABLE } = require('../models/salesPostInvoiceLine.model');
+const { PURCHPOSTINVOICELINE_TABLE } = require('../models/purchPostInvoiceLine.model');
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
-    await queryInterface.createTable(SALESPOSTINVOICELINE_TABLE, {
+    await queryInterface.createTable(PURCHPOSTINVOICELINE_TABLE, {
       id: {
         field: 'id',
         allowNull: false,
@@ -12,12 +12,12 @@ module.exports = {
         primaryKey: true,
         type: Sequelize.DataTypes.INTEGER,
       },
-      codeDocument: {
+      codeDocument: { // Mapeado a code_invoice para compras
         field: 'code_document',
         allowNull: false,
         type: Sequelize.DataTypes.STRING,
         references: {
-          model: 'sales_post_invoices', // Referencia a la tabla registrada
+          model: 'purch_post_invoices', // Referencia al histórico de cabeceras de compras
           key: 'code'
         },
         onUpdate: 'CASCADE',
@@ -25,8 +25,8 @@ module.exports = {
       },
       lineNo: {
         field: 'line_no',
-        allowNull: false,
         type: Sequelize.DataTypes.INTEGER,
+        allowNull: false,
       },
       codeItem: {
         field: 'item_code',
@@ -42,7 +42,7 @@ module.exports = {
         field: 'quantity',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 0.0000
+        defaultValue: 0
       },
       unitMeasure: {
         field: 'unit_measure',
@@ -53,37 +53,33 @@ module.exports = {
         field: 'quantity_unit_measure',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 1.0000
+        defaultValue: 1
       },
       unitPrice: {
         field: 'unit_price',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 0.0000
+        defaultValue: 0
       },
-
-      // --- NUEVA COLUMNA PARA EL HISTÓRICO FISCAL ---
       taxType: {
         field: 'tax_type',
         type: Sequelize.DataTypes.ENUM('IVA', 'IRPF', 'RE', 'EXENTO'),
         allowNull: false,
         defaultValue: 'IVA'
       },
-      // ----------------------------------------------
-
       vat: {
         field: 'vat',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 0.0000
+        defaultValue: 21 // Ajustado según tu ejemplo de ventas
       },
       amountLine: {
         field: 'amount_line',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 0.0000
+        defaultValue: 0
       },
-      username: {
+      userName: {
         field: 'user_name',
         type: Sequelize.DataTypes.STRING,
         allowNull: true,
@@ -102,16 +98,14 @@ module.exports = {
       }
     });
 
-    // Índice único para asegurar que no se repitan líneas por factura
-    await queryInterface.addIndex(SALESPOSTINVOICELINE_TABLE, ['code_document', 'line_no'], {
+    // Índice único para asegurar que no se repitan líneas en un documento registrado
+    await queryInterface.addIndex(PURCHPOSTINVOICELINE_TABLE, ['code_invoice', 'line_no'], {
       unique: true,
-      name: 'sales_post_invoice_lines_code_line_unique'
+      name: 'purch_post_invoice_lines_unique_idx' // Simetría con el nombre de ventas
     });
   },
 
   down: async (queryInterface) => {
-    await queryInterface.dropTable(SALESPOSTINVOICELINE_TABLE);
-    // Borramos el ENUM solo si no lo comparten otras tablas
-    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_post_invoice_lines_tax_type";');
+    await queryInterface.dropTable(PURCHPOSTINVOICELINE_TABLE);
   }
 };
