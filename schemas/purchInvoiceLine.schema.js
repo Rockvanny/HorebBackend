@@ -1,23 +1,24 @@
 const Joi = require('joi');
 
-// --- DEFINICIÓN DE TIPOS BASE (IGUAL A OFERTA) ---
+// --- DEFINICIÓN DE TIPOS BASE ---
 const codeDocument = Joi.string();
 const lineNo = Joi.number().integer().min(1);
 const codeItem = Joi.string().allow('', null);
 const description = Joi.string().allow('', null);
-const quantity = Joi.number().min(0).precision(4);
-// Ajuste para permitir null o vacío igual que en la oferta
+const quantity = Joi.number().precision(4); // Quitamos min(0) por si hay devoluciones
 const unitMeasure = Joi.string().allow('', null).default('UNIDAD');
 const quantityUnitMeasure = Joi.number().min(0).precision(4).default(1);
-const unitPrice = Joi.number().min(0).precision(4);
+const unitPrice = Joi.number().precision(4);
+// Nuevo: Soporte para tipo de impuesto (IVA, IRPF, etc)
+const taxType = Joi.string().valid('IVA', 'IRPF', 'RE', 'EXENTO').default('IVA');
 const vat = Joi.number().min(0).max(100).precision(4).default(21);
-const amountLine = Joi.number().min(0).precision(4);
-const username = Joi.string().allow('', null);
+const amountLine = Joi.number().precision(4);
+const userName = Joi.string().allow('', null); // Sincronizado con el modelo
 
 // --- ESQUEMAS DE ACCIÓN ---
 
 /**
- * Esquema para obtener un registro por su PK
+ * Esquema para obtener un registro por su clave compuesta
  */
 const getPurchInvoiceLineSchema = Joi.object({
   codeDocument: codeDocument.required(),
@@ -26,7 +27,6 @@ const getPurchInvoiceLineSchema = Joi.object({
 
 /**
  * Esquema para CREACIÓN
- * Igualado a la oferta: codeDocument es opcional para que el Service lo inyecte
  */
 const createPurchInvoiceLineSchema = Joi.object({
   codeDocument: codeDocument.optional().allow('', null),
@@ -37,14 +37,14 @@ const createPurchInvoiceLineSchema = Joi.object({
   unitMeasure: unitMeasure.optional(),
   quantityUnitMeasure: quantityUnitMeasure.optional(),
   unitPrice: unitPrice.required(),
+  taxType: taxType.optional(), // Añadido
   vat: vat.optional(),
   amountLine: amountLine.required(),
-  username: username.optional(),
+  userName: userName.optional(), // Corregido camelCase
 });
 
 /**
- * Esquema para ACTUALIZACIÓN (PATCH/PUT)
- * Copia exacta de updateSalesBudgetLineSchema
+ * Esquema para ACTUALIZACIÓN
  */
 const updatePurchInvoiceLineSchema = Joi.object({
   codeDocument: codeDocument.optional(),
@@ -55,9 +55,10 @@ const updatePurchInvoiceLineSchema = Joi.object({
   unitMeasure: unitMeasure.optional(),
   quantityUnitMeasure: quantityUnitMeasure.optional(),
   unitPrice: unitPrice.optional(),
+  taxType: taxType.optional(), // Añadido
   vat: vat.optional(),
   amountLine: amountLine.optional(),
-  username: username.optional(),
+  userName: userName.optional(), // Corregido camelCase
 });
 
 /**

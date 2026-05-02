@@ -4,7 +4,7 @@ const sequelize = require('../libs/sequelize');
 const { purchInvoiceLine, purchInvoice } = sequelize.models;
 
 class purchInvoiceLineService {
-  constructor() { }
+  constructor() {}
 
   async findPaginated({ limit, offset, searchTerm }) {
     const parsedLimit = parseInt(limit, 10) || 100;
@@ -13,7 +13,7 @@ class purchInvoiceLineService {
     const options = {
       limit: parsedLimit,
       offset: parsedOffset,
-      order: [['code_document', 'ASC'], ['line_no', 'ASC']],
+      order: [['created_at', 'DESC']], // Ordenamos por fecha de creación por defecto
       where: {},
     };
 
@@ -33,66 +33,54 @@ class purchInvoiceLineService {
         total: count,
       };
     } catch (error) {
-      throw boom.badImplementation('Error al consultar líneas', error);
+      throw boom.badImplementation('Error al consultar líneas de compra', error);
     }
   }
 
-  async findOne({ codeDocument, lineNo }, options = {}) {
-    const line = await purchInvoiceLine.findOne({
-      where: { codeDocument, lineNo },
+  // Ahora busca por ID primario para mayor simplicidad y rapidez
+  async findOne(id, options = {}) {
+    const line = await purchInvoiceLine.findByPk(id, {
       include: options.includeParent ? [{ model: purchInvoice, as: 'parentDocument' }] : []
     });
 
-    if (!line) throw boom.notFound(`Línea ${lineNo} del documento ${codeDocument} no encontrada`);
+    if (!line) throw boom.notFound(`Línea con ID ${id} no encontrada`);
     return line;
   }
 
-  async create(data, transaction = null) {
-    const t = transaction || await sequelize.transaction();
-    try {
-      const existingLine = await purchInvoiceLine.findOne({
-        where: { codeDocument: data.codeDocument, lineNo: data.lineNo },
-        transaction: t
-      });
+  async create(data, userId) {
+    // Verificamos el índice de negocio (Documento + Nº Línea) para evitar duplicados
+    const existingLine = await purchInvoiceLine.findOne({
+      where: {
+        codeDocument: data.codeDocument,
+        lineNo: data.lineNo
+      }
+    });
 
-      if (existingLine) throw boom.conflict(`La línea ${data.lineNo} ya existe.`);
-
-      const newLine = await purchInvoiceLine.create(data, { transaction: t });
-
-      if (!transaction) await t.commit();
-      return newLine;
-    } catch (error) {
-      if (!transaction) await t.rollback();
-      throw error.isBoom ? error : boom.badImplementation(error);
+    if (existingLine) {
+      throw boom.conflict(`La línea ${data.lineNo} ya existe en el documento ${data.codeDocument}`);
     }
+
+    // Inyectamos el usuario de auditoría
+    const dataWithUser = { ...data, userName: userId };
+
+    return await purchInvoiceLine.create(dataWithUser);
   }
 
-  async update({ codeDocument, lineNo }, changes, transaction = null) {
-    const t = transaction || await sequelize.transaction();
-    try {
-      const line = await this.findOne({ codeDocument, lineNo });
-      const updatedLine = await line.update(changes, { transaction: t });
+  async update(id, changes) {
+    const line = await this.findOne(id);
 
-      if (!transaction) await t.commit();
-      return updatedLine;
-    } catch (error) {
-      if (!transaction) await t.rollback();
-      throw error.isBoom ? error : boom.badImplementation(error);
-    }
+    // Evitamos que se alteren campos clave por error
+    delete changes.id;
+    delete changes.codeDocument;
+
+    return await line.update(changes);
   }
 
-  async delete({ codeDocument, lineNo }, transaction = null) {
-    const t = transaction || await sequelize.transaction();
-    try {
-      const line = await this.findOne({ codeDocument, lineNo });
-      await line.destroy({ transaction: t });
+  async delete(id) {
+    const line = await this.findOne(id);
+    await line.destroy();
 
-      if (!transaction) await t.commit();
-      return { codeDocument, lineNo, message: 'Eliminado correctamente' };
-    } catch (error) {
-      if (!transaction) await t.rollback();
-      throw error.isBoom ? error : boom.badImplementation(error);
-    }
+    return { id, message: 'Línea de compra eliminada correctamente' };
   }
 }
 

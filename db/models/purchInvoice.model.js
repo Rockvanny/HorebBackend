@@ -4,78 +4,132 @@ const { generateNextCode } = require('../../libs/sequence.handler');
 const PURCHINVOICE_TABLE = 'purch_invoices';
 
 const purchInvoiceSchema = {
+  id: {
+    allowNull: false,
+    autoIncrement: true,
+    primaryKey: true,
+    type: DataTypes.INTEGER
+  },
+
+  movementId: {
+    field: 'movement_id',
+    allowNull: false,
+    unique: true,
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4
+  },
+
   code: {
     field: 'code',
     allowNull: false,
-    primaryKey: true,
+    unique: true,
     type: DataTypes.STRING
   },
+
+  seriesCode: {
+    field: 'series_code',
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+
   codePosting: {
-    field: 'code_posting', // Sincronizado con el campo de la migración
+    field: 'code_posting',
     type: DataTypes.STRING,
     allowNull: true
   },
+
+  typeInvoice: {
+    field: 'type_invoice',
+    type: DataTypes.ENUM('F1', 'F2', 'R1', 'R2', 'R3', 'R4', 'R5'),
+    allowNull: false,
+    defaultValue: 'F1'
+  },
+
+  parentCode: {
+    field: 'parent_code',
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+
+  rectificationType: {
+    field: 'rectification_type',
+    type: DataTypes.ENUM('S', 'I'),
+    allowNull: true
+  },
+
   budgetCode: {
-    field: 'budget_code', // Sincronizado con el campo de la migración
+    field: 'budget_code',
     type: DataTypes.STRING,
     allowNull: true
   },
+
   postingDate: {
     field: 'posting_date',
     type: DataTypes.DATE,
-    allowNull: false // Obligatorio según migración y ley
+    allowNull: false
   },
+
   dueDate: {
     field: 'due_date',
     type: DataTypes.DATE,
     allowNull: true
   },
+
   entityCode: {
     field: 'entity_code',
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: false
   },
+
   name: {
     field: 'name',
     type: DataTypes.STRING,
     allowNull: false
   },
+
   nif: {
     field: 'nif',
     type: DataTypes.STRING,
     allowNull: false
   },
+
   email: {
     field: 'email',
     type: DataTypes.STRING,
     allowNull: true
   },
+
   phone: {
     field: 'phone',
     type: DataTypes.STRING,
     allowNull: true
   },
+
   address: {
     field: 'address',
     type: DataTypes.STRING,
     allowNull: false
   },
+
   postCode: {
     field: 'post_code',
     type: DataTypes.STRING,
     allowNull: true
   },
+
   city: {
     field: 'city',
     type: DataTypes.STRING,
     allowNull: true
   },
+
   status: {
     field: 'status',
     type: DataTypes.ENUM('Abierto', 'Pagado'),
     allowNull: false,
     defaultValue: 'Abierto'
   },
+
   category: {
     field: 'category',
     type: DataTypes.ENUM(
@@ -89,6 +143,7 @@ const purchInvoiceSchema = {
     allowNull: false,
     defaultValue: 'Gastos de Oficina y Varios'
   },
+
   paymentMethod: {
     field: 'payment_method',
     type: Sequelize.DataTypes.ENUM(
@@ -100,40 +155,47 @@ const purchInvoiceSchema = {
     allowNull: false,
     defaultValue: 'Transferencia'
   },
+
   amountWithoutVAT: {
     field: 'amount_without_vat',
     type: DataTypes.DECIMAL(12, 4),
     allowNull: false,
     defaultValue: 0.0000
   },
+
   amountVAT: {
     field: 'amount_vat',
     type: DataTypes.DECIMAL(12, 4),
     allowNull: false,
     defaultValue: 0.0000
   },
+
   amountWithVAT: {
     field: 'amount_with_vat',
     type: DataTypes.DECIMAL(12, 4),
     allowNull: false,
     defaultValue: 0.0000
   },
+
   comments: {
     field: 'comments',
     type: DataTypes.TEXT,
     allowNull: true
   },
+
   userName: {
     field: 'user_name',
     type: DataTypes.STRING,
     allowNull: true
   },
+
   createdAt: {
     field: 'created_at',
     allowNull: false,
     type: DataTypes.DATE,
     defaultValue: Sequelize.NOW
   },
+
   updatedAt: {
     field: 'updated_at',
     allowNull: false,
@@ -144,10 +206,7 @@ const purchInvoiceSchema = {
 
 class purchInvoice extends Model {
   static associate(models) {
-    this.belongsTo(models.Vendor, {
-      as: 'vendor',
-      foreignKey: 'entity_code'
-    });
+    this.belongsTo(models.Vendor, { as: 'vendor', foreignKey: 'entityCode', targetKey: 'code' });
 
     this.hasMany(models.purchInvoiceLine, {
       as: 'lines',
@@ -156,6 +215,14 @@ class purchInvoice extends Model {
       onDelete: 'CASCADE',
       hooks: true
     });
+
+    // ASOCIACIÓN DE IMPUESTOS (Espejo de Ventas)
+    this.hasMany(models.DocumentTax, {
+      as: 'taxes',
+      foreignKey: 'movementId',
+      sourceKey: 'movementId',
+      scope: { codeDocument: 'purchinvoice' } // Identificador para compras
+    });
   }
 
   static config(sequelize) {
@@ -163,13 +230,21 @@ class purchInvoice extends Model {
       sequelize,
       tableName: PURCHINVOICE_TABLE,
       modelName: 'purchInvoice',
-      timestamps: false,
+      timestamps: true, // Cambiado a true para coincidir con ventas
       underscored: true,
       hooks: {
         beforeValidate: async (instance, options) => {
           if (instance.isNewRecord && !instance.code) {
             await generateNextCode(instance, options);
           }
+        },
+        // LIMPIEZA AUTOMÁTICA DE IMPUESTOS AL ELIMINAR COMPRA
+        afterDestroy: async (instance, options) => {
+          const { DocumentTax } = sequelize.models;
+          await DocumentTax.destroy({
+            where: { movementId: instance.movementId, codeDocument: 'purchinvoice' },
+            transaction: options.transaction
+          });
         }
       }
     };

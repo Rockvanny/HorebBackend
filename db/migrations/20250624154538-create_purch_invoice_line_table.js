@@ -11,10 +11,8 @@ module.exports = {
         primaryKey: true,
         type: Sequelize.DataTypes.INTEGER,
       },
-      // Sincronizado con codeDocument (field: 'code_document') del modelo
       code_document: {
         allowNull: false,
-        primaryKey: true,
         type: Sequelize.DataTypes.STRING,
         references: {
           model: 'purch_invoices',
@@ -23,12 +21,14 @@ module.exports = {
         onUpdate: 'CASCADE',
         onDelete: 'CASCADE'
       },
+      // Agregado el campo explícito para line_no
       line_no: {
+        field: 'line_no',
         allowNull: false,
-        primaryKey: true,
         type: Sequelize.DataTypes.INTEGER,
       },
       item_code: {
+        field: 'item_code',
         type: Sequelize.DataTypes.STRING,
         allowNull: true,
       },
@@ -41,45 +41,62 @@ module.exports = {
         allowNull: false,
         defaultValue: 0.0000
       },
-      unitMeasure: {
+      unit_measure: {
         field: 'unit_measure',
         type: Sequelize.DataTypes.ENUM('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK'),
         defaultValue: 'UNIDAD'
       },
       quantity_unit_measure: {
+        field: 'quantity_unit_measure',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 1.0000
       },
       unit_price: {
+        field: 'unit_price',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 0.0000
       },
+      tax_type: {
+        field: 'tax_type',
+        type: Sequelize.DataTypes.ENUM('IVA', 'IRPF', 'RE', 'EXENTO'),
+        allowNull: false,
+        defaultValue: 'IVA'
+      },
       vat: {
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 21.0000 // Actualizado a 21.0000 para coincidir con el defaultValue del modelo
+        defaultValue: 21.0000
       },
-      amountLine: {
+      amount_line: {
+        field: 'amount_line',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 0.0000
       },
       user_name: {
+        field: 'user_name',
         type: Sequelize.DataTypes.STRING,
         allowNull: true,
       },
       created_at: {
+        field: 'created_at',
         allowNull: false,
         type: Sequelize.DataTypes.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
       },
       updated_at: {
+        field: 'updated_at',
         allowNull: false,
         type: Sequelize.DataTypes.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
       }
+    });
+
+    await queryInterface.addIndex(PURCHINVOICELINE_TABLE, ['code_document', 'line_no'], {
+      unique: true,
+      name: 'purch_invoice_lines_code_line_unique'
     });
   },
 

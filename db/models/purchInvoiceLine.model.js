@@ -3,11 +3,16 @@ const { Model, DataTypes, Sequelize } = require('sequelize');
 const PURCHINVOICELINE_TABLE = 'purch_invoice_lines';
 
 const purchInvoiceLineSchema = {
-  // CLAVE COMPUESTA NORMALIZADA (Espejo de salesBudgetLine)
-  codeDocument: {
-    field: 'code_document', // Cambiado de code_invoice a code_document para consistencia total
+  id: {
     allowNull: false,
+    autoIncrement: true,
     primaryKey: true,
+    type: DataTypes.INTEGER
+  },
+
+  codeDocument: {
+    field: 'code_document',
+    allowNull: false,
     type: DataTypes.STRING,
     references: {
       model: 'purch_invoices',
@@ -16,56 +21,85 @@ const purchInvoiceLineSchema = {
     onUpdate: 'CASCADE',
     onDelete: 'CASCADE'
   },
+
   lineNo: {
     field: 'line_no',
     allowNull: false,
-    primaryKey: true,
     type: DataTypes.INTEGER,
   },
-  // CAMPOS GENÉRICOS (Mismos nombres que en ofertas)
+
   codeItem: {
     field: 'item_code',
     type: DataTypes.STRING,
     allowNull: true
   },
+
   description: {
     field: 'description',
     type: DataTypes.TEXT
   },
+
   quantity: {
     field: 'quantity',
     type: DataTypes.DECIMAL(12, 4),
-    defaultValue: 0.0000
+    defaultValue: 0
   },
+
   unitMeasure: {
     field: 'unit_measure',
     type: DataTypes.ENUM('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK'),
     defaultValue: 'UNIDAD'
   },
+
   quantityUnitMeasure: {
     field: 'quantity_unit_measure',
     type: DataTypes.DECIMAL(12, 4),
-    defaultValue: 1.0000
+    defaultValue: 1
   },
+
   unitPrice: {
     field: 'unit_price',
     type: DataTypes.DECIMAL(12, 4),
-    defaultValue: 0.0000
+    defaultValue: 0
   },
+
+  taxType: {
+    field: 'tax_type',
+    type: DataTypes.ENUM('IVA', 'IRPF', 'RE', 'EXENTO'),
+    allowNull: false,
+    defaultValue: 'IVA'
+  },
+
   vat: {
     field: 'vat',
     type: DataTypes.DECIMAL(12, 4),
-    defaultValue: 21.0000
+    defaultValue: 21
   },
+
   amountLine: {
     field: 'amount_line',
     type: DataTypes.DECIMAL(12, 4),
-    defaultValue: 0.0000
+    defaultValue: 0
   },
+
   userName: {
     field: 'user_name',
     type: DataTypes.STRING
   },
+
+  createdAt: {
+    field: 'created_at',
+    allowNull: false,
+    type: DataTypes.DATE,
+    defaultValue: Sequelize.NOW
+  },
+
+  updatedAt: {
+    field: 'updated_at',
+    allowNull: false,
+    type: DataTypes.DATE,
+    defaultValue: Sequelize.NOW
+  }
 };
 
 class purchInvoiceLine extends Model {
@@ -77,24 +111,36 @@ class purchInvoiceLine extends Model {
     });
   }
 
-  // MÉTODO ESTÁTICO NORMALIZADO (Mismo nombre que en ofertas: updateDocumentTotals)
+  /**
+   * Recalcula la cabecera de la factura de compra basándose en sus líneas.
+   * Maneja correctamente impuestos positivos (IVA) y negativos (IRPF).
+   */
   static async updateDocumentTotals(codeDocument, transaction) {
     const { purchInvoice } = this.sequelize.models;
     const lines = await this.findAll({ where: { codeDocument }, transaction });
 
     const totals = lines.reduce((acc, line) => {
       const base = Number(line.amountLine) || 0;
-      const vatAmount = base * (Number(line.vat) / 100);
+      const taxPercent = Number(line.vat) || 0;
+
+      // El IRPF resta del total en la factura, el IVA suma.
+      const isNegative = line.taxType === 'IRPF';
+      const taxAmount = base * (taxPercent / 100);
+
       acc.baseTotal += base;
-      acc.vatTotal += vatAmount;
+      acc.taxTotal += isNegative ? -taxAmount : taxAmount;
+
       return acc;
-    }, { baseTotal: 0, vatTotal: 0 });
+    }, { baseTotal: 0, taxTotal: 0 });
 
     await purchInvoice.update({
       amountWithoutVAT: totals.baseTotal.toFixed(4),
-      amountVAT: totals.vatTotal.toFixed(4),
-      amountWithVAT: (totals.baseTotal + totals.vatTotal).toFixed(4)
-    }, { where: { code: codeDocument }, transaction });
+      amountVAT: totals.taxTotal.toFixed(4),
+      amountWithVAT: (totals.baseTotal + totals.taxTotal).toFixed(4)
+    }, {
+      where: { code: codeDocument },
+      transaction
+    });
   }
 
   static config(sequelize) {
@@ -104,6 +150,12 @@ class purchInvoiceLine extends Model {
       modelName: 'purchInvoiceLine',
       timestamps: true,
       underscored: true,
+      indexes: [
+        {
+          unique: true,
+          fields: ['code_document', 'line_no']
+        }
+      ],
       hooks: {
         afterSave: async (line, opts) => {
           await this.updateDocumentTotals(line.codeDocument, opts.transaction);
