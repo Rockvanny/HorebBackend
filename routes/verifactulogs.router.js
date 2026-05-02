@@ -3,59 +3,65 @@ const passport = require('passport');
 const VerifactuService = require('../services/verifactulogs.service');
 const validatorHandler = require('../middlewares/validator.handler');
 const { checkPermission } = require('../middlewares/auth.handler');
-const { getVerifactuLogSchema, queryVerifactuLogSchema } = require('../schemas/verifactuLogs.schema');
+const { 
+    updateExternalReferenceSchema 
+} = require('../schemas/verifactuLogs.schema');
 
 const router = express.Router();
 const service = new VerifactuService();
 
 /**
- * LISTADO GENERAL DE LOGS (Auditoría administrativa)
- * Paginación integrada con el componente Explorer
+ * LISTADO PAGINADO
  */
 router.get('/logs-paginated',
-  passport.authenticate('jwt', { session: false }),
-  checkPermission('allowGestion'),
-  validatorHandler(queryVerifactuLogSchema, 'query'),
-  async (req, res, next) => {
-    try {
-      const result = await service.findPaginated(req.query);
-      res.json(result);
-    } catch (error) { next(error); }
-  }
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowGestion'),
+    async (req, res, next) => {
+        try {
+            const result = await service.findPaginated(req.query);
+            res.json(result);
+        } catch (error) { next(error); }
+    }
 );
 
 /**
- * TRAZABILIDAD POR FACTURA
+ * DETALLE POR ID
  */
-router.get('/:invoiceCode',
-  passport.authenticate('jwt', { session: false }),
-  checkPermission('allowSales'),
-  validatorHandler(getVerifactuLogSchema, 'params'),
-  async (req, res, next) => {
-    try {
-      const { invoiceCode } = req.params;
-      const trace = await service.getTraceability(invoiceCode);
-      res.json(trace);
-    } catch (error) { next(error); }
-  }
+router.get('/:id',
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowSales'),
+    async (req, res, next) => {
+        try {
+            const { id } = req.params;
+            const log = await service.findOne(id);
+            res.json({
+                success: true,
+                data: log
+            });
+        } catch (error) { next(error); }
+    }
 );
 
 /**
- * GENERACIÓN MANUAL DE LOG/ENVÍO
+ * ACTUALIZACIÓN DE REFERENCIA AEAT (PATCH)
+ * Solo permite modificar external_reference
  */
-router.post('/generate/:invoiceCode',
-  passport.authenticate('jwt', { session: false }),
-  checkPermission('allowGestion'),
-  validatorHandler(getVerifactuLogSchema, 'params'),
-  async (req, res, next) => {
-    try {
-      const { invoiceCode } = req.params;
-      const isTest = process.env.NODE_ENV !== 'production';
-
-      const log = await service.createLog(invoiceCode, isTest);
-      res.status(201).json(log);
-    } catch (error) { next(error); }
-  }
+router.patch('/:id',
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowGestion'),
+    validatorHandler(updateExternalReferenceSchema, 'body'),
+    async (req, res, next) => {
+        try {
+            const { id } = req.params;
+            const body = req.body;
+            const result = await service.update(id, body);
+            
+            res.json({
+                success: true,
+                data: result
+            });
+        } catch (error) { next(error); }
+    }
 );
 
 module.exports = router;
