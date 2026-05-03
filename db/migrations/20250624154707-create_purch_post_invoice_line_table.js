@@ -99,7 +99,7 @@ module.exports = {
     });
 
     // Índice único para asegurar que no se repitan líneas en un documento registrado
-    await queryInterface.addIndex(PURCHPOSTINVOICELINE_TABLE, ['code_invoice', 'line_no'], {
+    await queryInterface.addIndex(PURCHPOSTINVOICELINE_TABLE, ['code_document', 'line_no'], {
       unique: true,
       name: 'purch_post_invoice_lines_unique_idx' // Simetría con el nombre de ventas
     });

@@ -30,6 +30,22 @@ router.get('/salesInvoices-paginated',
     }
 );
 
+/**
+ * Busca facturas (o presupuestos según el servicio) por código de cliente.
+ * Útil para selectores de documentos origen.
+ */
+router.get('/by-customer/:entityCode',
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowSales'),
+    async (req, res, next) => {
+        try {
+            const { entityCode } = req.params;
+            const result = await service.findByCustomer(entityCode);
+            res.json({ success: true, data: result });
+        } catch (error) { next(error); }
+    }
+);
+
 // Obtener una factura por código o ID
 router.get('/:code',
     passport.authenticate('jwt', { session: false }),

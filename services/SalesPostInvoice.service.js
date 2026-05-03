@@ -42,28 +42,52 @@ class SalesPostInvoiceService {
   }
 
   async findOne(id, options = {}) {
-      const { includeLines = false } = options;
-      const isNumeric = !isNaN(id) && !isNaN(parseFloat(id));
-      const queryOptions = {
-        where: isNumeric ? { id } : { code: id },
-        include: [{ model: DocumentTax, as: 'taxes' }]
-      };
+    const { includeLines = false } = options;
+    const isNumeric = !isNaN(id) && !isNaN(parseFloat(id));
+    const queryOptions = {
+      where: isNumeric ? { id } : { code: id },
+      include: [{ model: DocumentTax, as: 'taxes' }]
+    };
 
-      if (includeLines) queryOptions.include.push({ model: salesPostInvoiceLine, as: 'lines' });
+    if (includeLines) queryOptions.include.push({ model: salesPostInvoiceLine, as: 'lines' });
 
-      const record = await salesPostInvoice.findOne(queryOptions);
-      if (!record) throw boom.notFound('Factura no encontrada');
-      return record;
+    const record = await salesPostInvoice.findOne(queryOptions);
+    if (!record) throw boom.notFound('Factura no encontrada');
+    return record;
+  }
+
+  /**
+   * Busca facturas registradas de un cliente específico.
+   * Útil para rellenar el selector de "Factura a rectificar" (baseRectified).
+   */
+  async findByCustomer(entityCode) {
+    console.log("DEBUG: Buscando facturas registradas para el cliente:", entityCode);
+    if (!entityCode) {
+      throw boom.badRequest('Se requiere el código del cliente');
     }
+
+    try {
+      const invoices = await salesPostInvoice.findAll({
+        where: {
+          entityCode: entityCode
+          // Aquí podrías añadir filtros adicionales, ej: que no sean ya rectificativas
+        },
+        attributes: ['id', 'code', 'name', 'postingDate', 'amountWithVAT'],
+        order: [['postingDate', 'DESC']]
+      });
+
+      return invoices;
+    } catch (error) {
+      throw boom.badImplementation('Error al consultar facturas por cliente', error);
+    }
+  }
 
   async create(data) {
     const { lines, ...headerData } = data;
     const transaction = await sequelize.transaction();
 
     try {
-      // 1. RE-CALCULAR TODO antes de insertar (Seguridad del lado del servidor)
-      // Esto asegura que amount_line incluya el IVA si así lo decides,
-      // o al menos que los totales de cabecera sean verídicos.
+      // 1. RE-CALCULAR TODO antes de insertar
       const totals = calculateDocumentTotals(lines, headerData.movementId, 'salespostinvoices');
 
       // 2. Creación de Cabecera con totales recalculados
@@ -74,10 +98,9 @@ class SalesPostInvoiceService {
         amountWithVAT: totals.headerTotals.amountWithVAT
       }, { transaction });
 
-      // 3. Inserción de Líneas usando processedLines (las que salieron del cálculo)
+      // 3. Inserción de Líneas usando processedLines
       if (totals.processedLines && totals.processedLines.length > 0) {
         const rows = totals.processedLines.map((line) => {
-          // Calculamos el importe con IVA para que amount_line sea el "Total Real"
           const base = parseFloat(line.amountLine) || 0;
           const porcentajeIVA = parseFloat(line.vat) || 0;
           const importeConIVA = base + (base * (porcentajeIVA / 100));
@@ -93,7 +116,6 @@ class SalesPostInvoiceService {
             unit_price: parseFloat(line.unitPrice) || 0,
             tax_type: line.taxType || 'IVA',
             vat: porcentajeIVA,
-            // AQUÍ LA CLAVE: Guardamos el importe CON IVA para que coincida con la App
             amount_line: importeConIVA,
             user_name: data.username || null,
             created_at: new Date(),
@@ -108,7 +130,7 @@ class SalesPostInvoiceService {
         );
       }
 
-      // 4. Actualización de impuestos y Verifactu (se mantiene igual)
+      // 4. Actualización de impuestos y Verifactu
       await DocumentTax.update(
         { codeDocument: 'salespostinvoices' },
         { where: { movementId: newPostInvoice.movementId }, transaction }

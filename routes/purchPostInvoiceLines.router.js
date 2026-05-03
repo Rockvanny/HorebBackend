@@ -1,6 +1,6 @@
 const express = require('express');
 const passport = require('passport');
-const PurchPostInvoiceLineService = require('../services/purchPostInvoiceLines.service');
+const PurchPostInvoiceLineService = require('../services/purchPostInvoiceLine.service');
 const validatorHandler = require('../middlewares/validator.handler');
 const { checkPermission } = require('../middlewares/auth.handler');
 const {
