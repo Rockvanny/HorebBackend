@@ -16,6 +16,7 @@ const { purchPostInvoice, purchPostInvoiceSchema } = require('./purchPostInvoice
 const { purchPostInvoiceLine, purchPostInvoiceLineSchema } = require('./purchPostInvoiceLine.model');
 const { seriesNumber, seriesNumberSchema } = require('./SeriesNumber.model');
 const { VerifactuLog, verifactuLogSchema } = require('./verifactuLogs.model');
+const { SystemEnum, SystemEnumSchema } = require('./systemEnums.model');
 
 function setupModels(sequelize) {
   // 1. Inicialización de modelos
@@ -37,6 +38,7 @@ function setupModels(sequelize) {
   purchPostInvoiceLine.init(purchPostInvoiceLineSchema, purchPostInvoiceLine.config(sequelize));
   seriesNumber.init(seriesNumberSchema, seriesNumber.config(sequelize));
   VerifactuLog.init(verifactuLogSchema, VerifactuLog.config(sequelize));
+  SystemEnum.init(SystemEnumSchema, SystemEnum.config(sequelize));
 
   // 2. Definición de asociaciones
   Company.associate(sequelize.models);

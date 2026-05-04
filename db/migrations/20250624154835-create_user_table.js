@@ -1,75 +1,45 @@
 'use strict';
-const { USER_TABLE } = require('./../models/user.model');
+const { SYSTEM_ENUM_TABLE } = require('./../models/systemEnum.model');
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
-    await queryInterface.createTable(USER_TABLE, {
+    await queryInterface.createTable(SYSTEM_ENUM_TABLE, {
+      id: {
+        field: 'id',
+        allowNull: false,
+        autoIncrement: true,
+        primaryKey: true,
+        type: Sequelize.DataTypes.INTEGER
+      },
+      model: {
+        field: 'model',
+        allowNull: false,
+        type: Sequelize.DataTypes.STRING,
+      },
+      field: {
+        field: 'field',
+        allowNull: false,
+        type: Sequelize.DataTypes.STRING,
+      },
       code: {
         field: 'code',
         allowNull: false,
-        primaryKey: true,
-        type: Sequelize.DataTypes.STRING
-      },
-      // --- NUEVO CAMPO: NOMBRE Y APELLIDOS ---
-      fullName: {
-        field: 'full_name',
-        allowNull: false,
-        type: Sequelize.DataTypes.STRING,
-        defaultValue: 'Usuario Nuevo'
-      },
-      email: {
-        field: 'email',
-        allowNull: false,
-        unique: true,
         type: Sequelize.DataTypes.STRING,
       },
-      password: {
-        field: 'password',
+      description: {
+        field: 'description',
         allowNull: false,
         type: Sequelize.DataTypes.STRING,
       },
-      mustChangePassword: {
-        field: 'must_change_password',
-        allowNull: false,
-        type: Sequelize.DataTypes.BOOLEAN,
-        defaultValue: true,
+      sortOrder: {
+        field: 'sort_order',
+        type: Sequelize.DataTypes.INTEGER,
+        defaultValue: 0
       },
-      role: {
-        field: 'role',
-        allowNull: false,
-        type: Sequelize.DataTypes.STRING,
-        defaultValue: 'viewer'
-      },
-      // --- PERMISOS DE MÓDULOS ---
-      allowGestion: {
-        field: 'allow_gestion',
-        allowNull: false,
+      isActive: {
+        field: 'is_active',
         type: Sequelize.DataTypes.BOOLEAN,
-        defaultValue: true,
-      },
-      allowSales: {
-        field: 'allow_sales',
-        allowNull: false,
-        type: Sequelize.DataTypes.BOOLEAN,
-        defaultValue: true,
-      },
-      allowPurchases: {
-        field: 'allow_purchases',
-        allowNull: false,
-        type: Sequelize.DataTypes.BOOLEAN,
-        defaultValue: false,
-      },
-      allowReports: {
-        field: 'allow_reports',
-        allowNull: false,
-        type: Sequelize.DataTypes.BOOLEAN,
-        defaultValue: false,
-      },
-      allowSettings: {
-        field: 'allow_settings',
-        allowNull: false,
-        type: Sequelize.DataTypes.BOOLEAN,
-        defaultValue: false,
+        defaultValue: true
       },
       // --- TIMESTAMPS ---
       createdAt: {
@@ -83,11 +53,16 @@ module.exports = {
         allowNull: false,
         type: Sequelize.DataTypes.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
+      },
+      deleteAt: {
+        field: 'delete_at',
+        allowNull: true,
+        type: Sequelize.DataTypes.DATE
       }
     });
   },
 
   down: async (queryInterface, Sequelize) => {
-    await queryInterface.dropTable(USER_TABLE);
+    await queryInterface.dropTable(SYSTEM_ENUM_TABLE);
   }
 };
