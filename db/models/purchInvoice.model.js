@@ -206,6 +206,7 @@ const purchInvoiceSchema = {
 
 class purchInvoice extends Model {
   static associate(models) {
+    // Apunta a Vendor en lugar de Customer
     this.belongsTo(models.Vendor, { as: 'vendor', foreignKey: 'entityCode', targetKey: 'code' });
 
     this.hasMany(models.purchInvoiceLine, {
@@ -216,12 +217,11 @@ class purchInvoice extends Model {
       hooks: true
     });
 
-    // ASOCIACIÓN DE IMPUESTOS (Espejo de Ventas)
     this.hasMany(models.DocumentTax, {
       as: 'taxes',
       foreignKey: 'movementId',
       sourceKey: 'movementId',
-      scope: { codeDocument: 'purchinvoice' } // Identificador para compras
+      scope: { codeDocument: 'purchinvoice' }
     });
   }
 
@@ -230,7 +230,7 @@ class purchInvoice extends Model {
       sequelize,
       tableName: PURCHINVOICE_TABLE,
       modelName: 'purchInvoice',
-      timestamps: true, // Cambiado a true para coincidir con ventas
+      timestamps: true,
       underscored: true,
       hooks: {
         beforeValidate: async (instance, options) => {
@@ -238,7 +238,6 @@ class purchInvoice extends Model {
             await generateNextCode(instance, options);
           }
         },
-        // LIMPIEZA AUTOMÁTICA DE IMPUESTOS AL ELIMINAR COMPRA
         afterDestroy: async (instance, options) => {
           const { DocumentTax } = sequelize.models;
           await DocumentTax.destroy({

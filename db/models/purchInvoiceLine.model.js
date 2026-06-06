@@ -113,7 +113,6 @@ class purchInvoiceLine extends Model {
 
   /**
    * Recalcula la cabecera de la factura de compra basándose en sus líneas.
-   * Maneja correctamente impuestos positivos (IVA) y negativos (IRPF).
    */
   static async updateDocumentTotals(codeDocument, transaction) {
     const { purchInvoice } = this.sequelize.models;

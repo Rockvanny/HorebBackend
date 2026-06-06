@@ -1,137 +1,112 @@
-const { Model, DataTypes, Sequelize } = require('sequelize');
+'use strict';
+const { PURCHPOSTINVOICELINE_TABLE } = require('../models/purchPostInvoiceLine.model');
 
-const PURCHPOSTINVOICELINE_TABLE = 'purch_post_invoice_lines';
+module.exports = {
+  up: async (queryInterface, Sequelize) => {
+    await queryInterface.createTable(PURCHPOSTINVOICELINE_TABLE, {
+      id: {
+        field: 'id',
+        allowNull: false,
+        autoIncrement: true,
+        primaryKey: true,
+        type: Sequelize.DataTypes.INTEGER,
+      },
+      codeDocument: {
+        field: 'code_document',
+        allowNull: false,
+        type: Sequelize.DataTypes.STRING,
+        references: {
+          model: 'purch_post_invoices',
+          key: 'code'
+        },
+        onUpdate: 'CASCADE',
+        onDelete: 'CASCADE'
+      },
+      lineNo: {
+        field: 'line_no',
+        type: Sequelize.DataTypes.INTEGER,
+        allowNull: false,
+      },
+      codeItem: {
+        field: 'item_code',
+        type: Sequelize.DataTypes.STRING,
+        allowNull: true,
+      },
+      description: {
+        field: 'description',
+        type: Sequelize.DataTypes.TEXT,
+        allowNull: true,
+      },
+      quantity: {
+        field: 'quantity',
+        type: Sequelize.DataTypes.DECIMAL(12, 4),
+        allowNull: false,
+        defaultValue: 0
+      },
+      unitMeasure: {
+        field: 'unit_measure',
+        type: Sequelize.DataTypes.ENUM('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK'),
+        defaultValue: 'UNIDAD'
+      },
+      quantityUnitMeasure: {
+        field: 'quantity_unit_measure',
+        type: Sequelize.DataTypes.DECIMAL(12, 4),
+        allowNull: false,
+        defaultValue: 1
+      },
+      unitPrice: {
+        field: 'unit_price',
+        type: Sequelize.DataTypes.DECIMAL(12, 4),
+        allowNull: false,
+        defaultValue: 0
+      },
+      taxType: {
+        field: 'tax_type',
+        type: Sequelize.DataTypes.ENUM('IVA', 'IRPF', 'RE', 'EXENTO'),
+        allowNull: false,
+        defaultValue: 'IVA'
+      },
+      vat: {
+        field: 'vat',
+        type: Sequelize.DataTypes.DECIMAL(12, 4),
+        allowNull: false,
+        defaultValue: 21
+      },
+      amountLine: {
+        field: 'amount_line',
+        type: Sequelize.DataTypes.DECIMAL(12, 4),
+        allowNull: false,
+        defaultValue: 0
+      },
+      userName: {
+        field: 'user_name',
+        type: Sequelize.DataTypes.STRING,
+        allowNull: true,
+      },
+      createdAt: {
+        field: 'created_at',
+        allowNull: false,
+        type: Sequelize.DataTypes.DATE,
+        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
+      },
+      updatedAt: {
+        field: 'updated_at',
+        allowNull: false,
+        type: Sequelize.DataTypes.DATE,
+        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
+      }
+    });
 
-const purchPostInvoiceLineSchema = {
-  id: {
-    allowNull: false,
-    autoIncrement: true,
-    primaryKey: true,
-    type: DataTypes.INTEGER
+    await queryInterface.addIndex(PURCHPOSTINVOICELINE_TABLE, ['code_document', 'line_no'], {
+      unique: true,
+      name: 'purch_post_invoice_lines_unique_idx'
+    });
   },
 
-  codeDocument: {
-    field: 'code_document',
-    allowNull: false,
-    type: DataTypes.STRING,
-    references: {
-      model: 'purch_post_invoices', // Nombre de la tabla de cabecera
-      key: 'code'
-    },
-    onUpdate: 'CASCADE',
-    onDelete: 'CASCADE'
-  },
-
-  lineNo: {
-    field: 'line_no',
-    allowNull: false,
-    type: DataTypes.INTEGER,
-  },
-
-  codeItem: {
-    field: 'item_code',
-    type: DataTypes.STRING,
-    allowNull: true // Puede ser un gasto directo sin código de artículo
-  },
-
-  description: {
-    field: 'description',
-    type: DataTypes.TEXT,
-    allowNull: false
-  },
-
-  quantity: {
-    field: 'quantity',
-    type: DataTypes.DECIMAL(12, 4),
-    allowNull: false,
-    defaultValue: 0
-  },
-
-  unitMeasure: {
-    field: 'unit_measure',
-    type: DataTypes.ENUM('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK'),
-    defaultValue: 'UNIDAD'
-  },
-
-  quantityUnitMeasure: {
-    field: 'quantity_unit_measure',
-    type: DataTypes.DECIMAL(12, 4),
-    allowNull: false,
-    defaultValue: 1
-  },
-
-  unitPrice: {
-    field: 'unit_price',
-    type: DataTypes.DECIMAL(12, 4),
-    allowNull: false,
-    defaultValue: 0
-  },
-
-  taxType: {
-    field: 'tax_type',
-    type: DataTypes.ENUM('IVA', 'IRPF', 'RE', 'EXENTO'),
-    allowNull: false,
-    defaultValue: 'IVA'
-  },
-
-  vat: {
-    field: 'vat',
-    type: DataTypes.DECIMAL(12, 4),
-    allowNull: false,
-    defaultValue: 21
-  },
-
-  amountLine: {
-    field: 'amount_line',
-    type: DataTypes.DECIMAL(12, 4),
-    allowNull: false,
-    defaultValue: 0
-  },
-
-  userName: {
-    field: 'user_name',
-    type: DataTypes.STRING
-  },
-
-  createdAt: {
-    field: 'created_at',
-    allowNull: false,
-    type: DataTypes.DATE,
-    defaultValue: Sequelize.NOW
-  },
-
-  updatedAt: {
-    field: 'updated_at',
-    allowNull: false,
-    type: DataTypes.DATE,
-    defaultValue: Sequelize.NOW
+  down: async (queryInterface) => {
+    await queryInterface.dropTable(PURCHPOSTINVOICELINE_TABLE);
+    // Limpieza de ENUMS para las líneas
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_purch_post_invoice_lines_unit_measure";');
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_purch_post_invoice_lines_tax_type";');
   }
 };
-
-class purchPostInvoiceLine extends Model {
-  static associate(models) {
-    this.belongsTo(models.purchPostInvoice, {
-      as: 'parentInvoice',
-      foreignKey: 'codeInvoice',
-      targetKey: 'code'
-    });
-  }
-
-  static config(sequelize) {
-    return {
-      sequelize,
-      tableName: PURCHPOSTINVOICELINE_TABLE,
-      modelName: 'purchPostInvoiceLine',
-      timestamps: true,
-      underscored: true,
-      indexes: [
-        {
-          unique: true,
-          fields: ['code_invoice', 'line_no']
-        }
-      ]
-    };
-  }
-}
-
-module.exports = { purchPostInvoiceLine, purchPostInvoiceLineSchema, PURCHPOSTINVOICELINE_TABLE };

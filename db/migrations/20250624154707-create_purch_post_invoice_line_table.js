@@ -1,5 +1,4 @@
 'use strict';
-
 const { PURCHPOSTINVOICELINE_TABLE } = require('../models/purchPostInvoiceLine.model');
 
 module.exports = {
@@ -12,12 +11,12 @@ module.exports = {
         primaryKey: true,
         type: Sequelize.DataTypes.INTEGER,
       },
-      codeDocument: { // Mapeado a code_invoice para compras
+      codeDocument: {
         field: 'code_document',
         allowNull: false,
         type: Sequelize.DataTypes.STRING,
         references: {
-          model: 'purch_post_invoices', // Referencia al histórico de cabeceras de compras
+          model: 'purch_post_invoices',
           key: 'code'
         },
         onUpdate: 'CASCADE',
@@ -71,7 +70,7 @@ module.exports = {
         field: 'vat',
         type: Sequelize.DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 21 // Ajustado según tu ejemplo de ventas
+        defaultValue: 21
       },
       amountLine: {
         field: 'amount_line',
@@ -98,14 +97,16 @@ module.exports = {
       }
     });
 
-    // Índice único para asegurar que no se repitan líneas en un documento registrado
     await queryInterface.addIndex(PURCHPOSTINVOICELINE_TABLE, ['code_document', 'line_no'], {
       unique: true,
-      name: 'purch_post_invoice_lines_unique_idx' // Simetría con el nombre de ventas
+      name: 'purch_post_invoice_lines_unique_idx'
     });
   },
 
   down: async (queryInterface) => {
     await queryInterface.dropTable(PURCHPOSTINVOICELINE_TABLE);
+    // Limpieza de ENUMS para las líneas
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_purch_post_invoice_lines_unit_measure";');
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_purch_post_invoice_lines_tax_type";');
   }
 };
