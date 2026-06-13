@@ -63,8 +63,8 @@ module.exports = {
         type: Sequelize.DataTypes.DATE,
         allowNull: true,
       },
-      vendorCode: {
-        field: 'vendor_code',
+      entityCode: {
+        field: 'entity_code',
         type: Sequelize.DataTypes.STRING,
         allowNull: false,
       },

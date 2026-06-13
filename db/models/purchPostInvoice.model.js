@@ -53,8 +53,8 @@ const purchPostInvoiceSchema = {
     type: DataTypes.STRING,
     allowNull: true
   },
-  vendorCode: {
-    field: 'vendor_code',
+  entityCode: {
+    field: 'entity_code',
     type: DataTypes.STRING,
     allowNull: false
   },

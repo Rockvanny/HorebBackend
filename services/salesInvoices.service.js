@@ -124,9 +124,20 @@ class salesInvoiceService {
         });
 
         // Re-insertar líneas e impuestos procesados
-        const linesToInsert = processedLines.map(l => ({ ...l, codeDocument: instance.code }));
+        const linesToInsert = processedLines.map(l => {
+          const { id, ...cleanLine } = l; // <-- Extraemos y descartamos el id de la línea
+          return {
+            ...cleanLine,
+            codeDocument: instance.code
+          };
+        });
         await salesInvoiceLine.bulkCreate(linesToInsert, { transaction });
-        await DocumentTax.bulkCreate(taxesToInsert, { transaction });
+
+        const taxesToInsertClean = taxesToInsert.map(t => {
+          const { id, ...cleanTax } = t; // <-- Extraemos y descartamos el id del impuesto
+          return cleanTax;
+        });
+        await DocumentTax.bulkCreate(taxesToInsertClean, { transaction });
       }
 
       const cleanHeader = { ...headerChanges, ...totalsUpdate };

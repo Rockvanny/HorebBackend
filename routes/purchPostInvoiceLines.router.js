@@ -1,3 +1,4 @@
+// routes/purchPostInvoiceLines.router.js
 const express = require('express');
 const passport = require('passport');
 const PurchPostInvoiceLineService = require('../services/purchPostInvoiceLine.service');
@@ -11,11 +12,7 @@ const {
 const router = express.Router();
 const service = new PurchPostInvoiceLineService();
 
-/**
- * CONSULTAS (READ-ONLY) - LÍNEAS DE COMPRAS REGISTRADAS
- */
-
-// Consulta paginada general (Útil para reportes de gastos por artículo)
+// Consulta paginada general
 router.get('/paginated',
   passport.authenticate('jwt', { session: false }),
   checkPermission('allowPurchases'),
@@ -28,7 +25,7 @@ router.get('/paginated',
   }
 );
 
-// Obtener por ID técnico (id autoincremental de la tabla)
+// Obtener por ID técnico
 router.get('/:id',
   passport.authenticate('jwt', { session: false }),
   checkPermission('allowPurchases'),
@@ -41,11 +38,5 @@ router.get('/:id',
     } catch (error) { next(error); }
   }
 );
-
-/**
- * NOTA: No se incluyen rutas POST, PATCH o DELETE.
- * Las líneas se crean masivamente desde el servicio de la cabecera (PurchPostInvoiceService)
- * al contabilizar la factura, garantizando la integridad del documento.
- */
 
 module.exports = router;

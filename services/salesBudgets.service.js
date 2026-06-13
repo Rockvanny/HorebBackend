@@ -7,7 +7,7 @@ const { calculateDocumentTotals } = require('../libs/taxCalculation');
 const {
   salesBudget,
   salesBudgetLine,
-  DocumentTax, // <--- Nuevo modelo agregado
+  DocumentTax,
   Customer,
 } = sequelize.models;
 
@@ -66,7 +66,6 @@ class salesBudgetService {
       where: whereCondition,
       include: [
         { model: Customer, as: 'customer' },
-
         {
           model: DocumentTax,
           as: 'taxes',
@@ -107,7 +106,7 @@ class salesBudgetService {
 
   /**
    * Busca presupuestos aprobados vinculados a un cliente específico.
-   * Útil para el selector de presupuestos en la pantalla de facturación.
+   * Útil para el selector de presupuestos en la pantalla de facturación de ventas.
    */
   async findByCustomer(entityCode) {
     console.log("DEBUG: Buscando presupuestos para el cliente:", entityCode);
@@ -121,15 +120,32 @@ class salesBudgetService {
           entityCode: entityCode,
           status: 'Aprobado' // Solo los que se pueden facturar
         },
-
         attributes: ['id', 'code', 'name'], // Solo enviamos lo necesario para el select
         order: [['created_at', 'DESC']]
-
       });
 
       return budgets;
     } catch (error) {
       throw boom.badImplementation('Error al consultar presupuestos por cliente', error);
+    }
+  }
+
+  /**
+   * Busca todas las ofertas de venta aprobadas globales (actúan como Centros de Coste/Contratos).
+   * Útil para la pantalla de facturación de compras, permitiendo imputar gastos del proveedor al proyecto de venta.
+   */
+  async findActiveContracts() {
+    try {
+      const budgets = await salesBudget.findAll({
+        where: {
+          status: 'Aprobado' // Filtramos solo los vigentes/activos para imputación
+        },
+        attributes: ['id', 'code', 'name', 'entityCode'], // Enviamos datos clave necesarios para mapear el select
+        order: [['created_at', 'DESC']]
+      });
+      return budgets;
+    } catch (error) {
+      throw boom.badImplementation('Error al consultar los contratos activos de venta', error);
     }
   }
 
@@ -235,11 +251,15 @@ class salesBudgetService {
         // Sincronizar Líneas
         await salesBudgetLine.destroy({ where: { codeDocument: instance.code }, transaction });
 
-        const finalLines = processedLines.map(l => ({
-          ...l, // Aquí ya viaja el taxType (IVA/IRPF)
-          codeDocument: instance.code,
-          username: headerChanges.username || instance.username || 'system'
-        }));
+        const finalLines = processedLines.map(l => {
+          const { id, ...cleanLine } = l; 
+          return {
+            ...cleanLine,
+            codeDocument: instance.code,
+            username: headerChanges.username || instance.username || 'system'
+          };
+        });
+
         await salesBudgetLine.bulkCreate(finalLines, { transaction });
 
         // Sincronizar Impuestos
@@ -285,8 +305,6 @@ class salesBudgetService {
     }
 
     // 3. Eliminación
-    // El Hook afterDestroy en el modelo se encargará de borrar los DocumentTax por movementId
-    // Las líneas deben borrarse aquí o vía ON DELETE CASCADE en la DB
     const transaction = await sequelize.transaction();
     try {
       // Borramos líneas explícitamente si no tienes CASCADE en la DB

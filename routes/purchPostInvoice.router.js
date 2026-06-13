@@ -1,3 +1,4 @@
+// routes/purchPostInvoices.router.js
 const express = require('express');
 const passport = require('passport');
 const PurchPostInvoiceService = require('../services/purchPostInvoice.service');
@@ -12,23 +13,17 @@ const {
 const router = express.Router();
 const service = new PurchPostInvoiceService();
 
-/**
- * CONSULTAS (READ-ONLY) - HISTÓRICO DE COMPRAS
- */
-
-// Listado paginado y filtrado (Efecto Espejo con Ventas)
+// Listado paginado con soporte para términos de búsqueda
 router.get('/purchPostInvoices-paginated',
     passport.authenticate('jwt', { session: false }),
     checkPermission('allowPurchases'),
-    validatorHandler(queryPurchPostInvoiceSchema, 'query'),
-    async (req, res, next) => {
+    async(req, res, next) => {
         try {
             const { limit, offset, searchTerm, overdue } = req.query;
             const result = await service.findPaginated({
                 limit,
                 offset,
                 searchTerm,
-                // Filtro para facturas vencidas (overdue) igual que en ventas
                 filter: overdue === 'true' ? 'overdue' : null
             });
             res.json(result);
@@ -36,71 +31,52 @@ router.get('/purchPostInvoices-paginated',
     }
 );
 
-// Estadísticas para Dashboard de Compras
-router.get('/count',
-    passport.authenticate('jwt', { session: false }),
-    checkPermission('allowPurchases'),
-    async (req, res, next) => {
-        try {
-            const total = await service.countAll();
-            res.status(200).json({ total });
-        } catch (error) { next(error); }
-    }
+// Listado de histórico (facturas registradas)
+router.get('/',
+  passport.authenticate('jwt', { session: false }),
+  checkPermission('allowPurchases'),
+  validatorHandler(queryPurchPostInvoiceSchema, 'query'),
+  async (req, res, next) => {
+    try {
+      const result = await service.findPaginated(req.query);
+      res.json(result);
+    } catch (error) { next(error); }
+  }
 );
 
-// Obtener una factura registrada por su ID o CÓDIGO
-// (Usamos ID para consistencia con el resto de la API, pero soportamos includeLines)
-router.get('/:id',
-    passport.authenticate('jwt', { session: false }),
-    checkPermission('allowPurchases'),
-    validatorHandler(getPurchPostInvoiceSchema, 'params'),
-    async (req, res, next) => {
-        try {
-            const { id } = req.params;
-            const includeLines = req.query.include_lines === 'true';
-
-            const invoice = await service.findOne(id, { includeLines });
-            res.json({
-                success: true,
-                data: invoice
-            });
-        } catch (error) { next(error); }
-    }
+// Obtener una factura específica por su CÓDIGO (Ej: FAC-2026-0001)
+router.get('/:code',
+  passport.authenticate('jwt', { session: false }),
+  checkPermission('allowPurchases'),
+  // Validamos que el parámetro 'code' cumpla con el esquema getPurchPostInvoiceSchema
+  validatorHandler(getPurchPostInvoiceSchema, 'params'),
+  async (req, res, next) => {
+    try {
+      const { code } = req.params;
+      // El servicio ahora incluye automáticamente las líneas y se expone directo como en ventas
+      const invoice = await service.findOne(code, { includeLines: true });
+      res.json(invoice);
+    } catch (error) { next(error); }
+  }
 );
 
-/**
- * ACCIONES DE REGISTRO (INMUTABLES)
- */
-
-// Registrar factura de compra (Paso de borrador a histórico)
+// Registrar una factura (Este endpoint suele ser llamado internamente por el archiveInvoice)
 router.post('/',
-    passport.authenticate('jwt', { session: false }),
-    checkPermission('allowPurchases'),
-    validatorHandler(createPurchPostInvoiceSchema, 'body'),
-    async (req, res, next) => {
-        try {
-            const userId = req.user.userId || req.user.sub;
-            const userName = req.user.username || req.user.email || 'system';
-
-            const data = {
-                ...req.body,
-                userName: userName // Mapeo al campo del modelo
-            };
-
-            const newPostInvoice = await service.create(data, userId);
-            res.status(201).json(newPostInvoice);
-        } catch (error) {
-            // Manejo de conflicto por si la factura ya fue registrada
-            if (error.name === "SequelizeUniqueConstraintError") {
-                return res.status(409).json({
-                    success: false,
-                    message: `La factura '${req.body.code}' ya consta en el histórico y no puede duplicarse.`,
-                    error: error.errors
-                });
-            }
-            next(error);
-        }
-    }
+  passport.authenticate('jwt', { session: false }),
+  checkPermission('allowPurchases'),
+  validatorHandler(createPurchPostInvoiceSchema, 'body'),
+  async (req, res, next) => {
+    try {
+      const data = {
+        ...req.body,
+        // Inyectamos metadatos del usuario autenticado respetando las propiedades del modelo de compras
+        userName: req.user.username || req.user.email || 'system',
+        userId: req.user.userId || req.user.sub
+      };
+      const result = await service.create(data);
+      res.status(201).json(result);
+    } catch (error) { next(error); }
+  }
 );
 
 module.exports = router;

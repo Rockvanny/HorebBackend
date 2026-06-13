@@ -64,8 +64,25 @@ router.get('/by-customer/:entityCode',
     }
 );
 
+// =========================================================================
+// NUEVA RUTA: Contratos activos globales (Imputación de costes en compras)
+// CRÍTICO: Situada ANTES de /:id para que Express no confunda la URL fija
+// =========================================================================
+router.get('/active-contracts',
+    passport.authenticate('jwt', { session: false }),
+    checkPermission('allowSales'),
+    async (req, res, next) => {
+        try {
+            const record = await service.findActiveContracts();
+            // Retorna directamente 'record' (el array plano) cumpliendo tu estándar del frontend
+            res.json(record);
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
 // Obtener un presupuesto específico por su ID (PK)
-// Cambiado :code por :id para sincronizar con getSalesBudgetSchema
 router.get('/:id',
     passport.authenticate('jwt', { session: false }),
     checkPermission('allowSales'),
@@ -130,7 +147,7 @@ router.post('/',
 );
 
 // Actualización completa por ID
-router.put('/:id',
+router.patch('/:id',
     passport.authenticate('jwt', { session: false }),
     checkPermission('allowSales'),
     validatorHandler(getSalesBudgetSchema, 'params'),

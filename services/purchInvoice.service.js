@@ -1,23 +1,25 @@
+// services/purchInvoice.service
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
 const sequelize = require('../libs/sequelize');
 const { purchInvoice, purchInvoiceLine, DocumentTax } = sequelize.models;
 
-// Importamos la librería de cálculo unificada
+const PurchPostInvoiceService = require('./purchPostInvoice.service');
+// Librería de cálculo unificada
 const { calculateDocumentTotals } = require('../libs/taxCalculation');
+const postService = new PurchPostInvoiceService();
 
 class purchInvoiceService {
-  constructor() {}
 
-  async findPaginated({ limit, offset, searchTerm, filter }) {
+  async findPaginated({ limit, offset, searchTerm }) {
     const parsedLimit = parseInt(limit, 10) || 100;
     const parsedOffset = parseInt(offset, 10) || 0;
 
     const options = {
       limit: parsedLimit,
       offset: parsedOffset,
-      order: [['created_at', 'DESC']],
-      where: {},
+      order: [['createdAt', 'DESC']], // Sincronizado a camelCase igual que en ventas
+      where: {}
     };
 
     if (searchTerm) {
@@ -25,17 +27,6 @@ class purchInvoiceService {
         { code: { [Op.iLike]: `%${searchTerm}%` } },
         { name: { [Op.iLike]: `%${searchTerm}%` } },
         { nif: { [Op.iLike]: `%${searchTerm}%` } }
-      ];
-    }
-
-    if (filter === 'overdue') {
-      const todayStr = new Date().toLocaleDateString('en-CA');
-      options.where[Op.and] = [
-        sequelize.where(
-          sequelize.cast(sequelize.col('due_date'), 'DATE'),
-          { [Op.lt]: todayStr }
-        ),
-        { status: { [Op.ne]: 'Pagado' } }
       ];
     }
 
@@ -47,26 +38,40 @@ class purchInvoiceService {
         total: count,
       };
     } catch (error) {
-      throw boom.badImplementation('Error al consultar compras paginadas', error);
+      throw boom.badImplementation('Error al consultar facturas de compra paginadas', error);
     }
   }
 
-  async findOne(idOrCode, options = {}) {
-    const { includeLines = false } = options;
-    const isNumeric = !isNaN(idOrCode) && !isNaN(parseFloat(idOrCode));
+  /**
+   * Busca facturas por código de proveedor (Equivalente exacto a findByCustomer)
+   * Blindado contra valores indefinidos o nulos para asegurar la carga del Frontend.
+   */
+  async findByVendor(entityCode) {
+    // Control preventivo: si no viene un código de proveedor real, devolvemos un array vacío sin romper el hilo
+    if (!entityCode || entityCode === 'undefined' || entityCode === 'null') {
+      console.log("DEBUG BACKEND: findByVendor ignorado por código vacío o inválido");
+      return [];
+    }
 
+    try {
+      return await purchInvoice.findAll({
+        where: { entityCode: entityCode },
+        order: [['createdAt', 'DESC']]
+      });
+    } catch (error) {
+      throw boom.badImplementation('Error al buscar facturas por proveedor', error);
+    }
+  }
+
+  async findOne(id, options = {}) {
+    const { includeLines = false } = options;
+    const isNumeric = !isNaN(id) && !isNaN(parseFloat(id));
     const queryOptions = {
-      where: isNumeric ? { id: idOrCode } : { code: idOrCode },
+      where: isNumeric ? { id } : { code: id },
       include: [{ model: DocumentTax, as: 'taxes' }]
     };
 
-    if (includeLines) {
-      queryOptions.include.push({
-        model: purchInvoiceLine,
-        as: 'lines',
-        required: false
-      });
-    }
+    if (includeLines) queryOptions.include.push({ model: purchInvoiceLine, as: 'lines' });
 
     const record = await purchInvoice.findOne(queryOptions);
     if (!record) throw boom.notFound('Factura de compra no encontrada');
@@ -79,34 +84,23 @@ class purchInvoiceService {
 
     try {
       // 1. Crear Cabecera
-      headerData.userName = userId;
+      headerData.userName = userId; // Respeta el camelCase particular del modelo compras (userName)
       const newInvoice = await purchInvoice.create(headerData, { transaction });
 
-      // 2. Calcular totales e impuestos usando la librería (Espejo de Ventas)
+      // 2. Calcular usando la librería unificada
       const { processedLines, taxesToInsert, headerTotals } = calculateDocumentTotals(
         rawLines || [],
         newInvoice.movementId,
-        'purchinvoice' // Identificador para la tabla DocumentTax
+        'purchinvoice' // Identificador coherente para DocumentTax en compras
       );
 
       // 3. Insertar Líneas
       if (processedLines.length > 0) {
-        const linesToInsert = processedLines.map((l, index) => ({
+        const linesToInsert = processedLines.map(l => ({
           ...l,
-          lineNo: l.lineNo || (index + 1),
           codeDocument: newInvoice.code
         }));
         await purchInvoiceLine.bulkCreate(linesToInsert, { transaction });
-      } else {
-        // Línea por defecto si no vienen líneas
-        await purchInvoiceLine.create({
-          codeDocument: newInvoice.code,
-          lineNo: 1,
-          description: 'Nueva línea de compra',
-          quantity: 1,
-          unitPrice: 0,
-          amountLine: 0
-        }, { transaction });
       }
 
       // 4. Insertar Impuestos Desglosados
@@ -114,7 +108,7 @@ class purchInvoiceService {
         await DocumentTax.bulkCreate(taxesToInsert, { transaction });
       }
 
-      // 5. Actualizar totales finales en cabecera
+      // 5. Actualizar totales finales en la cabecera
       await newInvoice.update(headerTotals, { transaction });
 
       await transaction.commit();
@@ -126,17 +120,16 @@ class purchInvoiceService {
     }
   }
 
-  async update(idOrCode, changes) {
+  async update(id, changes) {
     const { lines: rawLines, ...headerChanges } = changes;
     const transaction = await sequelize.transaction();
-
     try {
-      const instance = await this.findOne(idOrCode, { transaction });
+      const instance = await this.findOne(id, { transaction });
 
       let totalsUpdate = {};
 
       if (rawLines) {
-        // Recalcular con la lógica de impuestos (Espejo de Ventas)
+        // Recalcular todo con la lógica de impuestos y factores
         const { processedLines, taxesToInsert, headerTotals } = calculateDocumentTotals(
           rawLines,
           instance.movementId,
@@ -145,27 +138,31 @@ class purchInvoiceService {
 
         totalsUpdate = headerTotals;
 
-        // Limpieza Flush & Fill
+        // 1. Limpieza absoluta de líneas e impuestos antiguos de esta factura
         await purchInvoiceLine.destroy({ where: { codeDocument: instance.code }, transaction });
         await DocumentTax.destroy({
           where: { movementId: instance.movementId, codeDocument: 'purchinvoice' },
           transaction
         });
 
-        // Re-insertar líneas e impuestos
-        const linesToInsert = processedLines.map((l, index) => ({
-          ...l,
-          lineNo: l.lineNo || (index + 1),
-          codeDocument: instance.code
-        }));
-
+        // 2. Preparar e insertar líneas de compra limpias de ID
+        const linesToInsert = processedLines.map(l => {
+          const { id, ...cleanLine } = l; // <-- Aislamos y eliminamos el id viejo de la línea
+          return {
+            ...cleanLine,
+            codeDocument: instance.code
+          };
+        });
         await purchInvoiceLine.bulkCreate(linesToInsert, { transaction });
-        if (taxesToInsert.length > 0) {
-          await DocumentTax.bulkCreate(taxesToInsert, { transaction });
-        }
+
+        // 3. Preparar e insertar impuestos de compra limpios de ID
+        const taxesToInsertClean = taxesToInsert.map(t => {
+          const { id, ...cleanTax } = t; // <-- Aislamos y eliminamos el id viejo del impuesto
+          return cleanTax;
+        });
+        await DocumentTax.bulkCreate(taxesToInsertClean, { transaction });
       }
 
-      // Limpieza de campos sensibles
       const cleanHeader = { ...headerChanges, ...totalsUpdate };
       delete cleanHeader.id;
       delete cleanHeader.code;
@@ -181,21 +178,44 @@ class purchInvoiceService {
     }
   }
 
-  async delete(idOrCode) {
-    const instance = await this.findOne(idOrCode);
-    await instance.destroy();
-    return { idOrCode, message: 'Factura de compra eliminada correctamente' };
-  }
+  /**
+   * Archivar factura de compra (Pasar a factura definitiva/contabilizada histórica)
+   * Clon 1:1 del flujo de negocio de ventas
+   */
+  async archiveInvoice(idOrCode, userId) {
+    const isNumeric = !isNaN(idOrCode) && !isNaN(parseFloat(idOrCode));
 
-  // Helpers para Enums
-  async findStatuses() {
-    const attributes = purchInvoice.getAttributes();
-    return attributes.status?.values || ['Abierto', 'Pagado'];
-  }
+    const whereCondition = isNumeric
+      ? { id: idOrCode }
+      : { code: idOrCode };
 
-  async findCategories() {
-    const attributes = purchInvoice.getAttributes();
-    return attributes.category?.values || [];
+    const invoice = await purchInvoice.findOne({
+      where: whereCondition,
+      include: [
+        { model: purchInvoiceLine, as: 'lines' },
+        { model: DocumentTax, as: 'taxes' }
+      ]
+    });
+
+    if (!invoice) throw boom.notFound('Factura de compra no encontrada');
+
+    const invoiceData = invoice.get({ plain: true });
+
+    // Preparar datos para el histórico de compras
+    invoiceData.preInvoice = invoiceData.code;
+    invoiceData.userName = userId; // camelCase de auditoría de compras
+    invoiceData.seriesCode = invoiceData.codePosting;
+    invoiceData.code = null;
+    delete invoiceData.id;
+
+    // Crear en la tabla de históricos de compras registradas y purgar el borrador
+    const result = await postService.create(invoiceData);
+
+    if (result) {
+      await invoice.destroy();
+    }
+
+    return result;
   }
 }
 

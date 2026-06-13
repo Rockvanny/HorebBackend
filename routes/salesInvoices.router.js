@@ -95,7 +95,7 @@ router.post('/:code/archive',
 );
 
 // Actualizar factura borrador
-router.put('/:code',
+router.patch('/:code',
     passport.authenticate('jwt', { session: false }),
     checkPermission('allowSales'),
     validatorHandler(getSalesInvoiceSchema, 'params'),

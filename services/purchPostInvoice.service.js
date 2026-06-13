@@ -1,3 +1,4 @@
+// services/purchPostInvoice.service.js
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
 const sequelize = require('../libs/sequelize');
@@ -6,13 +7,11 @@ const { calculateDocumentTotals } = require('../libs/taxCalculation');
 const {
   purchPostInvoice,
   purchPostInvoiceLine,
-  DocumentTax // Tabla universal de impuestos compartida
+  DocumentTax // Tabla universal de impuestos
 } = sequelize.models;
 
 class PurchPostInvoiceService {
-
-  // 1. Busqueda paginada con filtros (Efecto Espejo)
-  async findPaginated({ limit, offset, searchTerm, filter }) {
+  async findPaginated({ limit, offset, searchTerm }) {
     const parsedLimit = parseInt(limit, 10) || 100;
     const parsedOffset = parseInt(offset, 10) || 0;
 
@@ -23,7 +22,6 @@ class PurchPostInvoiceService {
       where: {}
     };
 
-    // Filtros de búsqueda (Código, Nombre Proveedor o NIF)
     if (searchTerm) {
       options.where[Op.or] = [
         { code: { [Op.iLike]: `%${searchTerm}%` } },
@@ -32,61 +30,63 @@ class PurchPostInvoiceService {
       ];
     }
 
-    // Filtro de vencimiento (Opcional, igual que en ventas)
-    if (filter === 'overdue') {
-      options.where.due_date = { [Op.lt]: new Date() };
-      options.where.status = 'Abierto';
-    }
-
     try {
       const { count, rows } = await purchPostInvoice.findAndCountAll(options);
-      return {
-        records: rows,
-        hasMore: (parsedOffset + rows.length) < count,
-        total: count
-      };
+      return { records: rows, hasMore: (parsedOffset + rows.length) < count, total: count };
     } catch (error) {
-      throw boom.badImplementation('Error al consultar el histórico de compras', error);
+      throw boom.badImplementation('Error al consultar histórico', error);
     }
   }
 
-  // 2. Obtener una factura específica (por ID o Código)
   async findOne(id, options = {}) {
     const { includeLines = false } = options;
     const isNumeric = !isNaN(id) && !isNaN(parseFloat(id));
-
     const queryOptions = {
       where: isNumeric ? { id } : { code: id },
-      include: [
-        { model: DocumentTax, as: 'taxes' } // Los impuestos siempre se incluyen
-      ]
+      include: [{ model: DocumentTax, as: 'taxes' }]
     };
 
-    if (includeLines) {
-      queryOptions.include.push({
-        model: purchPostInvoiceLine,
-        as: 'lines'
-      });
-    }
+    if (includeLines) queryOptions.include.push({ model: purchPostInvoiceLine, as: 'lines' });
 
     const record = await purchPostInvoice.findOne(queryOptions);
-    if (!record) throw boom.notFound('Factura de compra no encontrada');
+    if (!record) throw boom.notFound('Factura no encontrada');
     return record;
   }
 
-  // 3. Registro en histórico (Inmutable)
-  async create(data) {
-    const { lines, ...headerData } = data;
-    let transaction;
+  /**
+   * Busca facturas registradas de un proveedor específico.
+   * Útil para rellenar el selector de "Factura a rectificar" (Espejo de findByCustomer).
+   */
+  async findByVendor(entityCode) {
+    console.log("DEBUG: Buscando facturas registradas para el proveedor:", entityCode);
+    if (!entityCode) {
+      throw boom.badRequest('Se requiere el código del proveedor');
+    }
 
     try {
-      transaction = await sequelize.transaction();
+      const invoices = await purchPostInvoice.findAll({
+        where: {
+          entityCode: entityCode
+        },
+        attributes: ['id', 'code', 'name', 'postingDate', 'amountWithVAT'],
+        order: [['postingDate', 'DESC']]
+      });
 
-      // A. Re-calcular totales (Seguridad: No confiamos ciegamente en el total del Front)
-      // Usamos el calculador indicando que el destino es 'purchpostinvoices'
+      return invoices;
+    } catch (error) {
+      throw boom.badImplementation('Error al consultar facturas por proveedor', error);
+    }
+  }
+
+  async create(data) {
+    const { lines, ...headerData } = data;
+    const transaction = await sequelize.transaction();
+
+    try {
+      // 1. RE-CALCULAR TODO antes de insertar
       const totals = calculateDocumentTotals(lines, headerData.movementId, 'purchpostinvoices');
 
-      // B. Creación de Cabecera
+      // 2. Creación de Cabecera con totales recalculados
       const newPostInvoice = await purchPostInvoice.create({
         ...headerData,
         amountWithoutVAT: totals.headerTotals.amountWithoutVAT,
@@ -94,7 +94,7 @@ class PurchPostInvoiceService {
         amountWithVAT: totals.headerTotals.amountWithVAT
       }, { transaction });
 
-      // C. Inserción masiva de líneas procesadas
+      // 3. Inserción de Líneas usando processedLines
       if (totals.processedLines && totals.processedLines.length > 0) {
         const rows = totals.processedLines.map((line) => {
           const base = parseFloat(line.amountLine) || 0;
@@ -112,47 +112,34 @@ class PurchPostInvoiceService {
             unit_price: parseFloat(line.unitPrice) || 0,
             tax_type: line.taxType || 'IVA',
             vat: porcentajeIVA,
-            amount_line: importeConIVA, // Guardamos con IVA incluido para visualización directa
-            user_name: data.userName || null,
+            amount_line: importeConIVA,
+            user_name: data.username || data.userName || null, // Soporta ambas variantes de propiedad de auditoría
             created_at: new Date(),
             updated_at: new Date()
           };
         });
 
         await sequelize.getQueryInterface().bulkInsert(
-          'purch_post_invoice_lines', // Asegúrate de que este nombre coincida con tu migración
+          'purch_post_invoice_lines',
           rows,
           { transaction }
         );
       }
 
-      // D. Vinculación de Impuestos
-      // Marcamos los impuestos temporales como definitivos asociados a 'purchpostinvoices'
+      // 4. Actualización de impuestos
       await DocumentTax.update(
         { codeDocument: 'purchpostinvoices' },
-        {
-          where: { movementId: newPostInvoice.movementId },
-          transaction
-        }
+        { where: { movementId: newPostInvoice.movementId }, transaction }
       );
 
       await transaction.commit();
 
-      // Retornamos el registro completo para confirmación
-      return await this.findOne(newPostInvoice.id, { includeLines: true });
+      // Sincronizado para retornar la búsqueda usando el '.code' de forma idéntica a ventas
+      return await this.findOne(newPostInvoice.code, { includeLines: true });
 
     } catch (error) {
       if (transaction) await transaction.rollback();
       throw error;
-    }
-  }
-
-  // 4. Contador (Dashboard)
-  async countAll() {
-    try {
-      return await purchPostInvoice.count();
-    } catch (error) {
-      throw boom.badImplementation('Error al contar registros', error);
     }
   }
 }
