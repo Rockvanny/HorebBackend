@@ -90,11 +90,14 @@ module.exports = {
       category: {
         field: 'category',
         type: Sequelize.DataTypes.ENUM(
-          'Materiales', 'Subcontratas', 'Personal y Nóminas',
-          'Herramientas y Alquileres', 'Vehículos y Movilidad', 'Gastos de Oficina y Varios'
+          'Suministros de Obra',
+          'Logística de Materiales',
+          'Material de Construcción',
+          'Equipamiento / Maquinaria',
+          'Servicios Externos de Obra'
         ),
         allowNull: true,
-        defaultValue: 'Gastos de Oficina y Varios'
+        defaultValue: 'Suministros de Obra'
       },
       amountWithoutVAT: {
         field: 'amount_without_vat',
@@ -131,7 +134,7 @@ module.exports = {
     });
 
     await queryInterface.addIndex(PURCHPOSTINVOICE_TABLE, ['code']);
-    await queryInterface.addIndex(PURCHPOSTINVOICE_TABLE, ['vendor_code']);
+    await queryInterface.addIndex(PURCHPOSTINVOICE_TABLE, ['entity_code']);
     await queryInterface.addIndex(PURCHPOSTINVOICE_TABLE, ['movement_id']);
   },
 

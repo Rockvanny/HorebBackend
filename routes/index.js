@@ -19,7 +19,7 @@ const purchPostInvoiceLinesRouter = require('./purchPostInvoiceLines.router');
 const seiresNumberRouter = require('./seriesNumber.router');
 const verifactuLogsRouter = require('./verifactuLogs.router');
 const configRouter = require('./config.router');
-const systemEnumsRouter = require('./systemEnums.router');
+const operatingExpenses = require('./operatingExpenses.router');
 
 // Rutas internas que no apuntan a tablas
 const statsRouter = require('./stats.router');
@@ -48,7 +48,7 @@ function routerApi(app) {
   router.use('/seriesNumber', seiresNumberRouter);
   router.use('/verifactuLogs', verifactuLogsRouter);
   router.use('/config', configRouter);
-  router.use('/systemEnums', systemEnumsRouter);
+  router.use('/operatingExpenses', operatingExpenses);
   router.use('/stats', statsRouter);
   router.use('/enums', enumsRouter);
 }

@@ -36,12 +36,11 @@ const paymentMethod = Joi.string().valid(
 
 const status = Joi.string().valid('Abierto', 'Pagado').default('Abierto');
 const category = Joi.string().valid(
-  'Materiales',
-  'Subcontratas',
-  'Personal y Nóminas',
-  'Herramientas y Alquileres',
-  'Vehículos y Movilidad',
-  'Gastos de Oficina y Varios'
+  'Suministros de Obra',
+  'Logística de Materiales',
+  'Material de Construcción',
+  'Equipamiento / Maquinaria',
+  'Servicios Externos de Obra'
 );
 
 const money = Joi.number().precision(4).default(0);

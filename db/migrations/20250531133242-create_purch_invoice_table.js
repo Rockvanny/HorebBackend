@@ -85,11 +85,14 @@ module.exports = {
       category: {
         field: 'category',
         type: Sequelize.DataTypes.ENUM(
-          'Materiales', 'Subcontratas', 'Personal y Nóminas',
-          'Herramientas y Alquileres', 'Vehículos y Movilidad', 'Gastos de Oficina y Varios'
+          'Suministros de Obra',
+          'Logística de Materiales',
+          'Material de Construcción',
+          'Equipamiento / Maquinaria',
+          'Servicios Externos de Obra'
         ),
         allowNull: false,
-        defaultValue: 'Gastos de Oficina y Varios'
+        defaultValue: 'Suministros de Obra'
       },
       paymentMethod: {
         field: 'payment_method',

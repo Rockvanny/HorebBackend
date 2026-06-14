@@ -3,6 +3,7 @@ const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
 const sequelize = require('../libs/sequelize');
 const { calculateDocumentTotals } = require('../libs/taxCalculation');
+const UtilsService = require('../services/util.service');
 
 const {
   purchPostInvoice,
@@ -139,6 +140,53 @@ class PurchPostInvoiceService {
 
     } catch (error) {
       if (transaction) await transaction.rollback();
+      throw error;
+    }
+  }
+
+  /**
+ * Obtiene y desglosa las facturas de compra registradas dentro de un rango de fechas.
+ * Diseñado para alimentar el reporte de Control de Gastos.
+ */
+  async findForReport(startDate, endDate) {
+    try {
+      // 1. Obtener facturas con sus impuestos asociados
+      // Usamos el alias 'taxes' definido en el modelo
+      const invoices = await purchPostInvoice.findAll({
+        where: {
+          posting_date: {
+            [Op.between]: [startDate, endDate]
+          }
+        },
+        include: [{
+          model: DocumentTax,
+          as: 'taxes'
+        }],
+        order: [['postingDate', 'ASC']]
+      });
+
+      console.log(`[PurchPostInvoiceService] Facturas encontradas entre ${startDate} y ${endDate}:`, invoices.length);
+
+      // 2. Transformación de datos para el reporte
+      return invoices.map(invoice => {
+        // Acceso defensivo: si no hay impuestos, usamos 0 por defecto
+        const taxes = Array.isArray(invoice.taxes) ? invoice.taxes : [];
+        const taxDetail = taxes.length > 0 ? taxes[0] : { taxPercentage: 0 };
+
+        return {
+          fecha: invoice.postingDate ? new Date(invoice.postingDate).toLocaleDateString('es-ES') : '',
+          numeroFactura: invoice.code || '',
+          proveedor: invoice.name || '',
+          cif: invoice.nif || '',
+          concepto: invoice.comments || 'COMPRA REGISTRADA',
+          importe: parseFloat(invoice.amountWithoutVAT || 0),
+          ivaPorcentaje: parseFloat(taxDetail.taxPercentage || 0),
+          categoria: invoice.category || 'Sin categoría'
+        };
+      });
+
+    } catch (error) {
+      console.error("[PurchPostInvoiceService] Error en findForReport:", error);
       throw error;
     }
   }

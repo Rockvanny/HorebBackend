@@ -44,6 +44,27 @@ router.get('/',
   }
 );
 
+router.get('/report/excel',
+  passport.authenticate('jwt', { session: false }),
+  checkPermission('allowPurchases'),
+  async (req, res, next) => {
+    try {
+      const { startDate, endDate } = req.query;
+
+      // Asegúrate de usar la instancia del servicio correcta
+      // Si antes usabas 'service', verifica que sea el PurchPostInvoiceService
+      const data = await service.findForReport(startDate, endDate);
+
+      // La serialización JSON.parse(JSON.stringify()) sigue siendo una buena práctica
+      // para limpiar objetos de Sequelize antes de enviarlos.
+      return res.status(200).json(data);
+    } catch (error) {
+      console.error("Error en router.get /report/excel:", error);
+      next(error);
+    }
+  }
+);
+
 // Obtener una factura específica por su CÓDIGO (Ej: FAC-2026-0001)
 router.get('/:code',
   passport.authenticate('jwt', { session: false }),

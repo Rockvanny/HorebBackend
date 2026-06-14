@@ -9,12 +9,11 @@ const address = Joi.string();
 const postCode = Joi.string();
 const city = Joi.string();
 const category = Joi.string().valid(
-  'Materiales',
-  'Subcontratas',
-  'Personal y Nóminas',
-  'Herramientas y Alquileres',
-  'Vehículos y Movilidad',
-  'Gastos de Oficina y Varios'
+  'Suministros de Obra',
+  'Logística de Materiales',
+  'Material de Construcción',
+  'Equipamiento / Maquinaria',
+  'Servicios Externos de Obra'
 );
 const paymentMethod = Joi.string().valid(
   'Transferencia',

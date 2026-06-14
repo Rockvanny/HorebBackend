@@ -90,11 +90,14 @@ const purchPostInvoiceSchema = {
   category: {
     field: 'category',
     type: DataTypes.ENUM(
-      'Materiales', 'Subcontratas', 'Personal y Nóminas',
-      'Herramientas y Alquileres', 'Vehículos y Movilidad', 'Gastos de Oficina y Varios'
+      'Suministros de Obra',
+      'Logística de Materiales',
+      'Material de Construcción',
+      'Equipamiento / Maquinaria',
+      'Servicios Externos de Obra'
     ),
     allowNull: true,
-    defaultValue: 'Gastos de Oficina y Varios'
+    defaultValue: 'Suministros de Obra'
   },
   amountWithoutVAT: {
     field: 'amount_without_vat',
@@ -132,7 +135,7 @@ const purchPostInvoiceSchema = {
 
 class purchPostInvoice extends Model {
   static associate(models) {
-    this.belongsTo(models.Vendor, { as: 'vendor', foreignKey: 'vendor_code' });
+    this.belongsTo(models.Vendor, { as: 'vendor', foreignKey: 'entity_code' });
 
     this.hasMany(models.purchPostInvoiceLine, {
       as: 'lines',

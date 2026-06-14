@@ -39,12 +39,11 @@ const username = Joi.string().allow('', null);
 
 // Exclusivo de compras para analítica interna
 const category = Joi.string().valid(
-  'Materiales',
-  'Subcontratas',
-  'Personal y Nóminas',
-  'Herramientas y Alquileres',
-  'Vehículos y Movilidad',
-  'Gastos de Oficina y Varios'
+  'Suministros de Obra',
+  'Logística de Materiales',
+  'Material de Construcción',
+  'Equipamiento / Maquinaria',
+  'Servicios Externos de Obra'
 );
 
 // --- ESQUEMAS DE ACCIÓN ---
