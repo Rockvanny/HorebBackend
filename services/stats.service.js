@@ -24,14 +24,14 @@ class StatsService {
    * Maneja la ejecución en paralelo de todas las métricas necesarias.
    */
   async _getGeneralStats(budgetCode = null) {
-    const { salesBudget, salesPostInvoice, purchpostInvoice } = sequelize.models;
+    const { salesBudget, salesPostInvoice, purchPostInvoice } = sequelize.models;
     const year = new Date().getFullYear();
 
     try {
       const [budgets, sales, purchases, doughnutChart] = await Promise.all([
         this._getStatsFiltered(salesBudget, year, budgetCode),
         this._getStatsFiltered(salesPostInvoice, year, budgetCode),
-        this._getStatsFiltered(purchpostInvoice, year, budgetCode),
+        this._getStatsFiltered(purchPostInvoice, year, budgetCode),
         this._getDoughnutFiltered(year, budgetCode)
       ]);
 
@@ -61,9 +61,9 @@ class StatsService {
 
     // Detección automática de la columna de fecha según el modelo
     const attr = model.rawAttributes.postingDate ||
-                 model.rawAttributes.posting_date ||
-                 model.rawAttributes.post_date ||
-                 model.rawAttributes.createdAt;
+      model.rawAttributes.posting_date ||
+      model.rawAttributes.post_date ||
+      model.rawAttributes.createdAt;
 
     const dateColumn = attr ? (attr.field || attr.fieldName) : 'created_at';
 
@@ -107,38 +107,50 @@ class StatsService {
    * Lógica filtrada para el gráfico de dona (Categorías de gasto)
    */
   async _getDoughnutFiltered(year, budgetCode) {
-    const { purchpostInvoice } = sequelize.models;
-    if (!purchpostInvoice) return { labels: [], values: [] };
+    const { purchPostInvoice, OperatingExpenses } = sequelize.models;
 
-    const whereClause = {
-      [Op.and]: [
-        literal(`EXTRACT(YEAR FROM "post_date") = ${year}`)
-      ]
-    };
-
+    // 1. Si hay filtro de presupuesto: Solo mostramos facturas de compra (categorizadas)
     if (budgetCode) {
-      whereClause[Op.and].push({ budget_code: budgetCode });
-    }
-
-    try {
-      const results = await purchpostInvoice.findAll({
-        attributes: [
-          'category',
-          [fn('SUM', col('amount_with_vat')), 'total']
-        ],
-        where: whereClause,
+      const results = await purchPostInvoice.findAll({
+        attributes: ['category', [fn('SUM', col('amount_with_vat')), 'total']],
+        where: {
+          budget_code: budgetCode,
+          [Op.and]: [literal(`EXTRACT(YEAR FROM "posting_date") = ${year}`)]
+        },
         group: ['category'],
         raw: true
       });
-
       return {
-        labels: results.map(row => row.category || 'Sin categoría'),
-        values: results.map(row => parseFloat(row.total) || 0)
+        labels: results.map(r => r.category || 'Sin categoría'),
+        values: results.map(r => parseFloat(r.total) || 0)
       };
-    } catch (error) {
-      console.error("Error en _getDoughnutFiltered:", error);
-      return { labels: [], values: [] };
     }
+
+    // 2. Si es VISTA GLOBAL: Sumamos categorías de compras Y globalizamos OperatingExpenses
+    const [purchases, totalOperating] = await Promise.all([
+      purchPostInvoice.findAll({
+        attributes: ['category', [fn('SUM', col('amount_with_vat')), 'total']],
+        where: { [Op.and]: [literal(`EXTRACT(YEAR FROM "posting_date") = ${year}`)] },
+        group: ['category'],
+        raw: true
+      }),
+
+      OperatingExpenses.findOne({
+        attributes: [[fn('SUM', col('base_amount')), 'total']], // Suma total de todos los gastos
+        where: { [Op.and]: [literal(`EXTRACT(YEAR FROM "date") = ${year}`)] },
+        raw: true
+      })
+    ]);
+
+    // Construimos los resultados
+    const labels = purchases.map(r => r.category || 'Sin categoría');
+    const values = purchases.map(r => parseFloat(r.total) || 0);
+
+    // Añadimos la categoría global de Gastos Operativos
+    labels.push('Gastos Operativos');
+    values.push(parseFloat(totalOperating?.total || 0));
+
+    return { labels, values };
   }
 }
 
