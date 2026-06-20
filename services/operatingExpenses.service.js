@@ -50,9 +50,12 @@ class OperatingExpensesService {
   }
 
   async create(data, userExecutor) {
+    // Aplicamos la validación financiera
+    const validatedData = this.prepareAndValidateFinancials(data);
+
     const t = await models.OperatingExpenses.sequelize.transaction();
     try {
-      const newExpense = await models.OperatingExpenses.create(data, {
+      const newExpense = await models.OperatingExpenses.create(validatedData, {
         transaction: t,
         userExecutor
       });
@@ -66,7 +69,14 @@ class OperatingExpensesService {
 
   async update(id, changes, userExecutor) {
     const expense = await this.findOne(id);
-    return await expense.update(changes, { userExecutor });
+
+    // Si los cambios incluyen importes, los recalculamos/validamos
+    const validatedChanges = this.prepareAndValidateFinancials({
+        ...expense.dataValues, // Combinamos con los valores actuales
+        ...changes             // Sobrescribimos con los nuevos cambios
+    });
+
+    return await expense.update(validatedChanges, { userExecutor });
   }
 
   async delete(id, userExecutor) {
@@ -103,45 +113,63 @@ class OperatingExpensesService {
     }
   }
 
+  prepareAndValidateFinancials(data) {
+    // Usamos los campos correctos definidos en tu schema: 'tax' y 'irpf'
+    const base = parseFloat(data.baseAmount || 0);
+    const taxPercent = parseFloat(data.tax || 0);  // Cambiado de taxPercentage
+    const irpfPercent = parseFloat(data.irpf || 0); // Cambiado de irpfPercentage
+
+    // 1. Recalculamos los importes
+    const taxAmount = base * (taxPercent / 100);
+    const amountIrpf = base * (irpfPercent / 100);
+
+    // 2. Calculamos el total (Base + IVA - IRPF)
+    const totalAmount = base + taxAmount - amountIrpf;
+
+    // 3. Retornamos los datos con los nombres de campo exactos del modelo
+    return {
+      ...data,
+      taxAmount: parseFloat(taxAmount.toFixed(2)),
+      amountIrpf: parseFloat(amountIrpf.toFixed(2)),
+      totalAmount: parseFloat(totalAmount.toFixed(2))
+    };
+  }
+
   /**
     * Obtiene los gastos operativos dentro de un rango de fechas.
     * Calcula el IVA implícito basado en los importes base y total.
     */
   async findForReport(startDate, endDate) {
     try {
-      // CORRECCIÓN: Cambiamos 'OperatingExpenses' por 'models.OperatingExpenses'
       const expenses = await models.OperatingExpenses.findAll({
         where: {
           date: {
-            [Op.gte]: new Date(startDate), // >= fecha inicio
-            [Op.lte]: new Date(endDate)    // <= fecha fin
+            [Op.gte]: new Date(startDate),
+            [Op.lte]: new Date(endDate)
           }
         },
         order: [['date', 'ASC']]
       });
 
-      console.log(`[OperatingExpensesService] Gastos encontrados entre ${startDate} y ${endDate}:`, expenses.length);
-
       return expenses.map(gasto => {
-        const base = parseFloat(gasto.baseAmount || 0);
-        const iva = parseFloat(gasto.taxAmount || 0);
-
-        const ivaPorcentaje = (base > 0)
-          ? parseFloat(((iva / base) * 100).toFixed(2))
-          : 0;
-
         return {
           fecha: gasto.date ? new Date(gasto.date).toLocaleDateString('es-ES') : '',
-          numeroFactura: 'N/A',
+          numeroFactura: gasto.invoiceNumber || 'N/A',
           proveedor: gasto.name || '',
           cif: gasto.nif || '',
           concepto: gasto.concept || '',
-          importe: base,
-          ivaPorcentaje: ivaPorcentaje,
+          importe: parseFloat(gasto.baseAmount || 0),
+
+          // Usamos los campos 'tax' e 'irpf' tal cual están en el schema
+          ivaPorcentaje: parseFloat(gasto.tax || 0),
+          irpfPorcentaje: parseFloat(gasto.irpf || 0),
+
+          importeIva: parseFloat(gasto.taxAmount || 0),
+          importeIrpf: parseFloat(gasto.amountIrpf || 0),
+          total: parseFloat(gasto.totalAmount || 0),
           categoria: gasto.category || 'Sin categoría'
         };
       });
-
     } catch (error) {
       console.error("[OperatingExpensesService] Error en findForReport:", error);
       throw error;

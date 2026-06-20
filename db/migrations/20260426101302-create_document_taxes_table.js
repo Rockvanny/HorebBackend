@@ -14,7 +14,7 @@ module.exports = {
       codeDocument: {
         field: 'code_document',
         allowNull: false,
-        type: Sequelize.DataTypes.ENUM('budget', 'salesinvoice', 'salespostinvoices', 'purchinvoice', 'purchpostinvoice'),
+        type: Sequelize.DataTypes.ENUM('budget', 'salesinvoice', 'salespostinvoices', 'purchinvoice', 'purchpostinvoices'),
       },
       // CAMBIO CLAVE: De INTEGER a UUID para el traspaso entre tablas
       movementId: {

@@ -1,5 +1,7 @@
 const { Strategy, ExtractJwt } = require('passport-jwt');
-const { config } = require('../config/config');
+const { getConfig } = require('../config/config');
+
+const config = getConfig();
 
 const options = {
   // Extrae el token del Header 'Authorization: Bearer <token>'

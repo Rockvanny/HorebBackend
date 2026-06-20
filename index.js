@@ -1,5 +1,4 @@
 // --- 0. CONFIGURACIÓN DE ZONA HORARIA ---
-// Esto debe ser lo PRIMERO que se ejecute en toda la aplicación
 process.env.TZ = 'Europe/Madrid';
 require('dotenv').config();
 
@@ -12,15 +11,7 @@ const path = require('path');
 const sequelize = require('./libs/sequelize');
 const JwtStrategy = require('./libs/jwt.strategy');
 const routerApi = require('./routes');
-
-const {
-        logErrors,
-        errorHandler,
-        boomErrorHandler,
-        ormErrorHandler
-      } = require('./middlewares/error.handler');
-
-
+const { logErrors, errorHandler, boomErrorHandler, ormErrorHandler } = require('./middlewares/error.handler');
 const { Umzug, SequelizeStorage } = require('umzug');
 
 const app = express();
@@ -30,9 +21,7 @@ const port = process.env.PORT || 3000;
 passport.use(JwtStrategy);
 app.use(passport.initialize());
 
-
 // --- 2. MIDDLEWARES GLOBALES ---
-// Configuración de CORS (para las rutas REST)
 const whitelist = ['http://localhost:8080'];
 const corsOptions = {
   origin: (origin, callback) => {
@@ -45,13 +34,12 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-// Esto permite recibir cuerpos de mensaje grandes (ej: imágenes de productos o facturas)
 app.use(express.json({ limit: '50mb' }));
 
 // --- 3. RUTAS DE LA API ---
 routerApi(app);
 
-// --- 4. MIDDLEWARES DE ERROR (Deben ir después de las rutas) ---
+// --- 4. MIDDLEWARES DE ERROR ---
 app.use(logErrors);
 app.use(ormErrorHandler);
 app.use(boomErrorHandler);
@@ -68,21 +56,54 @@ const migrator = new Umzug({
 });
 
 // --- 6. INICIO DEL SERVIDOR Y CONEXIÓN A BD ---
-// Ejecutar migraciones y luego iniciar el servidor
+let server;
+
 (async () => {
   try {
     await sequelize.authenticate();
-    console.log('✅ Conexión a la base de datos establecida.');
+    console.log('Conexión a la base de datos establecida.');
 
     await migrator.up();
-    console.log('✅ Migraciones aplicadas correctamente.');
+    console.log('Migraciones aplicadas correctamente.');
 
-    app.listen(port, () => {
-      console.log(`🚀 Servidor iniciado en el puerto ${port}`);
+    server = app.listen(port, () => {
+      console.log(`Servidor iniciado en el puerto ${port}`);
+      console.log("SERVER_READY");
     });
   } catch (error) {
-    console.error('❌ Error al aplicar migraciones:', error);
+    console.error('Error al aplicar migraciones:', error);
   }
 })();
+
+// --- 7. MANEJO DE CIERRE GRACIOSO (Graceful Shutdown) ---
+const gracefulShutdown = async (signal) => {
+  console.log(`Recibida señal ${signal}. Cerrando servidor...`);
+
+  if (server) {
+    server.close(async () => {
+      console.log('Servidor HTTP cerrado.');
+      try {
+        await sequelize.close();
+        console.log('Conexión a BD cerrada.');
+        process.exit(0);
+      } catch (err) {
+        console.error('Error cerrando BD:', err);
+        process.exit(1);
+      }
+    });
+  } else {
+    process.exit(0);
+  }
+
+  // Forzar cierre si no termina en 3 segundos
+  setTimeout(() => {
+    console.error('Forzando cierre por tiempo límite.');
+    process.exit(1);
+  }, 3000);
+};
+
+// Escuchar señales de cierre
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 module.exports = { sequelize, app };

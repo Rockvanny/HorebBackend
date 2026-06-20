@@ -15,7 +15,10 @@ const name = Joi.string().min(3).max(100);
 const nif = Joi.string().min(5).max(20);
 const concept = Joi.string().min(3).max(255);
 const baseAmount = Joi.number().precision(2);
+const tax = Joi.number().precision(2);
 const taxAmount = Joi.number().precision(2);
+const irpf = Joi.number().precision(2);
+const amountIrpf = Joi.number().precision(2);
 const totalAmount = Joi.number().precision(2);
 const paymentMethod = Joi.string().valid('Transferencia', 'Efectivo', 'Tarjeta', 'Bizum');
 
@@ -41,8 +44,11 @@ const createOperatingExpenseSchema = Joi.object({
   nif: nif.required(),
   concept: concept.required(),
   baseAmount: baseAmount.required(),
-  taxAmount: taxAmount.required(),
-  totalAmount: totalAmount.required(),
+  tax: tax.optional(),
+  taxAmount: taxAmount.optional(),
+  irpf: irpf.optional(),
+  amountIrpf: amountIrpf.optional(),
+  totalAmount: totalAmount.optional(),
   paymentMethod: paymentMethod.default('Transferencia'),
 });
 
@@ -54,7 +60,10 @@ const updateOperatingExpenseSchema = Joi.object({
   nif: nif.optional().allow(''),
   concept: concept.optional(),
   baseAmount: baseAmount.optional(),
+  tax: tax.optional(),
   taxAmount: taxAmount.optional(),
+  irpf: irpf.optional(),
+  amountIrpf: amountIrpf.optional(),
   totalAmount: totalAmount.optional(),
   paymentMethod: paymentMethod.optional(),
 });
@@ -63,5 +72,5 @@ module.exports = {
   getOperatingExpenseSchema,
   createOperatingExpenseSchema,
   updateOperatingExpenseSchema,
-  queryOperatingExpenseSchema // <--- Esto era lo que faltaba
+  queryOperatingExpenseSchema
 };

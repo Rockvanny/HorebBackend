@@ -110,6 +110,22 @@ router.post('/',
     }
 );
 
+router.patch('/update-password-initial/:id', async (req, res, next) => {
+    console.log("[BACKEND] Solicitud recibida en ruta pública:", req.params.id);
+    try {
+        const { id } = req.params;
+        const { password } = req.body;
+        console.log("[BACKEND] Intentando actualizar para:", password);
+
+        const result = await service.updatePassword(id, password);
+        console.log("[BACKEND] Éxito en actualización");
+        res.json({ success: true, ...result });
+    } catch (error) {
+        console.error("[BACKEND] ERROR CAPTURADO:", error);
+        next(error);
+    }
+});
+
 router.patch('/:id',
     passport.authenticate('jwt', { session: false }),
     checkPermission('allowSettings'),

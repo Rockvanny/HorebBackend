@@ -59,16 +59,33 @@ const OperatingExpensesSchema = {
     allowNull: false,
   },
 
+  tax: {
+    field: 'tax_%',
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true,
+  },
+
   taxAmount: {
     field: 'tax_amount',
     type: DataTypes.DECIMAL(10, 2),
-    allowNull: false,
+    allowNull: true,
+  },
+
+  irpf: {
+    field: 'irpf_%',
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true,
+  },
+  amountIrpf: {
+    field: 'amount_irpf',
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true,
   },
 
   totalAmount: {
     field: 'total_amount',
     type: DataTypes.DECIMAL(10, 2),
-    allowNull: false,
+    allowNull: true,
   },
 
   paymentMethod: {

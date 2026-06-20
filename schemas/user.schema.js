@@ -40,6 +40,7 @@ const updateUserSchema = Joi.object({
   fullName: fullName, // Permitimos actualizar el nombre
   email: email,
   role: role,
+  password: password,
   mustChangePassword,
   allowGestion,
   allowSales,

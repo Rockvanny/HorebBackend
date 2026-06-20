@@ -3,8 +3,9 @@ const boom = require('@hapi/boom');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { models } = require('../libs/sequelize');
-const { config } = require('../config/config');
+const { getConfig } = require('../config/config');
 
+const config = getConfig();
 const ROLES = ['master', 'admin', 'financiero', 'vendedor', 'externo', 'viewer'];
 
 class UserService {
@@ -26,7 +27,7 @@ class UserService {
       const term = searchTerm.trim();
       const searchPattern = `%${term}%`;
       options.where[Op.or] = [
-        { userId: { [Op.iLike]: searchPattern } },
+        { code: { [Op.iLike]: searchPattern } },
         { fullName: { [Op.iLike]: searchPattern } },
         { email: { [Op.iLike]: searchPattern } }
       ];
@@ -53,7 +54,7 @@ class UserService {
       isMaster = true;
 
       userData = {
-        userId: config.masterUser,
+        code: config.masterUser,
         fullName: 'Soporte Horeb',
         role: 'master',
         isMaster: true,
@@ -68,6 +69,7 @@ class UserService {
       const user = await models.User.findOne({ where: { email } });
       if (!user) throw boom.unauthorized('Usuario o contraseña incorrectos');
 
+      console.log("Usuario: ", email);
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) throw boom.unauthorized('Usuario o contraseña incorrectos');
 
@@ -76,7 +78,7 @@ class UserService {
 
     // 3. Generación de Token (JWT)
     const payload = {
-      sub: userData.userId,
+      sub: userData.code,
       role: userData.role,
       // Inyectamos permisos directamente en el token para el middleware
       permissions: {
@@ -97,7 +99,7 @@ class UserService {
   async findOne(id) {
     if (id === config.masterUser) {
       return {
-        userId: config.masterUser,
+        code: config.masterUser,
         fullName: 'Soporte Horeb',
         role: 'master',
         allowGestion: false,
@@ -118,6 +120,25 @@ class UserService {
     const updatedUser = await user.update(changes, { userExecutor });
     const { password, ...userWithoutPassword } = updatedUser.toJSON();
     return userWithoutPassword;
+  }
+
+  async updatePassword(id, password) {
+    console.log("[BACKEND] updatePassword:", password);
+    const user = await models.User.findByPk(id);
+    if (!user) throw boom.notFound('Usuario no encontrado');
+
+    await user.update({
+      password: password,
+      mustChangePassword: false
+    });
+
+    const userJson = user.toJSON();
+    delete userJson.password;
+
+    return {
+      message: 'Contraseña actualizada correctamente',
+      user: userJson
+    };
   }
 
   async delete(id) {

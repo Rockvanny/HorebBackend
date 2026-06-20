@@ -180,8 +180,7 @@ class PurchPostInvoiceService {
           cif: invoice.nif || '',
           concepto: invoice.comments || 'COMPRA REGISTRADA',
           importe: parseFloat(invoice.amountWithoutVAT || 0),
-          ivaPorcentaje: parseFloat(taxDetail.taxPercentage || 0),
-          categoria: invoice.category || 'Sin categoría'
+          ivaPorcentaje: parseFloat(taxDetail.taxPercentage || 0)
         };
       });
 

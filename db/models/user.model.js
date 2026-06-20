@@ -112,8 +112,7 @@ class User extends Model {
       underscored: true,
       hooks: {
         beforeValidate: async (user, options) => {
-          // 1. Lógica de generación de 'code' (antiguo userId)
-          // Cambiamos user.userId por user.code
+          // 1. Lógica de generación de 'code'
           if (user.fullName && !user.code) {
             const parts = user.fullName.trim().toLowerCase().split(' ');
             const firstName = parts[0];
@@ -144,12 +143,12 @@ class User extends Model {
             // CORRECCIÓN AQUÍ: Asignamos a 'code'
             user.code = finalId;
           }
+        },
 
-          // 2. ENCRIPTACIÓN
-          // Añadimos comprobación para no re-encriptar si ya es un hash
-          if (user.password && user.changed('password')) {
-            const hash = await bcrypt.hash(user.password, 10);
-            user.password = hash;
+        beforeCreate: async (user) => {
+          // 2. Encriptar solo al crear
+          if (user.password) {
+            user.password = await bcrypt.hash(user.password, 10);
           }
         },
 
