@@ -2,18 +2,29 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const passport = require('passport'); // 1. Importar Passport
-const { checkPermission } = require('../middlewares/auth.handler'); // 2. Importar checkPermission
+const { checkAction } = require('../middlewares/auth.handler'); // 2. Importar checkAction
+const { ROLES, MODULE_HIERARCHY, ACTIONS } = require('../config/access-manager');
 
 const router = express.Router();
 const envPath = path.resolve(process.cwd(), '.env');
 
+router.get('/permissions-map',
+  passport.authenticate('jwt', { session: false }),
+  (req, res) => {
+    res.json({
+      roles: ROLES,
+      hierarchy: MODULE_HIERARCHY,
+      actions: ACTIONS
+    });
+  }
+);
 /**
  * LEER VARIABLES DEL ARCHIVO .env
  * Solo accesible para administradores (Settings)
  */
 router.get('/',
   passport.authenticate('jwt', { session: false }), // 3. Autenticación obligatoria
-  checkPermission('allowSettings'), // 4. Máximo nivel de permiso
+  //checkAction('VIEW_CONEXION'), // 4. Máximo nivel de permiso
   (req, res, next) => {
     try {
       if (!fs.existsSync(envPath)) {
@@ -51,7 +62,7 @@ router.get('/',
  */
 router.put('/',
   passport.authenticate('jwt', { session: false }),
-  checkPermission('allowSettings'),
+  //checkAction('UPDATE_CONEXION'),
   (req, res, next) => {
     const { host, port, user, password, dbName } = req.body;
 

@@ -2,7 +2,7 @@ const express = require('express');
 const passport = require('passport');
 const DocumentTaxService = require('../services/documentTax.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { checkPermission } = require('../middlewares/auth.handler');
+const { checkAction } = require('../middlewares/auth.handler');
 const { filterDocumentTaxSchema } = require('../schemas/documentTax.schema');
 
 const router = express.Router();
@@ -14,7 +14,7 @@ const service = new DocumentTaxService();
  */
 router.get('/:codeDocument/:movementId',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSales'), // O un permiso más genérico si lo prefieres
+    //checkAction('VIEW_SALES'), // O un permiso más genérico si lo prefieres
     validatorHandler(filterDocumentTaxSchema, 'params'),
     async (req, res, next) => {
         try {

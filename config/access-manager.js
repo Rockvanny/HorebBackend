@@ -1,81 +1,105 @@
-// backend/config/access-control.js
-
 const ROLES = {
-    MASTER: 'master',
-    ADMIN: 'admin',
-    FINANCIERO: 'financiero',
-    VENDEDOR: 'vendedor',
-    EXTERNO: 'externo',
-    VIEWER: 'viewer'
+  ADMIN: 'admin',
+  FINANCIERO: 'financiero',
+  VENDEDOR: 'vendedor',
+  EXTERNO: 'externo',
+  VIEWER: 'viewer',
+  SYSTEM: 'system'
 };
 
-/**
- * 1. ASIGNACIÓN DE OBJETOS A MÓDULOS (Macro-permisos de BD)
- * Este mapa traduce el "objeto" que pide el front al "permiso de módulo" en la BD.
- */
-const OBJECT_TO_MODULE = {
-    // Pertenecen al módulo GESTIÓN
-    'CUSTOMERS': 'allowGestion',
-    'VENDORS': 'allowGestion',
-    'PRODUCTS': 'allowGestion',
-
-    // Pertenecen al módulo VENTAS
-    'SALES': 'allowSales',
-    'SALESINVOICES': 'allowSales',
-    'SALESBUDGETS': 'allowSales',
-
-    // Pertenecen al módulo COMPRAS
-    'PURCHASES': 'allowPurchases',
-    'PURCHINVOICES': 'allowPurchases',
-
-    // Pertenecen al módulo CONFIGURACIÓN/ADMIN
-    'USERS': 'allowSettings',
-    'SETTINGS': 'allowSettings'
+const MODULE_HIERARCHY = {
+  GESTION: {
+    field: 'allowGestion',
+    objects: ['MASTERS', 'CUSTOMERS', 'VENDORS', 'PRODUCTS', 'STATS', 'OPERATINGEXPENSES', 'MASTER', 'INICIO']
+  },
+  SALES: {
+    field: 'allowSales',
+    objects: ['SALES', 'SALESBUDGETS', 'SALESINVOICES', 'SALESPOSTINVOICES', 'SALESOVERDUEINVOICES', 'VERIFACTULOGS']
+  },
+  PURCHASES: {
+    field: 'allowPurchases',
+    objects: ['PURCHASES', 'PURCHINVOICES', 'PURCHPOSTINVOICES', 'PURCHOVERDUEINVOICES']
+  },
+  SETUP: {
+    field: 'allowSettings',
+    objects: ['COMPANY', 'SERIES', 'USERS', 'CONEXION']
+  }
 };
 
-/**
- * 2. PERMISOS DE OBJETOS SEGÚN ROL (Micro-permisos de Acción)
- * Aquí defines qué acciones permite cada rol independientemente del módulo.
- */
-const ACTION_RULES = {
-    'VIEW': [ROLES.MASTER, ROLES.ADMIN, ROLES.FINANCIERO, ROLES.VENDEDOR, ROLES.VIEWER, ROLES.EXTERNO],
-    'CREATE': [ROLES.MASTER, ROLES.ADMIN, ROLES.FINANCIERO, ROLES.VENDEDOR],
-    'EDIT': [ROLES.MASTER, ROLES.ADMIN, ROLES.FINANCIERO, ROLES.VENDEDOR],
-    'UPDATE': [ROLES.MASTER, ROLES.ADMIN, ROLES.FINANCIERO, ROLES.VENDEDOR],
-    'DELETE': [ROLES.MASTER, ROLES.ADMIN, ROLES.FINANCIERO], // Solo admin/master/financiero borran
-    'PRINT': [ROLES.MASTER, ROLES.ADMIN, ROLES.FINANCIERO, ROLES.VENDEDOR, ROLES.VIEWER]
+const ACTIONS = {
+  VIEW: 'view', CREATE: 'create', EDIT: 'edit', UPDATE: 'update', DELETE: 'delete', PRINT: 'print'
 };
 
-const checkPermission = (user, action) => {
-    if (!user || !action) return false;
+// 1. Configuración de Acciones (Permisos de ejecución)
+const ROLE_ACTIONS = {
+  [ROLES.ADMIN]: { default: Object.values(ACTIONS) },
+  [ROLES.FINANCIERO]: {
+    default: [ACTIONS.VIEW, ACTIONS.CREATE, ACTIONS.EDIT, ACTIONS.UPDATE, ACTIONS.DELETE, ACTIONS.PRINT]
+  },
+  [ROLES.VENDEDOR]: {
+    default: [ACTIONS.VIEW, ACTIONS.CREATE, ACTIONS.EDIT, ACTIONS.UPDATE, ACTIONS.PRINT]
+  },
+  [ROLES.VIEWER]: { default: [ACTIONS.VIEW, ACTIONS.PRINT] },
+  [ROLES.EXTERNO]: { default: [ACTIONS.VIEW] },
+  [ROLES.SYSTEM]: { default: [ACTIONS.VIEW, ACTIONS.CREATE, ACTIONS.EDIT, ACTIONS.UPDATE, ACTIONS.DELETE] }
+};
 
-    // Bypass total para el Maestro
-    if (user.role === ROLES.MASTER) return true;
+// 2. Configuración de Páginas (Visibilidad opcional)
+const ROLE_PAGES = {
+  [ROLES.FINANCIERO]: {
+    SETUP: ['COMPANY', 'SERIES']
+  }
+};
 
-    // Descomponemos la acción (ej: 'CREATE_USERS' -> type: 'CREATE', object: 'USERS')
-    const parts = action.split('_');
-    const type = parts.length > 1 ? parts[0].toUpperCase() : 'VIEW';
-    const object = (parts.length > 1 ? parts.slice(1).join('') : parts[0]).toUpperCase();
+const checkPermission = (user, actionString) => {
+  if (!user || !actionString) return false;
 
-    // A. VALIDACIÓN DE MÓDULO (Desde la BD)
-    const moduleField = OBJECT_TO_MODULE[object];
-    if (!moduleField) return false; // Si el objeto no está en un módulo, denegamos.
+  const userData = user.dataValues || user;
+  const parts = actionString.split('_');
+  const type = (parts.length > 1 ? parts[0] : 'VIEW').toUpperCase();
+  const objectName = (parts.length > 1 ? parts.slice(1).join('_') : parts[0]).toUpperCase();
 
-    const source = user.modules || user;
-    const isModuleEnabled =
-        source[moduleField] === true ||
-        source[moduleField] === 1 ||
-        source[moduleField] === "true";
+  // 1. Encontrar a qué módulo pertenece el objeto (ej. "COMPANY" -> "SETUP")
+  const moduleKey = Object.keys(MODULE_HIERARCHY).find(key =>
+    MODULE_HIERARCHY[key].objects.includes(objectName)
+  );
+  if (!moduleKey) return false;
 
-    if (!isModuleEnabled) return false;
+  const moduleEntry = MODULE_HIERARCHY[moduleKey];
 
-    // B. VALIDACIÓN DE ACCIÓN (Desde este fichero)
-    const allowedRoles = ACTION_RULES[type];
-    return allowedRoles ? allowedRoles.includes(user.role) : false;
+  // 2. Filtro 1: ¿Tiene el módulo activo en la base de datos?
+  const val = (userData.modules && userData.modules[moduleEntry.field]) ?? userData[moduleEntry.field];
+  const isModuleActive = [true, 1, "true", "1"].includes(val);
+  if (!isModuleActive) return false;
+
+  const userRole = (userData.role || '').toLowerCase();
+
+  // 3. Filtro 2: Validar ROLE_PAGES (Visibilidad / Acceso a nivel de Página)
+  const rolePages = ROLE_PAGES[userRole];
+  if (rolePages && rolePages[moduleKey]) {
+    // Si el rol tiene páginas personalizadas para este módulo, el objeto solicitado DEBE estar ahí
+    if (!rolePages[moduleKey].includes(objectName)) {
+      // Intento de acceder a la API de una página oculta (Ej: Financiero intentando acceder a USERS)
+      return false;
+    }
+  }
+
+  // 4. Filtro 3: Validar ROLE_ACTIONS (Permiso para ejecutar la acción)
+  const roleActions = ROLE_ACTIONS[userRole];
+  if (!roleActions) return false;
+
+  // Verificamos si hay reglas específicas de acciones para este módulo en ROLE_ACTIONS
+  // Ojo: usamos moduleKey ('SALES') en lugar de objectName para que coincida con nuestra estructura
+  const allowedActions = roleActions.modules?.[moduleKey] || roleActions.default || [];
+
+  return allowedActions.map(a => a.toUpperCase()).includes(type);
 };
 
 module.exports = {
-    ROLES,
-    ROLES_LIST: Object.values(ROLES),
-    checkPermission
+  ROLES,
+  checkPermission,
+  MODULE_HIERARCHY,
+  ROLE_ACTIONS,
+  ROLE_PAGES,
+  ACTIONS
 };

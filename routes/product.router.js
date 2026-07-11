@@ -2,7 +2,7 @@ const express = require('express');
 const passport = require('passport'); // 1. Importar Passport
 const ProductsService = require('../services/products.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { checkPermission } = require('../middlewares/auth.handler');
+const { checkAction } = require('../middlewares/auth.handler');
 const {
     createProductSchema,
     updateProductSchema,
@@ -17,7 +17,7 @@ const service = new ProductsService();
 
 router.get('/products-paginated',
     passport.authenticate('jwt', { session: false }), // 2. Autenticar primero
-    checkPermission('allowGestion'),
+   // checkAction('VIEW_PRODUCTS'),
     async (req, res, next) => {
         try {
             const { limit, offset, searchTerm } = req.query;
@@ -31,7 +31,7 @@ router.get('/products-paginated',
 
 router.get('/search',
     passport.authenticate('jwt', { session: false }), // 2. Autenticar primero
-    checkPermission('allowGestion'),
+   // checkAction('VIEW_PRODUCTS'),
     async (req, res, next) => {
         try {
             const { term } = req.query;
@@ -45,7 +45,7 @@ router.get('/search',
 
 router.get('/:code',
     passport.authenticate('jwt', { session: false }), // 2. Autenticar primero
-    checkPermission('allowGestion'),
+    //checkAction('VIEW_PRODUCTS'),
     validatorHandler(getProductSchema, 'params'),
     async (req, res, next) => {
         try {
@@ -62,7 +62,7 @@ router.get('/:code',
 
 router.post('/',
     passport.authenticate('jwt', { session: false }), // 2. Autenticar primero
-    checkPermission('allowGestion'), // NOTA: Asegúrate de usar permisos que existan en tu token
+    //checkAction('CREATE_PRODUCTS'), // NOTA: Asegúrate de usar permisos que existan en tu token
     validatorHandler(createProductSchema, 'body'),
     async (req, res, next) => {
         try {
@@ -79,7 +79,7 @@ router.post('/',
 
 router.patch('/:code',
     passport.authenticate('jwt', { session: false }), // 2. Autenticar primero
-    checkPermission('allowGestion'),
+    //checkAction('UPDATE_PRODUCTS'),
     validatorHandler(getProductSchema, 'params'),
     validatorHandler(updateProductSchema, 'body'),
     async (req, res, next) => {
@@ -97,7 +97,7 @@ router.patch('/:code',
 
 router.delete('/:code',
     passport.authenticate('jwt', { session: false }), // 2. Autenticar primero
-    checkPermission('allowGestion'), // Normalmente borrar productos es nivel configuración/admin
+    //checkAction('DELETE_PRODUCTS'), // Normalmente borrar productos es nivel configuración/admin
     validatorHandler(getProductSchema, 'params'),
     async (req, res, next) => {
         try {

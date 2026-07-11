@@ -3,7 +3,7 @@ const express = require('express');
 const passport = require('passport');
 const PurchPostInvoiceLineService = require('../services/purchPostInvoiceLine.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { checkPermission } = require('../middlewares/auth.handler');
+const { checkAction } = require('../middlewares/auth.handler');
 const {
   getPurchPostInvoiceLineSchema,
   queryPurchPostInvoiceLineSchema
@@ -15,7 +15,7 @@ const service = new PurchPostInvoiceLineService();
 // Consulta paginada general
 router.get('/paginated',
   passport.authenticate('jwt', { session: false }),
-  checkPermission('allowPurchases'),
+  //checkAction('VIEW_PURCHPOSTINVOICES'),
   validatorHandler(queryPurchPostInvoiceLineSchema, 'query'),
   async (req, res, next) => {
     try {
@@ -28,7 +28,7 @@ router.get('/paginated',
 // Obtener por ID técnico
 router.get('/:id',
   passport.authenticate('jwt', { session: false }),
-  checkPermission('allowPurchases'),
+  //checkAction('VIEW_PURCHPOSTINVOICES'),
   validatorHandler(getPurchPostInvoiceLineSchema, 'params'),
   async (req, res, next) => {
     try {

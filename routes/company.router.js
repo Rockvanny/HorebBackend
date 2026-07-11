@@ -1,18 +1,19 @@
 const express = require('express');
-const passport = require('passport');
 const CompanyService = require('../services/company.service');
-const validatorHandler = require('./../middlewares/validator.handler');
-const { checkPermission } = require('../middlewares/auth.handler');
-const { createCompanySchema, getCompanySchema, updateCompanySchema, queryCompanySchema } = require('../schemas/company.schema');
+const { protectedRoute } = require('../libs/router-factory');
+const {
+  createCompanySchema,
+  getCompanySchema,
+  updateCompanySchema,
+  queryCompanySchema
+} = require('../schemas/company.schema');
 
 const router = express.Router();
 const service = new CompanyService();
 
-// 1. RUTAS DE BÚSQUEDA Y PAGINACIÓN (Siempre antes que :id)
+// 1. RUTAS DE BÚSQUEDA Y PAGINACIÓN
 router.get('/company-paginated',
-  passport.authenticate('jwt', { session: false }),
-  checkPermission('allowGestion'),
-  validatorHandler(queryCompanySchema, 'query'),
+  ...protectedRoute('VIEW_COMPANY', { query: queryCompanySchema }),
   async (req, res, next) => {
     try {
       const { limit, offset, searchTerm } = req.query;
@@ -24,12 +25,9 @@ router.get('/company-paginated',
   }
 );
 
-// 2. RUTAS BASE (GET / POST / etc.)
+// 2. RUTAS BASE
 router.get('/',
-  passport.authenticate('jwt', { session: false }),
-  checkPermission('allowGestion'),
-  // Eliminamos o relajamos el validador aquí si quieres que el logo cargue sin enviar parámetros
-  validatorHandler(getCompanySchema, 'query'),
+  ...protectedRoute('VIEW_COMPANY', { query: getCompanySchema }),
   async (req, res, next) => {
     try {
       const company = await service.find(req.query);
@@ -41,13 +39,10 @@ router.get('/',
 );
 
 router.post('/',
-  passport.authenticate('jwt', { session: false }),
-  checkPermission('allowGestion'),
-  validatorHandler(createCompanySchema, 'body'),
+  ...protectedRoute('CREATE_COMPANY', { body: createCompanySchema }),
   async (req, res, next) => {
     try {
-      const body = req.body;
-      const newCompany = await service.create(body);
+      const newCompany = await service.create(req.body);
       res.status(201).json(newCompany);
     } catch (error) {
       next(error);
@@ -55,11 +50,9 @@ router.post('/',
   }
 );
 
-// 3. RUTAS CON PARÁMETROS DINÁMICOS (:id) - Siempre al final
+// 3. RUTAS CON PARÁMETROS DINÁMICOS (:id)
 router.get('/:id',
-  passport.authenticate('jwt', { session: false }),
-  checkPermission('allowGestion'),
-  validatorHandler(getCompanySchema, 'params'),
+  ...protectedRoute('VIEW_COMPANY', { params: getCompanySchema }),
   async (req, res, next) => {
     try {
       const { id } = req.params;
@@ -72,15 +65,11 @@ router.get('/:id',
 );
 
 router.patch('/:id',
-  passport.authenticate('jwt', { session: false }),
-  checkPermission('allowGestion'),
-  validatorHandler(getCompanySchema, 'params'),
-  validatorHandler(updateCompanySchema, 'body'),
+  ...protectedRoute('UPDATE_COMPANY', { params: getCompanySchema, body: updateCompanySchema }),
   async (req, res, next) => {
     try {
       const { id } = req.params;
-      const body = req.body;
-      const company = await service.update(id, body);
+      const company = await service.update(id, req.body);
       res.json(company);
     } catch (error) {
       next(error);
@@ -89,9 +78,7 @@ router.patch('/:id',
 );
 
 router.delete('/:id',
-  passport.authenticate('jwt', { session: false }),
-  checkPermission('allowGestion'),
-  validatorHandler(getCompanySchema, 'params'),
+  ...protectedRoute('DELETE_COMPANY', { params: getCompanySchema }),
   async (req, res, next) => {
     try {
       const { id } = req.params;

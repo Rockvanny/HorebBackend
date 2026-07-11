@@ -1,3 +1,12 @@
+process.on('uncaughtException', (err) => {
+    console.error('CRASH FATAL EN BACKEND:', err);
+    process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('RECHAZO NO MANEJADO:', reason);
+});
+
 // --- 0. CONFIGURACIÓN DE ZONA HORARIA ---
 process.env.TZ = 'Europe/Madrid';
 require('dotenv').config();
@@ -18,8 +27,8 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // --- 1. CONFIGURACIÓN DE SEGURIDAD (PASSPORT) ---
-passport.use(JwtStrategy);
 app.use(passport.initialize());
+passport.use(JwtStrategy);
 
 // --- 2. MIDDLEWARES GLOBALES ---
 const whitelist = ['http://localhost:8080'];
@@ -46,48 +55,60 @@ app.use(boomErrorHandler);
 app.use(errorHandler);
 
 // --- 5. CONFIGURACIÓN DE MIGRACIONES (UMZUG) ---
+const migrationsPath = path.join(process.cwd(), 'db', 'migrations', '*.js');
 const migrator = new Umzug({
   migrations: {
-    glob: path.join(__dirname, 'db/migrations/*.js'),
+    glob: migrationsPath
   },
   context: sequelize.getQueryInterface(),
   storage: new SequelizeStorage({ sequelize }),
-  logger: console,
+  logger: false,
 });
 
 // --- 6. INICIO DEL SERVIDOR Y CONEXIÓN A BD ---
 let server;
 
+async function runSeed() {
+  const { User } = sequelize.models;
+  const count = await User.count();
+  if (count === 0) {
+    await User.create({
+      code: 'admin',
+      fullName: 'Administrador Maestro',
+      email: 'admin@horeb.com',
+      password: 'admin123', // ¡Asegúrate de hashear esto si tu modelo lo requiere!
+      role: 'system',
+      allowGestion: true,
+      allowSales: true,
+      allowPurchases: true,
+      allowReports: true,
+      allowSettings: true
+    });
+  }
+}
+
 (async () => {
   try {
     await sequelize.authenticate();
-    console.log('Conexión a la base de datos establecida.');
-
     await migrator.up();
-    console.log('Migraciones aplicadas correctamente.');
 
+    await runSeed();
     server = app.listen(port, () => {
-      console.log(`Servidor iniciado en el puerto ${port}`);
       console.log("SERVER_READY");
     });
   } catch (error) {
-    console.error('Error al aplicar migraciones:', error);
+    process.exit(1);
   }
 })();
 
 // --- 7. MANEJO DE CIERRE GRACIOSO (Graceful Shutdown) ---
 const gracefulShutdown = async (signal) => {
-  console.log(`Recibida señal ${signal}. Cerrando servidor...`);
-
   if (server) {
     server.close(async () => {
-      console.log('Servidor HTTP cerrado.');
       try {
         await sequelize.close();
-        console.log('Conexión a BD cerrada.');
         process.exit(0);
       } catch (err) {
-        console.error('Error cerrando BD:', err);
         process.exit(1);
       }
     });
@@ -97,7 +118,6 @@ const gracefulShutdown = async (signal) => {
 
   // Forzar cierre si no termina en 3 segundos
   setTimeout(() => {
-    console.error('Forzando cierre por tiempo límite.');
     process.exit(1);
   }, 3000);
 };

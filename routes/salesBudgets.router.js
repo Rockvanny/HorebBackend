@@ -2,7 +2,7 @@ const express = require('express');
 const passport = require('passport');
 const salesBudgetService = require('../services/salesBudgets.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { checkPermission } = require('../middlewares/auth.handler');
+const { checkAction } = require('../middlewares/auth.handler');
 const {
     createSalesBudgetSchema,
     getSalesBudgetSchema,
@@ -20,7 +20,7 @@ const service = new salesBudgetService();
 // Listado paginado con filtros
 router.get('/salesBudgets-paginated',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSales'),
+    //checkAction('VIEW_SALESBUDGETS'),
     async (req, res, next) => {
         try {
             const { limit, offset, searchTerm } = req.query;
@@ -35,7 +35,7 @@ router.get('/salesBudgets-paginated',
 // Contador total para estadísticas rápidas (Dashboard)
 router.get('/count',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSales'),
+   // checkAction('VIEW_SALESBUDGETS'),
     async (req, res, next) => {
         try {
             const total = await service.countAll();
@@ -49,7 +49,7 @@ router.get('/count',
 // Obtener presupuestos aprobados por código de cliente (para selector en facturas)
 router.get('/by-customer/:entityCode',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSales'),
+   // checkAction('VIEW_SALESBUDGETS'),
     async (req, res, next) => {
         try {
             const { entityCode } = req.params;
@@ -70,7 +70,7 @@ router.get('/by-customer/:entityCode',
 // =========================================================================
 router.get('/active-contracts',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSales'),
+   // checkAction('VIEW_SALESBUDGETS'),
     async (req, res, next) => {
         try {
             const record = await service.findActiveContracts();
@@ -85,7 +85,7 @@ router.get('/active-contracts',
 // Obtener un presupuesto específico por su ID (PK)
 router.get('/:id',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSales'),
+   // checkAction('VIEW_SALESBUDGETS'),
     validatorHandler(getSalesBudgetSchema, 'params'),
     async (req, res, next) => {
         try {
@@ -106,7 +106,7 @@ router.get('/:id',
 // Listado general
 router.get('/',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSales'),
+   // checkAction('VIEW_SALESBUDGETS'),
     validatorHandler(querySalesBudgetSchema, 'query'),
     async (req, res, next) => {
         try {
@@ -125,7 +125,7 @@ router.get('/',
 // Crear nuevo presupuesto
 router.post('/',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSales'),
+    //checkAction('CREATE_SALESBUDGETS'),
     validatorHandler(createSalesBudgetSchema, 'body'),
     async (req, res, next) => {
         try {
@@ -149,7 +149,7 @@ router.post('/',
 // Actualización completa por ID
 router.patch('/:id',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSales'),
+   // checkAction('UPDATE_SALESBUDGETS'),
     validatorHandler(getSalesBudgetSchema, 'params'),
     validatorHandler(updateSalesBudgetSchema, 'body'),
     async (req, res, next) => {
@@ -168,7 +168,7 @@ router.patch('/:id',
 // Eliminación por ID
 router.delete('/:id',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSettings'),
+   // checkAction('DELETE_SALESBUDGETS'),
     validatorHandler(getSalesBudgetSchema, 'params'),
     async (req, res, next) => {
         try {

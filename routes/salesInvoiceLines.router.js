@@ -2,7 +2,7 @@ const express = require('express');
 const passport = require('passport');
 const SalesInvoiceLineService = require('../services/salesInvoiceLines.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { checkPermission } = require('../middlewares/auth.handler');
+const { checkAction } = require('../middlewares/auth.handler');
 const {
     createSalesInvoiceLineSchema,
     getSalesInvoiceLineSchema,
@@ -16,7 +16,7 @@ const service = new SalesInvoiceLineService();
 // Obtener por ID
 router.get('/:id',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSales'),
+   // checkAction('VIEW_SALESINVOICES'),
     validatorHandler(getSalesInvoiceLineSchema, 'params'),
     async (req, res, next) => {
         try {
@@ -30,7 +30,7 @@ router.get('/:id',
 // Crear línea
 router.post('/',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSales'),
+    //checkAction('CREATE_SALESINVOICES'),
     validatorHandler(createSalesInvoiceLineSchema, 'body'),
     async (req, res, next) => {
         try {
@@ -44,7 +44,7 @@ router.post('/',
 // Actualizar por ID
 router.patch('/:id',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSales'),
+    //checkAction('UPDATE_SALESINVOICES'),
     validatorHandler(getSalesInvoiceLineSchema, 'params'),
     validatorHandler(updateSalesInvoiceLineSchema, 'body'),
     async (req, res, next) => {
@@ -59,7 +59,7 @@ router.patch('/:id',
 // Eliminar por ID
 router.delete('/:id',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSales'),
+   // checkAction('DELETE_SALESINVOICES'),
     validatorHandler(getSalesInvoiceLineSchema, 'params'),
     async (req, res, next) => {
         try {

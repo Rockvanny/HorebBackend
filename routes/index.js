@@ -21,6 +21,7 @@ const verifactuLogsRouter = require('./verifactuLogs.router');
 const configRouter = require('./config.router');
 const operatingExpenses = require('./operatingExpenses.router');
 const conexionRouter = require('./conexion.router');
+const authRouter = require('./auth.router');
 
 // Rutas internas que no apuntan a tablas
 const statsRouter = require('./stats.router');
@@ -53,6 +54,7 @@ function routerApi(app) {
   router.use('/stats', statsRouter);
   router.use('/enums', enumsRouter);
   router.use('/conexion', conexionRouter);
+  router.use('/auth', authRouter);
 }
 
 module.exports = routerApi;

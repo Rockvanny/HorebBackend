@@ -61,7 +61,6 @@ class SalesPostInvoiceService {
    * Útil para rellenar el selector de "Factura a rectificar" (baseRectified).
    */
   async findByCustomer(entityCode) {
-    console.log("DEBUG: Buscando facturas registradas para el cliente:", entityCode);
     if (!entityCode) {
       throw boom.badRequest('Se requiere el código del cliente');
     }

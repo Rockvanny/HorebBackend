@@ -78,7 +78,6 @@ class CompanyService {
   // Este método necesita obtener un producto existente para actualizarlo.
   // Por lo tanto, debe utilizar el propio método 'this.findOne()' del servicio.
   async update(code, changes) {
-    console.log(`\n--- DEBUG: Dentro de CompanyService.update(${code}, changes) ---`);
     const company = await this.findOne(code);
 
     const updatedCompany = await company.update(changes);

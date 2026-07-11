@@ -1,5 +1,5 @@
 const { Model, DataTypes, Sequelize } = require('sequelize');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 const { generateNextCode } = require('../../libs/sequence.handler');
 
 const SALESBUDGET_TABLE = 'sales_budgets';
@@ -17,7 +17,7 @@ const salesBudgetSchema = {
     type: DataTypes.UUID,
     allowNull: false,
     unique: true,
-    defaultValue: DataTypes.UUIDV4 // También lo definimos a nivel de esquema por seguridad
+    defaultValue: () => randomUUID(),// También lo definimos a nivel de esquema por seguridad
   },
   code: {
     field: 'code',

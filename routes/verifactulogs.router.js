@@ -2,9 +2,9 @@ const express = require('express');
 const passport = require('passport');
 const VerifactuService = require('../services/verifactulogs.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { checkPermission } = require('../middlewares/auth.handler');
-const { 
-    updateExternalReferenceSchema 
+const { checkAction } = require('../middlewares/auth.handler');
+const {
+    updateExternalReferenceSchema
 } = require('../schemas/verifactuLogs.schema');
 
 const router = express.Router();
@@ -15,7 +15,7 @@ const service = new VerifactuService();
  */
 router.get('/logs-paginated',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowGestion'),
+   // checkAction('VIEW_VERIFACTU'),
     async (req, res, next) => {
         try {
             const result = await service.findPaginated(req.query);
@@ -29,7 +29,7 @@ router.get('/logs-paginated',
  */
 router.get('/:id',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSales'),
+   // checkAction('VIEW_VERIFACTU'),
     async (req, res, next) => {
         try {
             const { id } = req.params;
@@ -48,14 +48,14 @@ router.get('/:id',
  */
 router.patch('/:id',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowGestion'),
+   // checkAction('UPDATE_VERIFACTU'),
     validatorHandler(updateExternalReferenceSchema, 'body'),
     async (req, res, next) => {
         try {
             const { id } = req.params;
             const body = req.body;
             const result = await service.update(id, body);
-            
+
             res.json({
                 success: true,
                 data: result

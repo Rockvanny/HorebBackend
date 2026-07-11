@@ -49,7 +49,6 @@ class purchInvoiceService {
   async findByVendor(entityCode) {
     // Control preventivo: si no viene un código de proveedor real, devolvemos un array vacío sin romper el hilo
     if (!entityCode || entityCode === 'undefined' || entityCode === 'null') {
-      console.log("DEBUG BACKEND: findByVendor ignorado por código vacío o inválido");
       return [];
     }
 

@@ -1,45 +1,59 @@
 const boom = require('@hapi/boom');
-const { getConfig } = require('../config/config');
+const { checkPermission } = require('../config/access-manager');
 
-const config = getConfig();
-
-function checkRole(...roles) {
-  return (req, res, next) => {
-    const user = req.user;
-    if (user && roles.includes(user.role)) {
-      next();
-    } else {
-      next(boom.forbidden('Tu rol no tiene permiso para esta acción'));
-    }
-  };
-}
-
-function checkPermission(permissionField) {
+/**
+ * Middleware para validar acciones específicas
+ * @param {string} actionString - Ej: 'DELETE_CLIENTES', 'VIEW_VENTAS'
+ */
+function checkAction(actionString) {
   return async (req, res, next) => {
     try {
-      const user = req.user; // Obtenido del JWT validado
+      const user = req.user;
 
       if (!user) {
         return next(boom.unauthorized('Se requiere una sesión activa'));
       }
 
-      // 1. REGLA DE ORO: El Maestro tiene permiso para TODO lo que intente abrir.
-      // (Aunque en el login solo le demos settings, el middleware le permite pasar si es master)
-      if (user.role === 'master' || user.isMaster === true) {
+      // Si checkPermission es síncrono, puedes quitar el 'await'.
+      // Si quieres dejarlo por seguridad, asegúrate de que checkPermission devuelva una Promesa.
+      const isAllowed = checkPermission(user, actionString);
+
+      if (isAllowed) {
         return next();
       }
 
-      // 2. VERIFICACIÓN PARA USUARIOS NORMALES
-      // Buscamos el permiso en el objeto user (inyectado desde el token)
-      if (user[permissionField] === true || (user.permissions && user.permissions[permissionField] === true)) {
-        next();
-      } else {
-        next(boom.forbidden(`Acceso denegado: No tienes habilitado el permiso '${permissionField}'`));
-      }
+      // Registro de seguridad: útil para detectar intentos de acceso indebido
+      console.warn(`[SECURITY ALERT] Usuario ${user.id} intentó acceder a ${actionString}`);
+
+      next(boom.forbidden(`Acceso denegado a la acción: ${actionString}`));
+
     } catch (error) {
-      next(error);
+      console.error(`[MIDDLEWARE ERROR] Falló checkAction para ${actionString}:`, error);
+      next(boom.internal('Error interno al verificar permisos'));
     }
   };
 }
 
-module.exports = { checkRole, checkPermission };
+/**
+ * Middleware para validar roles
+ */
+function checkRole(...roles) {
+  return (req, res, next) => {
+    // 1. Normalización: extraemos el rol del usuario y lo pasamos a minúsculas
+    const userRole = (req.user?.role || '').toLowerCase();
+
+    // 2. Normalización de los roles permitidos: pasamos todos a minúsculas
+    const allowedRoles = roles.map(r => r.toLowerCase());
+
+    // 3. Validación
+    if (req.user && allowedRoles.includes(userRole)) {
+      next();
+    } else {
+      // Usamos boom para un error 403 consistente
+      next(boom.forbidden('Tu rol no tiene permiso para este recurso'));
+    }
+  };
+}
+
+// Mantenemos tus exports intactos
+module.exports = { checkAction, checkRole };

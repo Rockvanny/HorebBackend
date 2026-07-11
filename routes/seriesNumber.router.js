@@ -2,7 +2,7 @@ const express = require('express');
 const passport = require('passport');
 const seriesNumberService = require('../services/seriesNumber.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { checkPermission } = require('../middlewares/auth.handler');
+const { checkAction } = require('../middlewares/auth.handler');
 
 const {
   createSeriesNumberSchema,
@@ -19,7 +19,7 @@ router.use(passport.authenticate('jwt', { session: false }));
 
 // 1. Obtener series paginadas para el Explorer
 router.get('/series-paginated',
-  checkPermission('allowGestion'),
+ // checkAction('VIEW_SERIES'),
   validatorHandler(querySeriesNumberSchema, 'query'),
   async (req, res, next) => {
     try {
@@ -34,6 +34,7 @@ router.get('/series-paginated',
 
 // 2. Obtener series por tipo (para llenar Selectores/Dropdowns)
 router.get('/by-type',
+ // checkAction('VIEW_SERIES'),
   validatorHandler(querySeriesNumberSchema, 'query'),
   async (req, res, next) => {
     try {
@@ -48,7 +49,7 @@ router.get('/by-type',
 
 // 3. Obtener el diccionario de tipos disponibles
 router.get('/config/types',
-  checkPermission('allowGestion'),
+ // checkAction('VIEW_SERIES'),
   async (req, res, next) => {
     try {
       const types = await service.getAvailableTypes();
@@ -64,7 +65,7 @@ router.get('/config/types',
  * Se coloca antes de /:type/:code para evitar conflictos de rutas
  */
 router.get('/config/post-series/:type',
-  checkPermission('allowGestion'),
+ // checkAction('VIEW_SERIES'),
   async (req, res, next) => {
     try {
       const { type } = req.params;
@@ -78,7 +79,7 @@ router.get('/config/post-series/:type',
 
 // 4. Obtener una serie específica
 router.get('/:type/:code',
-  checkPermission('allowGestion'),
+ // checkAction('VIEW_SERIES'),
   validatorHandler(getSeriesNumberSchema, 'params'),
   async (req, res, next) => {
     try {
@@ -96,7 +97,7 @@ router.get('/:type/:code',
 
 // 5. Crear una nueva serie
 router.post('/',
-  checkPermission('allowGestion'),
+ // checkAction('CREATE_SERIES'),
   validatorHandler(createSeriesNumberSchema, 'body'),
   async (req, res, next) => {
     try {
@@ -111,7 +112,7 @@ router.post('/',
 
 // 6. Actualizar serie
 router.patch('/:type/:code',
-  checkPermission('allowGestion'),
+ // checkAction('UPDATE_SERIES'),
   validatorHandler(getSeriesNumberSchema, 'params'),
   validatorHandler(updateSeriesNumberSchema, 'body'),
   async (req, res, next) => {
@@ -128,7 +129,7 @@ router.patch('/:type/:code',
 
 // 7. Eliminar serie
 router.delete('/:type/:code',
-  checkPermission('allowGestion'),
+ // checkAction('DELETE_SERIES'),
   validatorHandler(getSeriesNumberSchema, 'params'),
   async (req, res, next) => {
     try {

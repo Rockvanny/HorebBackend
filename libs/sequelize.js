@@ -11,7 +11,7 @@ const sequelize = new Sequelize(URI, {
   dialect: 'postgres',
   // SOLUCIÓN AL WARNING [SEQUELIZE0002]:
   // Cambiamos 'true' por una función anónima para que use la nueva sintaxis.
-  logging: (msg) => console.log(msg),
+  logging: process.env.NODE_ENV === 'development' ? console.log : false,
 
   define: {
     hooks: {

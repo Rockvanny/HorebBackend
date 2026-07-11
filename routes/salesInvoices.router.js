@@ -2,7 +2,7 @@ const express = require('express');
 const passport = require('passport');
 const SalesInvoiceService = require('../services/salesInvoices.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { checkPermission } = require('../middlewares/auth.handler');
+const { checkAction } = require('../middlewares/auth.handler');
 const {
     createSalesInvoiceSchema,
     getSalesInvoiceSchema,
@@ -15,7 +15,7 @@ const service = new SalesInvoiceService();
 // Listado paginado con soporte para términos de búsqueda
 router.get('/salesInvoices-paginated',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSales'),
+    //checkAction('VIEW_SALESINVOICES'),
     async(req, res, next) => {
         try {
             const { limit, offset, searchTerm, overdue } = req.query;
@@ -36,7 +36,7 @@ router.get('/salesInvoices-paginated',
  */
 router.get('/by-customer/:entityCode',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSales'),
+   // checkAction('VIEW_SALESINVOICES'),
     async (req, res, next) => {
         try {
             const { entityCode } = req.params;
@@ -49,7 +49,7 @@ router.get('/by-customer/:entityCode',
 // Obtener una factura por código o ID
 router.get('/:code',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSales'),
+   // checkAction('VIEW_SALESINVOICES'),
     validatorHandler(getSalesInvoiceSchema, 'params'),
     async (req, res, next) => {
         try {
@@ -67,7 +67,7 @@ router.get('/:code',
 // Crear nueva factura (Borrador)
 router.post('/',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSales'),
+   // checkAction('CREATE_SALESINVOICES'),
     validatorHandler(createSalesInvoiceSchema, 'body'),
     async (req, res, next) => {
         try {
@@ -82,7 +82,7 @@ router.post('/',
 // Archivar factura (Pasar a factura definitiva/contabilizada)
 router.post('/:code/archive',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSales'),
+   // checkAction('UPDATE_SALESINVOICES'),
     validatorHandler(getSalesInvoiceSchema, 'params'),
     async (req, res, next) => {
         try {
@@ -97,7 +97,7 @@ router.post('/:code/archive',
 // Actualizar factura borrador
 router.patch('/:code',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSales'),
+   // checkAction('UPDATE_SALESINVOICES'),
     validatorHandler(getSalesInvoiceSchema, 'params'),
     validatorHandler(updateSalesInvoiceSchema, 'body'),
     async (req, res, next) => {

@@ -19,14 +19,13 @@
   "license": "ISC",
   "pkg": {
     "assets": [
-      "routes/**/*.js",
-      "middlewares/**/*.js",
-      "schemas/**/*.js",
-      "services/**/*.js",
-      "config/**/*.js",
-      "db/**/*.js",
+      "db/migrations/**/*",
       ".env"
-    ]
+    ],
+    "targets": [
+      "node14-win-x64"
+    ],
+    "outputPath": "dist"
   },
   "devDependencies": {
     "eslint": "^7.32.0",

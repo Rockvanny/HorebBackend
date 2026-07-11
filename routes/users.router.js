@@ -1,49 +1,39 @@
 const express = require('express');
-const passport = require('passport'); // 1. Importar Passport
+const passport = require('passport');
 const UserService = require('./../services/user.service');
 const validatorHandler = require('./../middlewares/validator.handler');
 
-// Lógica de acceso
-const { ROLES_LIST, checkPermission: validateAction } = require('../config/access-manager');
-const { checkPermission } = require('../middlewares/auth.handler');
+// NUEVA IMPORTACIÓN: Motor central de acceso y middleware de acciones
+const { checkAction: validateAction } = require('../config/access-manager');
+const { checkAction } = require('../middlewares/auth.handler');
 const { updateUserSchema, createUserSchema, getUserSchema, loginUserSchema } = require('./../schemas/user.schema');
 
 const router = express.Router();
 const service = new UserService();
 
-// --- NUEVOS ENDPOINTS DE CONFIGURACIÓN Y ACCESO ---
+// --- ENDPOINTS DE CONFIGURACIÓN Y ACCESO ---
 
-// 1. Obtener lista de roles
+// 1. Obtener lista de roles (Protegido)
 router.get('/roles/list',
-    passport.authenticate('jwt', { session: false }), // Protegido: solo usuarios logueados ven roles
+    passport.authenticate('jwt', { session: false }),
     (req, res) => {
-        res.json({ success: true, data: ROLES_LIST });
+        res.json({ success: true, data: Object.keys(require('../config/access-manager').ROLES) });
     }
 );
 
-// 2. Validación masiva de permisos (Para syncUI en el frontend)
+// 2. Validación masiva de permisos (Para sincronización del Frontend)
 router.post('/permissions/check',
-    passport.authenticate('jwt', { session: false }), // Obligatorio para tener req.user
+    passport.authenticate('jwt', { session: false }),
     async (req, res, next) => {
         try {
-            const { permissions } = req.body;
-
-            // req.user ya viene inyectado por Passport
-            const userRole = req.user?.role;
-            const userModules = {
-                allowSales: req.user?.allowSales,
-                allowPurchases: req.user?.allowPurchases,
-                allowGestion: req.user?.allowGestion,
-                allowSettings: req.user?.allowSettings,
-            };
-
+            const { permissions } = req.body; // Array de acciones (ej: ['DELETE_USERS', 'PRINT_VENTAS'])
             const results = {};
+
             if (Array.isArray(permissions)) {
                 permissions.forEach(p => {
-                    results[p] = validateAction(userRole, userModules, p);
+                    results[p] = validateAction(req.user, p);
                 });
             }
-
             res.json({ success: true, data: results });
         } catch (error) {
             next(error);
@@ -53,22 +43,7 @@ router.post('/permissions/check',
 
 // --- ENDPOINTS DE USUARIOS ---
 
-// 1. LISTADO PAGINADO
-router.get('/users-paginated',
-    passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSettings'), // Solo administradores gestionan usuarios
-    async (req, res, next) => {
-        try {
-            const { limit, offset, searchTerm } = req.query;
-            const result = await service.findPaginated({ limit, offset, searchTerm });
-            res.json(result);
-        } catch (error) {
-            next(error);
-        }
-    }
-);
-
-// 2. LOGIN (¡DEBE SER ABIERTO!)
+// 1. LOGIN (Abierto)
 router.post('/login',
     validatorHandler(loginUserSchema, 'body'),
     async (req, res, next) => {
@@ -81,10 +56,40 @@ router.post('/login',
     }
 );
 
-// 3. CRUD OPERACIONES
+// 2. CAMBIO CONTRASEÑA INICIAL (Especial: Validado en servicio)
+router.patch('/update-password-initial/:id',
+    validatorHandler(getUserSchema, 'params'),
+    async (req, res, next) => {
+        try {
+            const { id } = req.params;
+            const { password, securityKey } = req.body;
+            const result = await service.updatePassword(id, password, securityKey);
+            res.json({ success: true, ...result });
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+// 3. CRUD OPERACIONES (Protegidas con checkAction)
+
+router.get('/users-paginated',
+    passport.authenticate('jwt', { session: false }),
+   // checkAction('VIEW_USERS'),
+    async (req, res, next) => {
+        try {
+            const { limit, offset, searchTerm } = req.query;
+            const result = await service.findPaginated({ limit, offset, searchTerm });
+            res.json(result);
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
 router.get('/:id',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSettings'),
+   // checkAction('VIEW_USERS'),
     validatorHandler(getUserSchema, 'params'),
     async (req, res, next) => {
         try {
@@ -98,7 +103,7 @@ router.get('/:id',
 
 router.post('/',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSettings'),
+   // checkAction('CREATE_USERS'),
     validatorHandler(createUserSchema, 'body'),
     async (req, res, next) => {
         try {
@@ -110,25 +115,9 @@ router.post('/',
     }
 );
 
-router.patch('/update-password-initial/:id', async (req, res, next) => {
-    console.log("[BACKEND] Solicitud recibida en ruta pública:", req.params.id);
-    try {
-        const { id } = req.params;
-        const { password } = req.body;
-        console.log("[BACKEND] Intentando actualizar para:", password);
-
-        const result = await service.updatePassword(id, password);
-        console.log("[BACKEND] Éxito en actualización");
-        res.json({ success: true, ...result });
-    } catch (error) {
-        console.error("[BACKEND] ERROR CAPTURADO:", error);
-        next(error);
-    }
-});
-
 router.patch('/:id',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSettings'),
+   // checkAction('UPDATE_USERS'),
     validatorHandler(getUserSchema, 'params'),
     validatorHandler(updateUserSchema, 'body'),
     async (req, res, next) => {
@@ -144,7 +133,7 @@ router.patch('/:id',
 
 router.delete('/:id',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSettings'),
+   // checkAction('DELETE_USERS'),
     validatorHandler(getUserSchema, 'params'),
     async (req, res, next) => {
         try {

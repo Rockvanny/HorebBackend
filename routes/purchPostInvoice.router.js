@@ -3,7 +3,7 @@ const express = require('express');
 const passport = require('passport');
 const PurchPostInvoiceService = require('../services/purchPostInvoice.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { checkPermission } = require('../middlewares/auth.handler');
+const { checkAction } = require('../middlewares/auth.handler');
 const {
   createPurchPostInvoiceSchema,
   getPurchPostInvoiceSchema,
@@ -16,7 +16,7 @@ const service = new PurchPostInvoiceService();
 // Listado paginado con soporte para términos de búsqueda
 router.get('/purchPostInvoices-paginated',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowPurchases'),
+    //checkAction('VIEW_PURCHPOSTINVOICES'),
     async(req, res, next) => {
         try {
             const { limit, offset, searchTerm, overdue } = req.query;
@@ -34,7 +34,7 @@ router.get('/purchPostInvoices-paginated',
 // Listado de histórico (facturas registradas)
 router.get('/',
   passport.authenticate('jwt', { session: false }),
-  checkPermission('allowPurchases'),
+  //checkAction('VIEW_PURCHPOSTINVOICES'),
   validatorHandler(queryPurchPostInvoiceSchema, 'query'),
   async (req, res, next) => {
     try {
@@ -46,7 +46,7 @@ router.get('/',
 
 router.get('/report/excel',
   passport.authenticate('jwt', { session: false }),
-  checkPermission('allowPurchases'),
+  //checkAction('VIEW_PURCHPOSTINVOICES'),
   async (req, res, next) => {
     try {
       const { startDate, endDate } = req.query;
@@ -68,7 +68,7 @@ router.get('/report/excel',
 // Obtener una factura específica por su CÓDIGO (Ej: FAC-2026-0001)
 router.get('/:code',
   passport.authenticate('jwt', { session: false }),
-  checkPermission('allowPurchases'),
+  //checkAction('VIEW_PURCHPOSTINVOICES'),
   // Validamos que el parámetro 'code' cumpla con el esquema getPurchPostInvoiceSchema
   validatorHandler(getPurchPostInvoiceSchema, 'params'),
   async (req, res, next) => {
@@ -84,7 +84,7 @@ router.get('/:code',
 // Registrar una factura (Este endpoint suele ser llamado internamente por el archiveInvoice)
 router.post('/',
   passport.authenticate('jwt', { session: false }),
-  checkPermission('allowPurchases'),
+ // checkAction('CREATE_PURCHPOSTINVOICES'),
   validatorHandler(createPurchPostInvoiceSchema, 'body'),
   async (req, res, next) => {
     try {

@@ -109,7 +109,6 @@ class salesBudgetService {
    * Útil para el selector de presupuestos en la pantalla de facturación de ventas.
    */
   async findByCustomer(entityCode) {
-    console.log("DEBUG: Buscando presupuestos para el cliente:", entityCode);
     if (!entityCode) {
       throw boom.badRequest('Se requiere el código del cliente');
     }
@@ -252,7 +251,7 @@ class salesBudgetService {
         await salesBudgetLine.destroy({ where: { codeDocument: instance.code }, transaction });
 
         const finalLines = processedLines.map(l => {
-          const { id, ...cleanLine } = l; 
+          const { id, ...cleanLine } = l;
           return {
             ...cleanLine,
             codeDocument: instance.code,

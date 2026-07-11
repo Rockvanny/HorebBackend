@@ -59,7 +59,6 @@ class PurchPostInvoiceService {
    * Útil para rellenar el selector de "Factura a rectificar" (Espejo de findByCustomer).
    */
   async findByVendor(entityCode) {
-    console.log("DEBUG: Buscando facturas registradas para el proveedor:", entityCode);
     if (!entityCode) {
       throw boom.badRequest('Se requiere el código del proveedor');
     }
@@ -164,8 +163,6 @@ class PurchPostInvoiceService {
         }],
         order: [['postingDate', 'ASC']]
       });
-
-      console.log(`[PurchPostInvoiceService] Facturas encontradas entre ${startDate} y ${endDate}:`, invoices.length);
 
       // 2. Transformación de datos para el reporte
       return invoices.map(invoice => {

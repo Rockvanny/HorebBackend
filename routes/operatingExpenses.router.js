@@ -2,7 +2,7 @@ const express = require('express');
 const passport = require('passport');
 const OperatingExpensesService = require('../services/operatingExpenses.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { checkPermission } = require('../middlewares/auth.handler');
+const { checkAction } = require('../middlewares/auth.handler');
 const {
   createOperatingExpenseSchema,
   getOperatingExpenseSchema,
@@ -18,7 +18,7 @@ const service = new OperatingExpensesService();
  */
 router.get('/operatingExpenses-paginated',
   passport.authenticate('jwt', { session: false }),
-  checkPermission('allowGestion'),
+  //checkAction('VIEW_OPERATINGEXPENSES'),
   validatorHandler(queryOperatingExpenseSchema, 'query'),
   async (req, res, next) => {
     try {
@@ -36,7 +36,7 @@ router.get('/operatingExpenses-paginated',
  */
 router.get('/:id',
   passport.authenticate('jwt', { session: false }),
-  checkPermission('allowGestion'),
+  //checkAction('VIEW_OPERATINGEXPENSES'),
   validatorHandler(getOperatingExpenseSchema, 'params'),
   async (req, res, next) => {
     try {
@@ -54,7 +54,7 @@ router.get('/:id',
  */
 router.post('/',
   passport.authenticate('jwt', { session: false }),
-  checkPermission('allowGestion'),
+  //checkAction('CREATE_OPERATINGEXPENSES'),
   validatorHandler(createOperatingExpenseSchema, 'body'),
   async (req, res, next) => {
     try {
@@ -71,7 +71,7 @@ router.post('/',
 router.get('/report/excel',
   passport.authenticate('jwt', { session: false }),
   // Asegúrate de usar el permiso correspondiente a gastos
-  checkPermission('allowExpenses'),
+  //checkAction('VIEW_OPERATINGEXPENSES'),
   async (req, res, next) => {
     try {
       const { startDate, endDate } = req.query;
@@ -93,7 +93,7 @@ router.get('/report/excel',
  */
 router.patch('/:id',
   passport.authenticate('jwt', { session: false }),
-  checkPermission('allowGestion'),
+  //checkAction('UPDATE_OPERATINGEXPENSES'),
   validatorHandler(getOperatingExpenseSchema, 'params'),
   validatorHandler(updateOperatingExpenseSchema, 'body'),
   async (req, res, next) => {
@@ -113,7 +113,7 @@ router.patch('/:id',
  */
 router.delete('/:id',
   passport.authenticate('jwt', { session: false }),
-  checkPermission('allowGestion'),
+  //checkAction('DELETE_OPERATINGEXPENSES'),
   validatorHandler(getOperatingExpenseSchema, 'params'),
   async (req, res, next) => {
     try {
@@ -132,7 +132,7 @@ router.delete('/:id',
  */
 router.post('/validate-previous-month',
   passport.authenticate('jwt', { session: false }),
-  checkPermission('allowGestion'),
+  //checkAction('UPDATE_OPERATINGEXPENSES'),
   async (req, res, next) => {
     try {
       const userId = req.user.userId || req.user.sub;

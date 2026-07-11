@@ -2,7 +2,7 @@ const express = require('express');
 const passport = require('passport'); // 1. Importar Passport
 const VendorService = require('../services/vendors.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { checkPermission } = require('../middlewares/auth.handler');
+const { checkAction } = require('../middlewares/auth.handler');
 const {
   createVendorSchema,
   getVendorSchema,
@@ -18,7 +18,7 @@ const service = new VendorService();
  */
 router.get('/vendors-paginated',
   passport.authenticate('jwt', { session: false }), // 2. Autenticación obligatoria
-  checkPermission('allowGestion'), // 3. Permiso unificado
+  //checkAction('VIEW_VENDORS'), // 3. Permiso unificado
   validatorHandler(queryVendorSchema, 'query'),
   async (req, res, next) => {
     try {
@@ -36,7 +36,7 @@ router.get('/vendors-paginated',
  */
 router.get('/search',
   passport.authenticate('jwt', { session: false }),
-  checkPermission('allowGestion'),
+  //checkAction('VIEW_VENDORS'),
   async (req, res, next) => {
     try {
       const { searchTerm } = req.query;
@@ -53,7 +53,7 @@ router.get('/search',
  */
 router.get('/:code',
   passport.authenticate('jwt', { session: false }),
-  checkPermission('allowGestion'),
+  //checkAction('VIEW_VENDORS'),
   validatorHandler(getVendorSchema, 'params'),
   async (req, res, next) => {
     try {
@@ -72,7 +72,7 @@ router.get('/:code',
  */
 router.post('/',
   passport.authenticate('jwt', { session: false }),
-  checkPermission('allowGestion'),
+  //checkAction('CREATE_VENDORS'),
   validatorHandler(createVendorSchema, 'body'),
   async (req, res, next) => {
     try {
@@ -98,7 +98,7 @@ router.post('/',
  */
 router.patch('/:code',
   passport.authenticate('jwt', { session: false }),
-  checkPermission('allowGestion'),
+  //checkAction('UPDATE_VENDORS'),
   validatorHandler(getVendorSchema, 'params'),
   validatorHandler(updateVendorSchema, 'body'),
   async (req, res, next) => {
@@ -118,7 +118,7 @@ router.patch('/:code',
  */
 router.delete('/:code',
   passport.authenticate('jwt', { session: false }),
-  checkPermission('allowGestion'), // El borrado de maestros suele limitarse a administración
+ // checkAction('DELETE_VENDORS'), // El borrado de maestros suele limitarse a administración
   validatorHandler(getVendorSchema, 'params'),
   async (req, res, next) => {
     try {

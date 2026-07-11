@@ -3,7 +3,7 @@ const express = require('express');
 const passport = require('passport');
 const PurchInvoiceService = require('../services/purchInvoice.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { checkPermission } = require('../middlewares/auth.handler');
+const { checkAction } = require('../middlewares/auth.handler');
 const {
     createPurchInvoiceSchema,
     getPurchInvoiceSchema,
@@ -16,7 +16,7 @@ const service = new PurchInvoiceService();
 // Listado paginado con soporte para términos de búsqueda
 router.get('/purchInvoices-paginated',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowPurchases'),
+    //checkAction('VIEW_PURCHINVOICES'),
     async(req, res, next) => {
         try {
             const { limit, offset, searchTerm, overdue } = req.query;
@@ -37,7 +37,7 @@ router.get('/purchInvoices-paginated',
  */
 router.get('/by-vendor/:entityCode',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowPurchases'),
+    //checkAction('VIEW_PURCHINVOICES'),
     async (req, res, next) => {
         try {
             const { entityCode } = req.params;
@@ -50,7 +50,7 @@ router.get('/by-vendor/:entityCode',
 // Obtener una factura de compra por código o ID
 router.get('/:code',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowPurchases'),
+    //checkAction('VIEW_PURCHINVOICES'),
     validatorHandler(getPurchInvoiceSchema, 'params'),
     async (req, res, next) => {
         try {
@@ -68,7 +68,7 @@ router.get('/:code',
 // Crear nueva factura de compra (Borrador)
 router.post('/',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowPurchases'),
+   // checkAction('CREATE_PURCHINVOICES'),
     validatorHandler(createPurchInvoiceSchema, 'body'),
     async (req, res, next) => {
         try {
@@ -83,7 +83,7 @@ router.post('/',
 // Archivar/Registrar factura (Pasar a factura de compra definitiva/contabilizada)
 router.post('/:code/archive',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowPurchases'),
+    //checkAction('UPDATE_PURCHINVOICES'),
     validatorHandler(getPurchInvoiceSchema, 'params'),
     async (req, res, next) => {
         try {
@@ -98,7 +98,7 @@ router.post('/:code/archive',
 // Actualizar factura borrador de compra
 router.patch('/:code',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowPurchases'),
+    //checkAction('UPDATE_PURCHINVOICES'),
     validatorHandler(getPurchInvoiceSchema, 'params'),
     validatorHandler(updatePurchInvoiceSchema, 'body'),
     async (req, res, next) => {

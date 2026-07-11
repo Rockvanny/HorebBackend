@@ -49,32 +49,14 @@ class UserService {
     let userData = null;
     let isMaster = false;
 
-    // 1. CAPA MAESTRA: Solo acceso técnico
-    if (email === config.masterUser && password === config.masterPassword) {
-      isMaster = true;
+    // 2. CAPA BASE DE DATOS
+    const user = await models.User.findOne({ where: { email } });
+    if (!user) throw boom.unauthorized('Usuario o contraseña incorrectos');
 
-      userData = {
-        code: config.masterUser,
-        fullName: 'Soporte Horeb',
-        role: 'master',
-        isMaster: true,
-        allowGestion: true,
-        allowSales: true,
-        allowPurchases: true,
-        allowReports: true,
-        allowSettings: true // <--- Único permiso activo
-      };
-    } else {
-      // 2. CAPA BASE DE DATOS
-      const user = await models.User.findOne({ where: { email } });
-      if (!user) throw boom.unauthorized('Usuario o contraseña incorrectos');
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) throw boom.unauthorized('Usuario o contraseña incorrectos');
 
-      console.log("Usuario: ", email);
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) throw boom.unauthorized('Usuario o contraseña incorrectos');
-
-      userData = user.toJSON();
-    }
+    userData = user.toJSON();
 
     // 3. Generación de Token (JWT)
     const payload = {
@@ -97,16 +79,6 @@ class UserService {
   }
 
   async findOne(id) {
-    if (id === config.masterUser) {
-      return {
-        code: config.masterUser,
-        fullName: 'Soporte Horeb',
-        role: 'master',
-        allowGestion: false,
-        allowSettings: true
-      };
-    }
-
     const user = await models.User.findByPk(id, {
       attributes: { exclude: ['password'] }
     });
@@ -123,7 +95,6 @@ class UserService {
   }
 
   async updatePassword(id, password) {
-    console.log("[BACKEND] updatePassword:", password);
     const user = await models.User.findByPk(id);
     if (!user) throw boom.notFound('Usuario no encontrado');
 

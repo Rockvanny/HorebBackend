@@ -2,7 +2,7 @@ const express = require('express');
 const passport = require('passport');
 const salesPostInvoiceTaxService = require('../services/salesPostInvoiceTax.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { checkPermission } = require('../middlewares/auth.handler');
+const { checkAction } = require('../middlewares/auth.handler');
 
 const router = express.Router();
 const service = new salesPostInvoiceTaxService();
@@ -13,7 +13,7 @@ const service = new salesPostInvoiceTaxService();
  */
 router.get('/by-invoice/:invoiceCode',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowSales'),
+    //checkAction('VIEW_SALESPOSTINVOICES'),
     async (req, res, next) => {
         try {
             const { invoiceCode } = req.params;

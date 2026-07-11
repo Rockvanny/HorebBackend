@@ -2,7 +2,7 @@ const express = require('express');
 const passport = require('passport');
 const CustomerService = require('../services/customers.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { checkPermission } = require('../middlewares/auth.handler');
+const { checkAction } = require('../middlewares/auth.handler');
 const {
   createCustomerSchema,
   getCustomerSchema,
@@ -22,7 +22,7 @@ const service = new CustomerService();
 
 router.get('/customers-paginated',
   passport.authenticate('jwt', { session: false }),
-  checkPermission('allowGestion'),
+  //checkAction('VIEW_CUSTOMERS'),
   validatorHandler(queryCustomerSchema, 'query'),
   async (req, res, next) => {
     try {
@@ -37,7 +37,7 @@ router.get('/customers-paginated',
 
 router.get('/search',
   passport.authenticate('jwt', { session: false }),
-  checkPermission('allowGestion'),
+  //checkAction('VIEW_CUSTOMERS'),
   async (req, res, next) => {
     try {
       const { searchTerm } = req.query;
@@ -51,7 +51,7 @@ router.get('/search',
 
 router.get('/:code',
   passport.authenticate('jwt', { session: false }), // <--- Faltaba
-  checkPermission('allowGestion'),
+  //checkAction('VIEW_CUSTOMERS'),
   validatorHandler(getCustomerSchema, 'params'),
   async (req, res, next) => {
     try {
@@ -67,7 +67,7 @@ router.get('/:code',
 
 router.get('/',
   passport.authenticate('jwt', { session: false }), // <--- Faltaba
-  checkPermission('allowGestion'),
+  //checkAction('VIEW_CUSTOMERS'),
   validatorHandler(queryCustomerSchema, 'query'),
   async (req, res, next) => {
     try {
@@ -81,7 +81,7 @@ router.get('/',
 
 router.post('/',
   passport.authenticate('jwt', { session: false }), // <--- Faltaba
-  checkPermission('allowGestion'),
+  //checkAction('CREATE_CUSTOMERS'),
   validatorHandler(createCustomerSchema, 'body'),
   async (req, res, next) => {
     try {
@@ -104,7 +104,7 @@ router.post('/',
 
 router.patch('/:code',
   passport.authenticate('jwt', { session: false }), // <--- Faltaba
-  checkPermission('allowGestion'),
+  //checkAction('UPDATE_CUSTOMERS'),
   validatorHandler(getCustomerSchema, 'params'),
   validatorHandler(updateCustomerSchema, 'body'),
   async (req, res, next) => {
@@ -121,7 +121,7 @@ router.patch('/:code',
 
 router.delete('/:code',
   passport.authenticate('jwt', { session: false }), // <--- Faltaba
-  checkPermission('allowGestion'),
+  //checkAction('DELETE_CUSTOMERS'),
   validatorHandler(getCustomerSchema, 'params'),
   async (req, res, next) => {
     try {

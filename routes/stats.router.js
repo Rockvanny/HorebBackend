@@ -1,7 +1,7 @@
 const express = require('express');
 const passport = require('passport'); // 1. Importar Passport
 const StatsService = require('../services/stats.service');
-const { checkPermission } = require('../middlewares/auth.handler'); // 2. Importar checkPermission
+const { checkAction } = require('../middlewares/auth.handler'); // 2. Importar checkAction
 
 const router = express.Router();
 const service = new StatsService();
@@ -12,7 +12,7 @@ const service = new StatsService();
  */
 router.get('/stats',
   passport.authenticate('jwt', { session: false }), // 3. Autenticación obligatoria
-  checkPermission('allowGestion'), // 4. Permiso de ventas para ver estadísticas
+  //('VIEW_STATS'), // 4. Permiso de ventas para ver estadísticas
   async (req, res, next) => {
     try {
       const data = await service.getBarChartStats();
@@ -29,7 +29,7 @@ router.get('/stats',
  */
 router.get('/budget/:code',
   passport.authenticate('jwt', { session: false }),
-  checkPermission('allowGestion'),
+ // checkAction('VIEW_STATS'),
   async (req, res, next) => { // Cambiado a next para usar el error handler global
     try {
       const { code } = req.params;

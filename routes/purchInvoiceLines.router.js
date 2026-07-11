@@ -3,7 +3,7 @@ const express = require('express');
 const passport = require('passport');
 const PurchInvoiceLineService = require('../services/purchInvoiceLine.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { checkPermission } = require('../middlewares/auth.handler');
+const { checkAction } = require('../middlewares/auth.handler');
 const {
     createPurchInvoiceLineSchema,
     getPurchInvoiceLineSchema,
@@ -17,7 +17,7 @@ const service = new PurchInvoiceLineService();
 // Obtener por ID
 router.get('/:id',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowPurchases'),
+    //checkAction('VIEW_PURCHINVOICES'),
     validatorHandler(getPurchInvoiceLineSchema, 'params'),
     async (req, res, next) => {
         try {
@@ -31,7 +31,7 @@ router.get('/:id',
 // Crear línea
 router.post('/',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowPurchases'),
+    //checkAction('CREATE_PURCHINVOICES'),
     validatorHandler(createPurchInvoiceLineSchema, 'body'),
     async (req, res, next) => {
         try {
@@ -45,7 +45,7 @@ router.post('/',
 // Actualizar por ID (Cambiado a PATCH para calcar ventas)
 router.patch('/:id',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowPurchases'),
+    //checkAction('UPDATE_PURCHINVOICES'),
     validatorHandler(getPurchInvoiceLineSchema, 'params'),
     validatorHandler(updatePurchInvoiceLineSchema, 'body'),
     async (req, res, next) => {
@@ -60,7 +60,7 @@ router.patch('/:id',
 // Eliminar por ID
 router.delete('/:id',
     passport.authenticate('jwt', { session: false }),
-    checkPermission('allowPurchases'),
+    //checkAction('DELETE_PURCHINVOICES'),
     validatorHandler(getPurchInvoiceLineSchema, 'params'),
     async (req, res, next) => {
         try {
