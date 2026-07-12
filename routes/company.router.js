@@ -13,7 +13,7 @@ const service = new CompanyService();
 
 // 1. RUTAS DE BÚSQUEDA Y PAGINACIÓN
 router.get('/company-paginated',
-  ...protectedRoute('VIEW_COMPANY', { query: queryCompanySchema }),
+  //...protectedRoute('VIEW_COMPANY', { query: queryCompanySchema }),
   async (req, res, next) => {
     try {
       const { limit, offset, searchTerm } = req.query;
@@ -27,7 +27,7 @@ router.get('/company-paginated',
 
 // 2. RUTAS BASE
 router.get('/',
-  ...protectedRoute('VIEW_COMPANY', { query: getCompanySchema }),
+  //...protectedRoute('VIEW_COMPANY', { query: getCompanySchema }),
   async (req, res, next) => {
     try {
       const company = await service.find(req.query);
@@ -39,7 +39,7 @@ router.get('/',
 );
 
 router.post('/',
-  ...protectedRoute('CREATE_COMPANY', { body: createCompanySchema }),
+  //...protectedRoute('CREATE_COMPANY', { body: createCompanySchema }),
   async (req, res, next) => {
     try {
       const newCompany = await service.create(req.body);
@@ -52,7 +52,7 @@ router.post('/',
 
 // 3. RUTAS CON PARÁMETROS DINÁMICOS (:id)
 router.get('/:id',
-  ...protectedRoute('VIEW_COMPANY', { params: getCompanySchema }),
+  //...protectedRoute('VIEW_COMPANY', { params: getCompanySchema }),
   async (req, res, next) => {
     try {
       const { id } = req.params;
@@ -65,7 +65,7 @@ router.get('/:id',
 );
 
 router.patch('/:id',
-  ...protectedRoute('UPDATE_COMPANY', { params: getCompanySchema, body: updateCompanySchema }),
+  //...protectedRoute('UPDATE_COMPANY', { params: getCompanySchema, body: updateCompanySchema }),
   async (req, res, next) => {
     try {
       const { id } = req.params;
@@ -78,7 +78,7 @@ router.patch('/:id',
 );
 
 router.delete('/:id',
-  ...protectedRoute('DELETE_COMPANY', { params: getCompanySchema }),
+  //...protectedRoute('DELETE_COMPANY', { params: getCompanySchema }),
   async (req, res, next) => {
     try {
       const { id } = req.params;

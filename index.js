@@ -101,7 +101,7 @@ async function runSeed() {
   }
 })();
 
-// --- 7. MANEJO DE CIERRE GRACIOSO (Graceful Shutdown) ---
+// --- 7. MANEJO DE CIERRE (Graceful Shutdown) ---
 const gracefulShutdown = async (signal) => {
   if (server) {
     server.close(async () => {

@@ -10,19 +10,19 @@ const ROLES = {
 const MODULE_HIERARCHY = {
   GESTION: {
     field: 'allowGestion',
-    objects: ['MASTERS', 'CUSTOMERS', 'VENDORS', 'PRODUCTS', 'STATS', 'OPERATINGEXPENSES', 'MASTER', 'INICIO']
+    objects: ['customers', 'vendors', 'products', 'operatingExpenses']
   },
   SALES: {
     field: 'allowSales',
-    objects: ['SALES', 'SALESBUDGETS', 'SALESINVOICES', 'SALESPOSTINVOICES', 'SALESOVERDUEINVOICES', 'VERIFACTULOGS']
+    objects: ['salesBudgets', 'salesInvoices', 'salesOverdueInvoices', 'salesPostInvoices', 'verifactuLogs']
   },
   PURCHASES: {
     field: 'allowPurchases',
-    objects: ['PURCHASES', 'PURCHINVOICES', 'PURCHPOSTINVOICES', 'PURCHOVERDUEINVOICES']
+    objects: ['purchases', 'purchaseInvoices', 'purchasePostInvoices', 'purchaseOverdueInvoices']
   },
   SETUP: {
     field: 'allowSettings',
-    objects: ['COMPANY', 'SERIES', 'USERS', 'CONEXION']
+    objects: ['company', 'series', 'users', 'conexion']
   }
 };
 
@@ -47,7 +47,7 @@ const ROLE_ACTIONS = {
 // 2. Configuración de Páginas (Visibilidad opcional)
 const ROLE_PAGES = {
   [ROLES.FINANCIERO]: {
-    SETUP: ['COMPANY', 'SERIES']
+    SETUP: ['company', 'series']
   }
 };
 
