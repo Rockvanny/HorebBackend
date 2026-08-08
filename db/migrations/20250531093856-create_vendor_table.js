@@ -1,67 +1,66 @@
 'use strict';
+const { DataTypes, literal } = require('sequelize');
 const { VENDOR_TABLE } = require('./../models/vendor.model');
 
 module.exports = {
-  up: async (queryInterface, Sequelize) => {
+  up: async ({ context: queryInterface }) => {
     await queryInterface.createTable(VENDOR_TABLE, {
       code: {
         field: 'code',
         allowNull: false,
         primaryKey: true,
-        type: Sequelize.DataTypes.STRING
+        type: DataTypes.STRING
       },
-      // Cambiamos allowNull a false para coincidir con el modelo Customer y la nueva lógica
       name: {
         field: 'name',
         allowNull: false,
-        type: Sequelize.DataTypes.STRING,
+        type: DataTypes.STRING,
       },
       nif: {
         field: 'nif',
-        allowNull: false, // El schema de Joi ahora lo requiere
-        type: Sequelize.DataTypes.STRING,
+        allowNull: false,
+        type: DataTypes.STRING,
       },
       email: {
         field: 'email',
         allowNull: false,
-        type: Sequelize.DataTypes.STRING,
+        type: DataTypes.STRING,
       },
       phone: {
         field: 'phone',
         allowNull: false,
-        type: Sequelize.DataTypes.STRING,
+        type: DataTypes.STRING,
       },
       address: {
         field: 'address',
         allowNull: false,
-        type: Sequelize.DataTypes.STRING,
+        type: DataTypes.STRING,
       },
       postCode: {
         field: 'post_code',
         allowNull: false,
-        type: Sequelize.DataTypes.STRING,
+        type: DataTypes.STRING,
       },
       city: {
         field: 'city',
         allowNull: false,
-        type: Sequelize.DataTypes.STRING,
+        type: DataTypes.STRING,
       },
       category: {
         field: 'category',
-        type: Sequelize.DataTypes.ENUM(
+        type: DataTypes.ENUM(
           'Suministros de Obra',
           'Logística de Materiales',
           'Material de Construcción',
           'Equipamiento / Maquinaria',
           'Servicios Externos de Obra'
         ),
-        allowNull: false, // Cambiado a false para obligar integridad
+        allowNull: false,
         defaultValue: 'Suministros de Obra'
       },
-
       paymentMethod: {
         field: 'payment_method',
-        type: Sequelize.DataTypes.ENUM(
+        type: DataTypes.ENUM(
           'Transferencia',
           'Efectivo',
           'Tarjeta',
@@ -70,35 +69,36 @@ module.exports = {
         allowNull: false,
         defaultValue: 'Transferencia'
       },
-
       username: {
         field: 'user_name',
-        type: Sequelize.DataTypes.STRING,
+        type: DataTypes.STRING,
       },
       createdAt: {
         field: 'created_at',
         allowNull: false,
-        type: Sequelize.DataTypes.DATE,
-        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
+        type: DataTypes.DATE,
+        defaultValue: literal('CURRENT_TIMESTAMP')
       },
       updatedAt: {
         field: 'updated_at',
         allowNull: false,
-        type: Sequelize.DataTypes.DATE,
-        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
+        type: DataTypes.DATE,
+        defaultValue: literal('CURRENT_TIMESTAMP')
       },
       deleteAt: {
         field: 'delete_at',
         allowNull: true,
-        type: Sequelize.DataTypes.DATE,
+        type: DataTypes.DATE,
         defaultValue: null
       }
     });
   },
 
-  down: async (queryInterface, Sequelize) => {
+  down: async ({ context: queryInterface }) => {
     await queryInterface.dropTable(VENDOR_TABLE);
-    // IMPORTANTE: Si usas PostgreSQL, a veces es necesario eliminar el ENUM manualmente
-    // await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_vendors_category";');
+
+    // Limpieza de los ENUMs creados en PostgreSQL al revertir
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_vendors_category";');
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_vendors_payment_method";');
   }
 };

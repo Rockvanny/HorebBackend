@@ -12,22 +12,28 @@
     "migrations:run": "sequelize-cli db:migrate",
     "migrations:revert": "sequelize-cli db:migrate:undo",
     "migrations:delete": "sequelize-cli db:migrate:undo:all",
-    "build:bin": "pkg . --targets node14-win-x64 --output dist/api-service.exe"
+    "build:bin": "pkg . --node-version node18 --targets node18-win-x64 --output dist/api-service.exe"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "pkg": {
     "assets": [
+      "node_modules/pg/**/*",
+      "node_modules/pg-hstore/**/*",
+      "node_modules/sequelize/**/*",
       "db/migrations/**/*",
+      "db/models/**/*",
+      "config/**/*",
       ".env"
     ],
     "targets": [
-      "node14-win-x64"
+      "node18-win-x64"
     ],
     "outputPath": "dist"
   },
   "devDependencies": {
+    "esbuild": "^0.28.1",
     "eslint": "^7.32.0",
     "eslint-config-prettier": "^8.3.0",
     "eslint-plugin-prettier": "^3.4.1",
@@ -61,6 +67,6 @@
     "xmlbuilder2": "^4.0.3"
   },
   "engines": {
-    "node": "14.x"
+    "node": "18.x"
   }
 }

@@ -62,7 +62,7 @@ const migrator = new Umzug({
   },
   context: sequelize.getQueryInterface(),
   storage: new SequelizeStorage({ sequelize }),
-  logger: false,
+  logger: console,
 });
 
 // --- 6. INICIO DEL SERVIDOR Y CONEXIÓN A BD ---
@@ -90,13 +90,24 @@ async function runSeed() {
 (async () => {
   try {
     await sequelize.authenticate();
+    console.log("Base de datos conectada correctamente");
+
     await migrator.up();
+    console.log("Migraciones ejecutadas con éxito");
 
     await runSeed();
     server = app.listen(port, () => {
+
+      // --- LOGS DE INICIO SEGUROS Y LIMPIOS ---
+        console.log("=== ESTADO DEL BACKEND ===");
+        console.log(`Base de datos: ${process.env.DB_NAME || 'No definida'}`);
+        console.log(`Puerto DB: ${process.env.DB_PORT || '5432'}`);
+        console.log("==========================");
+
       console.log("SERVER_READY");
     });
   } catch (error) {
+    console.error("ERROR CRÍTICO AL ARRANCAR O MIGRAR:", error);
     process.exit(1);
   }
 })();

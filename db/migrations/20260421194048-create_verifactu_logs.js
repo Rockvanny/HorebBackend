@@ -1,20 +1,21 @@
 'use strict';
-
+const { DataTypes, literal } = require('sequelize');
 const { VERIFACTU_LOG_TABLE } = require('../models/verifactuLogs.model');
 
 module.exports = {
-  up: async (queryInterface, Sequelize) => {
+  up: async ({ context: queryInterface }) => {
     await queryInterface.createTable(VERIFACTU_LOG_TABLE, {
       id: {
+        field: 'id',
         allowNull: false,
         autoIncrement: true,
         primaryKey: true,
-        type: Sequelize.DataTypes.INTEGER
+        type: DataTypes.INTEGER
       },
       invoiceCode: {
         field: 'invoice_code',
         allowNull: false,
-        type: Sequelize.DataTypes.STRING,
+        type: DataTypes.STRING,
         unique: true,
         references: {
           model: 'sales_post_invoices',
@@ -26,44 +27,42 @@ module.exports = {
       fingerprint: {
         field: 'fingerprint',
         allowNull: false,
-        type: Sequelize.DataTypes.TEXT,
+        type: DataTypes.TEXT,
       },
       prevFingerprint: {
         field: 'prev_fingerprint',
         allowNull: true,
-        type: Sequelize.DataTypes.TEXT,
+        type: DataTypes.TEXT,
       },
       qrData: {
         field: 'qr_data',
         allowNull: true,
-        type: Sequelize.DataTypes.TEXT,
+        type: DataTypes.TEXT,
       },
       payload: {
         field: 'payload',
         allowNull: false,
-        type: Sequelize.DataTypes.JSONB,
+        type: DataTypes.JSONB,
       },
       externalReference: {
         field: 'external_reference',
-        type: Sequelize.DataTypes.STRING,
+        type: DataTypes.STRING,
       },
       isTest: {
         field: 'is_test',
-        type: Sequelize.DataTypes.BOOLEAN,
+        type: DataTypes.BOOLEAN,
         defaultValue: false
       },
-      // --- NUEVO CAMPO PARA EXPORTACIÓN ---
       exportedAt: {
         field: 'exported_at',
         allowNull: true,
-        type: Sequelize.DataTypes.DATE,
+        type: DataTypes.DATE,
       },
-      // ------------------------------------
       createdAt: {
         field: 'created_at',
         allowNull: false,
-        type: Sequelize.DataTypes.DATE,
-        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
+        type: DataTypes.DATE,
+        defaultValue: literal('CURRENT_TIMESTAMP')
       }
     });
 
@@ -71,7 +70,7 @@ module.exports = {
     await queryInterface.addIndex(VERIFACTU_LOG_TABLE, ['fingerprint']);
   },
 
-  down: async (queryInterface) => {
+  down: async ({ context: queryInterface }) => {
     await queryInterface.dropTable(VERIFACTU_LOG_TABLE);
   }
 };

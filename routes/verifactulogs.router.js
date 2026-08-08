@@ -5,7 +5,7 @@ const validatorHandler = require('../middlewares/validator.handler');
 const { checkAction } = require('../middlewares/auth.handler');
 const {
     updateExternalReferenceSchema
-} = require('../schemas/verifactuLogs.schema');
+} = require('../schemas/verifactulogs.schema');
 
 const router = express.Router();
 const service = new VerifactuService();

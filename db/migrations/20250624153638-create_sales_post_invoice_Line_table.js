@@ -1,21 +1,21 @@
 'use strict';
-
+const { DataTypes, literal } = require('sequelize');
 const { SALESPOSTINVOICELINE_TABLE } = require('../models/salesPostInvoiceLine.model');
 
 module.exports = {
-  up: async (queryInterface, Sequelize) => {
+  up: async ({ context: queryInterface }) => {
     await queryInterface.createTable(SALESPOSTINVOICELINE_TABLE, {
       id: {
         field: 'id',
         allowNull: false,
         autoIncrement: true,
         primaryKey: true,
-        type: Sequelize.DataTypes.INTEGER,
+        type: DataTypes.INTEGER,
       },
       codeDocument: {
         field: 'code_document',
         allowNull: false,
-        type: Sequelize.DataTypes.STRING,
+        type: DataTypes.STRING,
         references: {
           model: 'sales_post_invoices', // Referencia al histórico de cabeceras
           key: 'code'
@@ -25,76 +25,76 @@ module.exports = {
       },
       lineNo: {
         field: 'line_no',
-        type: Sequelize.DataTypes.INTEGER,
+        type: DataTypes.INTEGER,
         allowNull: false,
       },
       codeItem: {
         field: 'item_code',
-        type: Sequelize.DataTypes.STRING,
+        type: DataTypes.STRING,
         allowNull: true,
       },
       description: {
         field: 'description',
-        type: Sequelize.DataTypes.TEXT,
+        type: DataTypes.TEXT,
         allowNull: true,
       },
       quantity: {
         field: 'quantity',
-        type: Sequelize.DataTypes.DECIMAL(12, 4),
+        type: DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 0
       },
       unitMeasure: {
         field: 'unit_measure',
-        type: Sequelize.DataTypes.ENUM('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK'),
+        type: DataTypes.ENUM('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK'),
         defaultValue: 'UNIDAD'
       },
       quantityUnitMeasure: {
         field: 'quantity_unit_measure',
-        type: Sequelize.DataTypes.DECIMAL(12, 4),
+        type: DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 1
       },
       unitPrice: {
         field: 'unit_price',
-        type: Sequelize.DataTypes.DECIMAL(12, 4),
+        type: DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 0
       },
       taxType: {
         field: 'tax_type',
-        type: Sequelize.DataTypes.ENUM('IVA', 'IRPF', 'RE', 'EXENTO'),
+        type: DataTypes.ENUM('IVA', 'IRPF', 'RE', 'EXENTO'),
         allowNull: false,
         defaultValue: 'IVA'
       },
       vat: {
         field: 'vat',
-        type: Sequelize.DataTypes.DECIMAL(12, 4),
+        type: DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 21
       },
       amountLine: {
         field: 'amount_line',
-        type: Sequelize.DataTypes.DECIMAL(12, 4),
+        type: DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 0
       },
       userName: {
         field: 'user_name',
-        type: Sequelize.DataTypes.STRING,
+        type: DataTypes.STRING,
         allowNull: true,
       },
       createdAt: {
         field: 'created_at',
         allowNull: false,
-        type: Sequelize.DataTypes.DATE,
-        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
+        type: DataTypes.DATE,
+        defaultValue: literal('CURRENT_TIMESTAMP')
       },
       updatedAt: {
         field: 'updated_at',
         allowNull: false,
-        type: Sequelize.DataTypes.DATE,
-        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
+        type: DataTypes.DATE,
+        defaultValue: literal('CURRENT_TIMESTAMP')
       }
     });
 
@@ -105,7 +105,10 @@ module.exports = {
     });
   },
 
-  down: async (queryInterface) => {
+  down: async ({ context: queryInterface }) => {
     await queryInterface.dropTable(SALESPOSTINVOICELINE_TABLE);
+    // Limpieza de ENUMs en Postgres al revertir
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_post_invoice_lines_unit_measure";');
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_post_invoice_lines_tax_type";');
   }
 };

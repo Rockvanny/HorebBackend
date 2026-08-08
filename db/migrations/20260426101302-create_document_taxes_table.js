@@ -1,62 +1,64 @@
 'use strict';
+const { DataTypes, literal } = require('sequelize');
 
 const DOCUMENT_TAX_TABLE = 'document_taxes';
 
 module.exports = {
-  up: async (queryInterface, Sequelize) => {
+  up: async ({ context: queryInterface }) => {
     await queryInterface.createTable(DOCUMENT_TAX_TABLE, {
       id: {
+        field: 'id',
         allowNull: false,
         autoIncrement: true,
         primaryKey: true,
-        type: Sequelize.DataTypes.INTEGER,
+        type: DataTypes.INTEGER,
       },
       codeDocument: {
         field: 'code_document',
         allowNull: false,
-        type: Sequelize.DataTypes.ENUM('budget', 'salesinvoice', 'salespostinvoices', 'purchinvoice', 'purchpostinvoices'),
+        type: DataTypes.ENUM('budget', 'salesinvoice', 'salespostinvoices', 'purchinvoice', 'purchpostinvoices'),
       },
       // CAMBIO CLAVE: De INTEGER a UUID para el traspaso entre tablas
       movementId: {
         field: 'movement_id',
         allowNull: false,
-        type: Sequelize.DataTypes.UUID,
+        type: DataTypes.UUID,
       },
       taxType: {
         field: 'tax_type',
-        type: Sequelize.DataTypes.STRING,
+        type: DataTypes.STRING,
         allowNull: false,
         defaultValue: 'IVA'
       },
       taxPercentage: {
         field: 'tax_percentage',
-        type: Sequelize.DataTypes.DECIMAL(5, 2),
+        type: DataTypes.DECIMAL(5, 2),
         allowNull: false,
         defaultValue: 0.00
       },
       taxableAmount: {
         field: 'taxable_amount',
-        type: Sequelize.DataTypes.DECIMAL(12, 4),
+        type: DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 0.0000
       },
       taxAmount: {
         field: 'tax_amount',
-        type: Sequelize.DataTypes.DECIMAL(12, 4),
+        type: DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 0.0000
       },
       createdAt: {
         field: 'created_at',
         allowNull: false,
-        type: Sequelize.DataTypes.DATE,
-        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
+        type: DataTypes.DATE,
+        defaultValue: literal('CURRENT_TIMESTAMP')
       },
       updatedAt: {
         field: 'updated_at',
         allowNull: false,
-        type: Sequelize.DataTypes.DATE,
-        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
+        type: DataTypes.DATE,
+        defaultValue: literal('CURRENT_TIMESTAMP')
       }
     });
 
@@ -70,7 +72,9 @@ module.exports = {
     });
   },
 
-  down: async (queryInterface) => {
+  down: async ({ context: queryInterface }) => {
     await queryInterface.dropTable(DOCUMENT_TAX_TABLE);
+    // Limpieza del ENUM generado en Postgres al revertir
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_document_taxes_code_document";');
   }
 };

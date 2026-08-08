@@ -1,23 +1,24 @@
 'use strict';
-const { OPERATING_EXPENSES_TABLE } = require('./../models/operatingExpenses.model');
+const { DataTypes, literal } = require('sequelize');
+const { OPERATING_EXPENSES_TABLE } = require('../models/operatingExpenses.model');
 
 module.exports = {
-  up: async (queryInterface, Sequelize) => {
+  up: async ({ context: queryInterface }) => {
     await queryInterface.createTable(OPERATING_EXPENSES_TABLE, {
       id: {
         allowNull: false,
         autoIncrement: true,
         primaryKey: true,
-        type: Sequelize.DataTypes.INTEGER
+        type: DataTypes.INTEGER
       },
       date: {
         field: 'date',
         allowNull: false,
-        type: Sequelize.DataTypes.DATEONLY
+        type: DataTypes.DATEONLY
       },
       category: {
         field: 'category',
-        type: Sequelize.DataTypes.ENUM(
+        type: DataTypes.ENUM(
           'Personal y Nóminas',
           'Suministros Públicos',
           'Vehículos y Movilidad',
@@ -30,49 +31,49 @@ module.exports = {
       },
       entityCode: {
         field: 'entity_code',
-        type: Sequelize.DataTypes.STRING,
+        type: DataTypes.STRING,
         allowNull: false,
       },
-      name: { field: 'name', type: Sequelize.DataTypes.STRING, allowNull: false },
-      nif: { field: 'nif', type: Sequelize.DataTypes.STRING, allowNull: false },
+      name: { field: 'name', type: DataTypes.STRING, allowNull: false },
+      nif: { field: 'nif', type: DataTypes.STRING, allowNull: false },
       concept: {
         field: 'concept',
-        type: Sequelize.DataTypes.STRING,
+        type: DataTypes.STRING,
         allowNull: false,
       },
       baseAmount: {
         field: 'base_amount',
-        type: Sequelize.DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 2),
         allowNull: false,
       },
       tax: {
         field: 'tax_%',
-        type: Sequelize.DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 2),
         allowNull: true,
       },
       taxAmount: {
         field: 'tax_amount',
-        type: Sequelize.DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 2),
         allowNull: true,
       },
       irpf: {
         field: 'irpf_%',
-        type: Sequelize.DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 2),
         allowNull: true,
       },
       amountIrpf: {
         field: 'amount_irpf',
-        type: Sequelize.DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 2),
         allowNull: true,
       },
       totalAmount: {
         field: 'total_amount',
-        type: Sequelize.DataTypes.DECIMAL(10, 2),
+        type: DataTypes.DECIMAL(10, 2),
         allowNull: true,
       },
       paymentMethod: {
         field: 'payment_method',
-        type: Sequelize.DataTypes.ENUM(
+        type: DataTypes.ENUM(
           'Transferencia',
           'Efectivo',
           'Tarjeta',
@@ -83,30 +84,33 @@ module.exports = {
       },
       isValidated: {
         field: 'is_validated',
-        type: Sequelize.DataTypes.BOOLEAN,
+        type: DataTypes.BOOLEAN,
         defaultValue: false,
         allowNull: false
       },
       userName: {
         field: 'user_name',
-        type: Sequelize.DataTypes.STRING,
+        type: DataTypes.STRING,
       },
       createdAt: {
         field: 'created_at',
         allowNull: false,
-        type: Sequelize.DataTypes.DATE,
-        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
+        type: DataTypes.DATE,
+        defaultValue: literal('CURRENT_TIMESTAMP')
       },
       updatedAt: {
         field: 'updated_at',
         allowNull: false,
-        type: Sequelize.DataTypes.DATE,
-        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
+        type: DataTypes.DATE,
+        defaultValue: literal('CURRENT_TIMESTAMP')
       }
     });
   },
 
-  down: async (queryInterface, Sequelize) => {
+  down: async ({ context: queryInterface }) => {
     await queryInterface.dropTable(OPERATING_EXPENSES_TABLE);
+    // Limpieza de ENUMs en Postgres al revertir
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_operating_expenses_category";');
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_operating_expenses_payment_method";');
   }
 };

@@ -148,18 +148,19 @@ class salesBudgetService {
     }
   }
 
-  async create(data) {
-    const { lines, ...headerData } = data;
+  async create(data, userId) {
+    const { lines: rawLines, ...headerData } = data;
     const transaction = await sequelize.transaction();
 
     try {
       // 1. Crear cabecera (Genera UUID 'movementId' en el Hook)
+      headerData.username = userId;
       const newSalesBudget = await salesBudget.create(headerData, { transaction });
 
       // 2. Calcular todo usando la librería
       // La librería ahora procesa taxType (IVA, IRPF, etc.)
-      const { processedLines, taxesToInsert, totals } = calculateDocumentTotals(
-        lines || [],
+      const { processedLines, taxesToInsert, headerTotals } = calculateDocumentTotals(
+        rawLines || [],
         newSalesBudget.movementId,
         'budget'
       );
@@ -171,7 +172,9 @@ class salesBudgetService {
           ...l,
           codeDocument: newSalesBudget.code
         }));
+
         await salesBudgetLine.bulkCreate(finalLines, { transaction });
+
       } else {
         // Línea por defecto corregida con taxType
         await salesBudgetLine.create({
@@ -191,7 +194,7 @@ class salesBudgetService {
       }
 
       // 5. Actualizar totales en cabecera
-      await newSalesBudget.update(totals, { transaction });
+      await newSalesBudget.update(headerTotals, { transaction });
 
       await transaction.commit();
       return await this.findOne(newSalesBudget.id, { includeLines: true });
@@ -203,7 +206,7 @@ class salesBudgetService {
   }
 
   async update(id, changes) {
-    const { lines, ...headerChanges } = changes;
+    const { lines: rawLines, ...headerChanges } = changes;
     const transaction = await sequelize.transaction();
 
     try {
@@ -239,13 +242,13 @@ class salesBudgetService {
       let totalsUpdate = {};
 
       if (lines) {
-        const { processedLines, taxesToInsert, totals } = calculateDocumentTotals(
+        const { processedLines, taxesToInsert, headerTotals } = calculateDocumentTotals(
           lines,
           instance.movementId,
           'budget'
         );
 
-        totalsUpdate = totals;
+        totalsUpdate = headerTotals;
 
         // Sincronizar Líneas
         await salesBudgetLine.destroy({ where: { codeDocument: instance.code }, transaction });
