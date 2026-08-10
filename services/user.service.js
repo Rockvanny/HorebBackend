@@ -86,6 +86,15 @@ class UserService {
     return user;
   }
 
+  /**
+     * CREAR: Añadido userExecutor para auditoría.
+     */
+    async create(data, userExecutor) {
+        const newUser = await models.User.create(data, { userExecutor });
+        const { password, ...userWithoutPassword } = newUser.toJSON();
+        return userWithoutPassword;
+    }
+
   async update(id, changes, userExecutor) {
     if (id === config.masterUser) throw boom.forbidden('No se puede modificar el Maestro');
     const user = await this.findOne(id);

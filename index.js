@@ -76,7 +76,7 @@ async function runSeed() {
       code: 'admin',
       fullName: 'Administrador Maestro',
       email: 'admin@horeb.com',
-      password: 'admin123', // ¡Asegúrate de hashear esto si tu modelo lo requiere!
+      password: 'BdH0r3b2026', // ¡Asegúrate de hashear esto si tu modelo lo requiere!
       role: 'system',
       allowGestion: true,
       allowSales: true,
