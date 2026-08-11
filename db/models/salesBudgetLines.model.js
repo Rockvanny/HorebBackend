@@ -14,7 +14,7 @@ const salesBudgetLineSchema = {
     onUpdate: 'CASCADE',
     onDelete: 'CASCADE'
   },
-  
+
   lineNo: {
     field: 'line_no',
     allowNull: false,
@@ -41,8 +41,19 @@ const salesBudgetLineSchema = {
 
   unitMeasure: {
     field: 'unit_measure',
-    type: DataTypes.ENUM('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK'),
+    type: DataTypes.ENUM('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK', 'ML'),
     defaultValue: 'UNIDAD'
+  },
+  width: {
+    field: 'width',
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 0
+  },
+
+  height: {
+    field: 'height',
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 0
   },
 
   quantityUnitMeasure: {

@@ -44,8 +44,19 @@ const salesInvoiceLineSchema = {
 
   unitMeasure: {
     field: 'unit_measure',
-    type: DataTypes.ENUM('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK'),
+    type: DataTypes.ENUM('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK', 'ML'),
     defaultValue: 'UNIDAD'
+  },
+  width: {
+    field: 'width',
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 0
+  },
+
+  height: {
+    field: 'height',
+    type: DataTypes.DECIMAL(12, 4),
+    defaultValue: 0
   },
 
   quantityUnitMeasure: {
@@ -95,7 +106,7 @@ const salesInvoiceLineSchema = {
     type: DataTypes.DATE,
     defaultValue: Sequelize.NOW
   },
-  
+
   updatedAt: {
     field: 'updated_at',
     allowNull: false,

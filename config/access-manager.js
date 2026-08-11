@@ -18,7 +18,7 @@ const MODULE_HIERARCHY = {
   },
   PURCHASES: {
     field: 'allowPurchases',
-    objects: ['purchases', 'purchaseInvoices', 'purchasePostInvoices', 'purchaseOverdueInvoices']
+    objects: ['purchInvoices', 'purchOverDueInvoices', 'purchPostInvoices']
   },
   SETUP: {
     field: 'allowSettings',

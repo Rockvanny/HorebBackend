@@ -44,13 +44,13 @@ module.exports = {
         field: 'allow_gestion',
         allowNull: false,
         type: DataTypes.BOOLEAN,
-        defaultValue: true,
+        defaultValue: false,
       },
       allowSales: {
         field: 'allow_sales',
         allowNull: false,
         type: DataTypes.BOOLEAN,
-        defaultValue: true,
+        defaultValue: false,
       },
       allowPurchases: {
         field: 'allow_purchases',

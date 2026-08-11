@@ -55,6 +55,18 @@ module.exports = {
         allowNull: false,
         defaultValue: 1.0000
       },
+      width: {
+        field: 'width',
+        type: DataTypes.DECIMAL(12, 4),
+        defaultValue: 0
+      },
+
+      height: {
+        field: 'height',
+        type: DataTypes.DECIMAL(12, 4),
+        defaultValue: 0
+      },
+
       unitPrice: {
         field: 'unit_price',
         type: DataTypes.DECIMAL(12, 4),

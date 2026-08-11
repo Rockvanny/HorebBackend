@@ -27,27 +27,26 @@ const buildUserPermissionsConfig = async (userData) => {
     const moduleDef = MODULE_HIERARCHY[moduleKey];
     const moduleKeyUpper = moduleKey.toUpperCase();
 
-    // Verificamos si el usuario tiene el módulo activo
-    if (data[moduleDef.field] === true || data[moduleDef.field] === 1) {
+    // COMPROBACIÓN ROBUSTA (Igual que en checkPermission)
+    const val = (data.modules && data.modules[moduleDef.field]) ?? data[moduleDef.field];
+    const isModuleActive = [true, 1, "true", "1"].includes(val);
 
-      // LÓGICA DE FILTRADO DE PÁGINAS (Punto 2 de tu requerimiento)
-      // Si el rol tiene restricciones de páginas para este módulo, las usamos;
-      // si no, devolvemos todas las definidas en MODULE_HIERARCHY.
+    // Verificamos si el usuario tiene el módulo activo
+    if (isModuleActive) {
       const allowedPages = rolePages[moduleKeyUpper] || moduleDef.objects;
 
       const moduleConfig = {
-        objects: allowedPages // Ya no usamos .toUpperCase()
+        objects: allowedPages
       };
 
-      // LÓGICA DE ACCIONES ESPECÍFICAS (Punto 3 de tu requerimiento)
-      // Solo añadimos 'actions' si el access-manager tiene una configuración específica
       if (roleActions.modules && roleActions.modules[moduleKeyUpper]) {
-        moduleConfig.actions = roleActions.modules[moduleKey];
+        moduleConfig.actions = roleActions.modules[moduleKeyUpper].map(a => a.toUpperCase());
       }
 
       permissionsConfig.modules[moduleKeyUpper] = moduleConfig;
     }
   });
+
   console.log('DEBUG - mapResponse recibido:', JSON.stringify(permissionsConfig, null, 2));
   return permissionsConfig;
 };

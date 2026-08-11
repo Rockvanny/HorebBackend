@@ -25,7 +25,7 @@ const ProductSchema = {
 
   unitMeasure: {
     field: 'unit_measure',
-    type: DataTypes.ENUM('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK'),
+    type: DataTypes.ENUM('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK', 'ML'),
     defaultValue: 'UNIDAD'
   },
 
