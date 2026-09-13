@@ -57,7 +57,7 @@ router.post('/:codeDocument',
     try {
       const { codeDocument } = req.params;
       // Usamos req.user.userId para la auditoría
-      const userId = req.user.userId || req.user.sub;
+      const userId = req.user.code;
       const newLine = await service.create({ ...req.body, codeDocument }, userId);
       res.status(201).json(newLine);
     } catch (error) { next(error); }
@@ -72,7 +72,7 @@ router.patch('/:codeDocument/:lineNo',
   async (req, res, next) => {
     try {
       const { codeDocument, lineNo } = req.params;
-      const userId = req.user.userId || req.user.sub;
+      const userId = req.user.code;
       const line = await service.update({ codeDocument, lineNo }, req.body, userId);
       res.json(line);
     } catch (error) { next(error); }
@@ -86,7 +86,7 @@ router.delete('/:codeDocument/:lineNo',
   async (req, res, next) => {
     try {
       const { codeDocument, lineNo } = req.params;
-      const userId = req.user.userId || req.user.sub;
+      const userId = req.user.code;
       const result = await service.delete({ codeDocument, lineNo }, userId);
       res.json(result);
     } catch (error) { next(error); }

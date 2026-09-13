@@ -77,7 +77,7 @@ router.post('/',
   async (req, res, next) => {
     try {
       // Ahora req.user.userId es accesible con seguridad para la auditoría
-      const userId = req.user.userId || req.user.sub;
+      const userId = req.user.code;
       const newVendor = await service.create(req.body, userId);
       res.status(201).json(newVendor);
     } catch (error) {
@@ -104,7 +104,7 @@ router.patch('/:code',
   async (req, res, next) => {
     try {
       const { code } = req.params;
-      const userId = req.user.userId || req.user.sub;
+      const userId = req.user.code;
       const vendor = await service.update(code, req.body, userId);
       res.json(vendor);
     } catch (error) {
@@ -123,7 +123,7 @@ router.delete('/:code',
   async (req, res, next) => {
     try {
       const { code } = req.params;
-      const userId = req.user.userId || req.user.sub;
+      const userId = req.user.code;
       await service.delete(code, userId);
       res.status(200).json({ code });
     } catch (error) {

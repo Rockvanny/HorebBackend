@@ -35,7 +35,7 @@ router.post('/',
     validatorHandler(createPurchInvoiceLineSchema, 'body'),
     async (req, res, next) => {
         try {
-            const userId = req.user.userId || req.user.sub;
+            const userId = req.user.code;
             const newLine = await service.create(req.body, userId);
             res.status(201).json(newLine);
         } catch (error) { next(error); }

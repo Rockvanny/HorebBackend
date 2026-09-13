@@ -69,14 +69,24 @@ function errorHandler(err, req, res, next) {
     return next(err);
   }
 
+  const isDev = process.env.NODE_ENV === 'development';
   const statusCode = err.statusCode || 500;
 
-  // En producción, nunca enviamos el stack al cliente por seguridad,
-  // pero el stack ya quedó guardado de forma segura en nuestro archivo .log gracias a logErrors
+  // Si llega hasta aquí es porque NO es un error boom ni una ValidationError
+  // de Sequelize (esos ya se resolvieron antes, en boomErrorHandler /
+  // ormErrorHandler, con una forma de respuesta consistente). Es un error no
+  // controlado: un bug, una tabla inexistente, un fallo de conexión, etc.
+  // El mensaje real (que puede incluir nombres de tabla, columnas, rutas de
+  // fichero...) ya quedó a salvo en el log gracias a logErrors — al cliente,
+  // en producción, solo le llega un mensaje genérico. Mantenemos la misma
+  // forma de respuesta que boomErrorHandler (success/statusCode/error/message)
+  // para que el frontend pueda tratar cualquier error con el mismo código.
   res.status(statusCode).json({
     success: false,
-    message: err.message || "Internal Server Error",
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+    statusCode,
+    error: 'Internal Server Error',
+    message: isDev ? (err.message || 'Internal Server Error') : 'Ha ocurrido un error interno. Inténtalo de nuevo más tarde.',
+    stack: isDev ? err.stack : undefined,
   });
 }
 

@@ -1,4 +1,4 @@
-/*\'use strict';
+'use strict';
 const { DataTypes, literal } = require('sequelize');
 const { CUSTOMER_TABLE } = require('./../models/customer.model');
 
@@ -14,6 +14,7 @@ module.exports = {
       name: {
         field: 'name',
         type: DataTypes.STRING,
+        allowNull: false,
       },
       nif: {
         field: 'nif',
@@ -22,22 +23,27 @@ module.exports = {
       email: {
         field: 'email',
         type: DataTypes.STRING,
+        allowNull: false,
       },
       phone: {
         field: 'phone',
         type: DataTypes.STRING,
+        allowNull: false,
       },
       address: {
         field: 'address',
         type: DataTypes.STRING,
+        allowNull: false,
       },
       postCode: {
         field: 'post_code',
         type: DataTypes.STRING,
+        allowNull: false,
       },
       city: {
         field: 'city',
         type: DataTypes.STRING,
+        allowNull: false,
       },
       paymentMethod: {
         field: 'payment_method',
@@ -82,4 +88,3 @@ module.exports = {
     await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_customers_payment_method";');
   }
 };
-*/

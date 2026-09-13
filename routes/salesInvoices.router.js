@@ -72,7 +72,7 @@ router.post('/',
     async (req, res, next) => {
         try {
             // Extraemos el ID de usuario del token de forma segura
-            const userId = req.user.userId || req.user.sub || 'system';
+            const userId = req.user.code || 'system';
             const newInvoice = await service.create(req.body, userId);
             res.status(201).json(newInvoice);
         } catch (error) { next(error); }
@@ -87,7 +87,7 @@ router.post('/:code/archive',
     async (req, res, next) => {
         try {
             const { code } = req.params;
-            const userId = req.user.userId || req.user.sub || 'system';
+            const userId = req.user.code || 'system';
             const result = await service.archiveInvoice(code, userId);
             res.status(200).json({ success: true, data: result });
         } catch (error) { next(error); }

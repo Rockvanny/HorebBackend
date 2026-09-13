@@ -130,7 +130,7 @@ router.post('/',
     async (req, res, next) => {
         try {
             const body = req.body;
-            const userId = req.user.userId || req.user.sub;
+            const userId = req.user.code;
             const newSalesBudget = await service.create(body, userId);
             res.status(201).json(newSalesBudget);
         } catch (error) {
@@ -156,7 +156,7 @@ router.patch('/:id',
         try {
             const { id } = req.params;
             const body = req.body;
-            const userId = req.user.userId || req.user.sub;
+            const userId = req.user.code;
             const record = await service.update(id, body, userId);
             res.json(record);
         } catch (error) {
@@ -173,7 +173,7 @@ router.delete('/:id',
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            const userId = req.user.userId || req.user.sub;
+            const userId = req.user.code;
             await service.delete(id, userId);
             res.status(200).json({ id });
         } catch (error) {

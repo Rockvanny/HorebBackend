@@ -58,7 +58,7 @@ router.post('/',
   validatorHandler(createOperatingExpenseSchema, 'body'),
   async (req, res, next) => {
     try {
-      const userId = req.user.userId || req.user.sub;
+      const userId = req.user.code;
       const newExpense = await service.create(req.body, userId);
       res.status(201).json(newExpense);
     } catch (error) {
@@ -99,7 +99,7 @@ router.patch('/:id',
   async (req, res, next) => {
     try {
       const { id } = req.params;
-      const userId = req.user.userId || req.user.sub;
+      const userId = req.user.code;
       const expense = await service.update(id, req.body, userId);
       res.json(expense);
     } catch (error) {
@@ -118,7 +118,7 @@ router.delete('/:id',
   async (req, res, next) => {
     try {
       const { id } = req.params;
-      const userId = req.user.userId || req.user.sub;
+      const userId = req.user.code;
       await service.delete(id, userId);
       res.status(200).json({ id });
     } catch (error) {
@@ -135,7 +135,7 @@ router.post('/validate-previous-month',
   //checkAction('UPDATE_OPERATINGEXPENSES'),
   async (req, res, next) => {
     try {
-      const userId = req.user.userId || req.user.sub;
+      const userId = req.user.code;
       const result = await service.validatePreviousMonth(userId);
       res.json(result);
     } catch (error) {

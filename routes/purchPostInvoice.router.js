@@ -92,7 +92,7 @@ router.post('/',
         ...req.body,
         // Inyectamos metadatos del usuario autenticado respetando las propiedades del modelo de compras
         userName: req.user.username || req.user.email || 'system',
-        userId: req.user.userId || req.user.sub
+        userId: req.user.code
       };
       const result = await service.create(data);
       res.status(201).json(result);

@@ -68,7 +68,7 @@ router.post('/',
         try {
             const body = req.body;
             // req.user ya existe aquí gracias a passport
-            const userId = req.user.userId || req.user.sub;
+            const userId = req.user.code;
             const newProduct = await service.create(body, userId);
             res.status(201).json(newProduct);
         } catch (error) {
@@ -86,7 +86,7 @@ router.patch('/:code',
         try {
             const { code } = req.params;
             const body = req.body;
-            const userId = req.user.userId || req.user.sub;
+            const userId = req.user.code;
             const product = await service.update(code, body, userId);
             res.json(product);
         } catch (error) {

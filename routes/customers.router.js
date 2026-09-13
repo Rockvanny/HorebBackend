@@ -1,5 +1,6 @@
 const express = require('express');
 const passport = require('passport');
+const boom = require('@hapi/boom');
 const CustomerService = require('../services/customers.service');
 const validatorHandler = require('../middlewares/validator.handler');
 const { checkAction } = require('../middlewares/auth.handler');
@@ -22,7 +23,7 @@ const service = new CustomerService();
 
 router.get('/customers-paginated',
   passport.authenticate('jwt', { session: false }),
-  //checkAction('VIEW_CUSTOMERS'),
+  checkAction('VIEW_CUSTOMERS'),
   validatorHandler(queryCustomerSchema, 'query'),
   async (req, res, next) => {
     try {
@@ -37,7 +38,7 @@ router.get('/customers-paginated',
 
 router.get('/search',
   passport.authenticate('jwt', { session: false }),
-  //checkAction('VIEW_CUSTOMERS'),
+  checkAction('VIEW_CUSTOMERS'),
   async (req, res, next) => {
     try {
       const { searchTerm } = req.query;
@@ -51,14 +52,15 @@ router.get('/search',
 
 router.get('/:code',
   passport.authenticate('jwt', { session: false }), // <--- Faltaba
-  //checkAction('VIEW_CUSTOMERS'),
+  checkAction('VIEW_CUSTOMERS'),
   validatorHandler(getCustomerSchema, 'params'),
   async (req, res, next) => {
     try {
       const { code } = req.params;
       const includeDocuments = req.query.include_docs === 'true' || req.query.include_docs === '1';
       const customer = await service.findOne(code, includeDocuments);
-      res.json(customer);
+      const balances = await service.getBalances(code);
+      res.json({ ...customer.toJSON(), ...balances });
     } catch (error) {
       next(error);
     }
@@ -67,7 +69,7 @@ router.get('/:code',
 
 router.get('/',
   passport.authenticate('jwt', { session: false }), // <--- Faltaba
-  //checkAction('VIEW_CUSTOMERS'),
+  checkAction('VIEW_CUSTOMERS'),
   validatorHandler(queryCustomerSchema, 'query'),
   async (req, res, next) => {
     try {
@@ -81,21 +83,20 @@ router.get('/',
 
 router.post('/',
   passport.authenticate('jwt', { session: false }), // <--- Faltaba
-  //checkAction('CREATE_CUSTOMERS'),
+  checkAction('CREATE_CUSTOMERS'),
   validatorHandler(createCustomerSchema, 'body'),
   async (req, res, next) => {
     try {
       const body = req.body;
       // Ahora req.user existe gracias a Passport
-      const newCustomer = await service.create(body, req.user.userId || req.user.sub);
+      const newCustomer = await service.create(body, req.user.code);
       res.status(201).json(newCustomer);
     } catch (error) {
       if (error.name === "SequelizeUniqueConstraintError") {
-        return res.status(409).json({
-          success: false,
-          message: `El código de cliente '${req.body.code}' ya existe.`,
-          error: error.errors
-        });
+        // boom.conflict en vez de una forma de respuesta hecha a mano: así
+        // el frontend siempre recibe {success, statusCode, error, message}
+        // sin importar qué endpoint falle.
+        return next(boom.conflict(`El código de cliente '${req.body.code}' ya existe.`));
       }
       next(error);
     }
@@ -104,14 +105,14 @@ router.post('/',
 
 router.patch('/:code',
   passport.authenticate('jwt', { session: false }), // <--- Faltaba
-  //checkAction('UPDATE_CUSTOMERS'),
+  checkAction('UPDATE_CUSTOMERS'),
   validatorHandler(getCustomerSchema, 'params'),
   validatorHandler(updateCustomerSchema, 'body'),
   async (req, res, next) => {
     try {
       const { code } = req.params;
       const body = req.body;
-      const customer = await service.update(code, body, req.user.userId || req.user.sub);
+      const customer = await service.update(code, body, req.user.code);
       res.json(customer);
     } catch (error) {
       next(error);
@@ -121,12 +122,12 @@ router.patch('/:code',
 
 router.delete('/:code',
   passport.authenticate('jwt', { session: false }), // <--- Faltaba
-  //checkAction('DELETE_CUSTOMERS'),
+  checkAction('DELETE_CUSTOMERS'),
   validatorHandler(getCustomerSchema, 'params'),
   async (req, res, next) => {
     try {
       const { code } = req.params;
-      await service.delete(code, req.user.userId || req.user.sub);
+      await service.delete(code, req.user.code);
       res.status(200).json({ code });
     } catch (error) {
       next(error);

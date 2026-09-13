@@ -1,10 +1,105 @@
-const { Op } = require('sequelize');
+const { Op, fn, col } = require('sequelize');
 const boom = require('@hapi/boom');
 const { models } = require('../libs/sequelize');
+const logger = require('../libs/logger');
+
+// Tipos de factura que suman al saldo; las rectificativas (R1-R5) restan.
+const INVOICED_TYPES = ['F1', 'F2'];
+const RECTIFICATION_TYPES = ['R1', 'R2', 'R3', 'R4', 'R5'];
+
+// SQLSTATE de Postgres para "la tabla no existe". Mientras el módulo de
+// facturación no esté activo (su migración sigue en .bak durante el
+// desarrollo por módulos), degradamos a saldo 0 en vez de romper cualquier
+// pantalla que liste o abra un cliente. Cualquier OTRO error de BD (typo en
+// una columna, permisos, etc.) se sigue propagando tal cual.
+const UNDEFINED_TABLE = '42P01';
 
 class CustomerService {
 
   constructor() { }
+
+  /**
+   * Calcula, sin persistir nada, el saldo facturado (F1/F2 netas de
+   * rectificativas) y el saldo pendiente (mismo cálculo, restringido a
+   * facturas registradas en estado 'Abierto') para un conjunto de clientes.
+   * Se recalcula contra `sales_post_invoices` en cada consulta: si algo
+   * cambia una factura, el saldo ya sale correcto la próxima vez que se lea,
+   * sin necesidad de mantener ningún hook de sincronización.
+   */
+  async #computeBalances(customerCodes) {
+    const balances = {};
+    customerCodes.forEach(code => {
+      balances[code] = { saldoFacturado: 0, saldoPendiente: 0 };
+    });
+
+    if (!customerCodes.length) return balances;
+
+    let rows;
+    try {
+      rows = await models.salesPostInvoice.findAll({
+        attributes: [
+          'entityCode',
+          'typeInvoice',
+          'status',
+          [fn('SUM', col('amount_with_vat')), 'total']
+        ],
+        where: { entityCode: { [Op.in]: customerCodes } },
+        group: ['entityCode', 'typeInvoice', 'status'],
+        raw: true
+      });
+    } catch (error) {
+      if (error.original?.code === UNDEFINED_TABLE || error.parent?.code === UNDEFINED_TABLE) {
+        logger.error('CustomerService#computeBalances: sales_post_invoices no existe todavía, devolviendo saldos en 0.');
+        return balances;
+      }
+      throw error;
+    }
+
+    rows.forEach(row => {
+      // Tipos de factura fuera de F1/F2/R1-R5 (si los hubiera en el futuro)
+      // no se contabilizan hasta decidir explícitamente cómo tratarlos.
+      const isInvoiced = INVOICED_TYPES.includes(row.typeInvoice);
+      const isRectification = RECTIFICATION_TYPES.includes(row.typeInvoice);
+      if (!isInvoiced && !isRectification) return;
+
+      const total = parseFloat(row.total) || 0;
+      const signedTotal = isRectification ? -total : total;
+
+      balances[row.entityCode].saldoFacturado += signedTotal;
+      if (row.status === 'Abierto') {
+        balances[row.entityCode].saldoPendiente += signedTotal;
+      }
+    });
+
+    return balances;
+  }
+
+  /**
+   * Saldo facturado/pendiente de un único cliente (usado por el endpoint de
+   * detalle). Devuelve {saldoFacturado, saldoPendiente}, ambos en 0 si el
+   * cliente no tiene facturas registradas todavía.
+   */
+  async getBalances(code) {
+    const balances = await this.#computeBalances([code]);
+    return balances[code];
+  }
+
+  /**
+   * Convierte una lista de instancias Customer en objetos planos con
+   * `saldoFacturado`/`saldoPendiente` añadidos (una sola query agregada
+   * para todo el lote, no una por cliente).
+   */
+  async #attachBalances(customers) {
+    if (!customers.length) return [];
+
+    const codes = customers.map(c => c.code);
+    const balances = await this.#computeBalances(codes);
+
+    return customers.map(c => ({
+      ...c.toJSON(),
+      ...balances[c.code]
+    }));
+  }
 
   /**
    * Obtiene todos los clientes con filtros opcionales de paginación.
@@ -21,7 +116,7 @@ class CustomerService {
     }
 
     const customers = await models.Customer.findAll(options);
-    return customers;
+    return this.#attachBalances(customers);
   }
 
   /**
@@ -53,7 +148,7 @@ class CustomerService {
       const { count, rows } = await models.Customer.findAndCountAll(options);
 
       return {
-        records: rows,
+        records: await this.#attachBalances(rows),
         hasMore: (parsedOffset + rows.length) < count,
         total: count,
       };

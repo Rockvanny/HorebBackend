@@ -101,7 +101,7 @@ router.post('/',
   validatorHandler(createSeriesNumberSchema, 'body'),
   async (req, res, next) => {
     try {
-      const executor = req.user.userId || req.user.sub;
+      const executor = req.user.code;
       const newSerie = await service.create(req.body, executor);
       res.status(201).json(newSerie);
     } catch (error) {
@@ -118,7 +118,7 @@ router.patch('/:type/:code',
   async (req, res, next) => {
     try {
       const { type, code } = req.params;
-      const executor = req.user.userId || req.user.sub;
+      const executor = req.user.code;
       const updated = await service.update(type, code, req.body, executor);
       res.json(updated);
     } catch (error) {
@@ -134,7 +134,7 @@ router.delete('/:type/:code',
   async (req, res, next) => {
     try {
       const { type, code } = req.params;
-      const executor = req.user.userId || req.user.sub;
+      const executor = req.user.code;
       const result = await service.delete(type, code, executor);
       res.json(result);
     } catch (error) {
