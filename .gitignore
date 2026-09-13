@@ -206,6 +206,13 @@ HOREB.exe
 .env
 .env.local
 
+# Clave privada del generador de licencias: NUNCA debe versionarse ni
+# empaquetarse con el backend. Solo la clave pública (config/license-public-key.pem)
+# va en el repo.
+license-generator/keys/
+*.private.pem
+private.pem
+
 # Si usas Docker para la base de datos (según tu docker-compose.yml)
 # Esto evita que los datos pesados de la DB se suban al repo
 postgres_data/

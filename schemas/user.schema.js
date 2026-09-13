@@ -20,6 +20,33 @@ const loginUserSchema = Joi.object({
   password: Joi.string().required(),
 });
 
+// --- Esquemas para el 2º factor (OTP por email) ---
+const verifyLoginOtpSchema = Joi.object({
+  challengeId: Joi.string().guid().required(),
+  otp: Joi.string().length(6).pattern(/^[0-9]+$/).required(),
+});
+
+const resendLoginOtpSchema = Joi.object({
+  challengeId: Joi.string().guid().required(),
+});
+
+// --- Esquema para cambio de contraseña propio (inicial o voluntario) ---
+const updateOwnPasswordSchema = Joi.object({
+  currentPassword: Joi.string().required(),
+  password: password.required(),
+});
+
+// --- Esquemas para "olvidé mi contraseña" (sin sesión previa) ---
+const requestPasswordResetSchema = Joi.object({
+  email: Joi.string().email().required(),
+});
+
+const resetPasswordSchema = Joi.object({
+  challengeId: Joi.string().guid().required(),
+  otp: Joi.string().length(6).pattern(/^[0-9]+$/).required(),
+  password: password.required(),
+});
+
 // --- Esquema para Creación ---
 const createUserSchema = Joi.object({
   code: code.allow('', null),
@@ -58,5 +85,10 @@ module.exports = {
   createUserSchema,
   updateUserSchema,
   getUserSchema,
-  loginUserSchema
+  loginUserSchema,
+  verifyLoginOtpSchema,
+  resendLoginOtpSchema,
+  updateOwnPasswordSchema,
+  requestPasswordResetSchema,
+  resetPasswordSchema
 };

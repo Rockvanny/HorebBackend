@@ -1,6 +1,18 @@
 const { ValidationError } = require('sequelize');
 const logger = require('../libs/logger'); // Importamos el logger que creamos
 
+// Campos que nunca deben acabar en un log, aunque el request falle.
+const SENSITIVE_BODY_FIELDS = ['password', 'otp', 'securityKey', 'token'];
+
+function redactBody(body) {
+  if (!body || typeof body !== 'object') return body;
+  const clone = { ...body };
+  SENSITIVE_BODY_FIELDS.forEach((field) => {
+    if (field in clone) clone[field] = '[REDACTED]';
+  });
+  return clone;
+}
+
 function logErrors(err, req, res, next) {
   // 1. Log en consola (solo para desarrollo, gestionado por winston)
   // 2. Log en archivo (persistente en AppData para producción)
@@ -8,7 +20,7 @@ function logErrors(err, req, res, next) {
   const errorInfo = {
     method: req.method,
     url: req.url,
-    body: req.body,
+    body: redactBody(req.body),
     stack: err.stack || 'No stack trace available'
   };
 

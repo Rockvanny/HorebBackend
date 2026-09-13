@@ -1,4 +1,5 @@
-const { config } = require('./../config/config');
+const { getConfig } = require('./../config/config');
+const config = getConfig();
 
 module.exports = {
   development: {

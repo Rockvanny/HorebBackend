@@ -4,9 +4,9 @@ services:
     container_name: postgres-1
     restart: always
     environment:
-      - POSTGRES_DB=Horeb
-      - POSTGRES_USER=Admin
-      - POSTGRES_PASSWORD=BdH0r3b2026
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
@@ -14,15 +14,19 @@ services:
     networks:
       - app-network
 
+  # Solo entorno de desarrollo: no se levanta con `docker compose up` normal
+  # (el que se instala en cliente), solo con `docker compose --profile dev up`.
   pgadmin:
     image: dpage/pgadmin4
     container_name: pgadmin-1
     restart: always
+    profiles:
+      - dev
     environment:
-      - PGADMIN_DEFAULT_EMAIL=admin@horeb.com
-      - PGADMIN_DEFAULT_PASSWORD=4dm1nH0r3b*2026
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD}
     ports:
-      - "5050:80"
+      - "127.0.0.1:5050:80"
     networks:
       - app-network
 
@@ -36,12 +40,22 @@ services:
       - NODE_ENV=production
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_NAME=Horeb
-      - DB_USER=Admin
-      - DB_PASSWORD=BdH0r3b2026
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
       - PORT=3000
+      - JWT_SECRET=${JWT_SECRET}
+      - AES_SECRET=${AES_SECRET}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - MAIL_FROM=${MAIL_FROM}
+      - TRIAL_DURATION_DAYS=${TRIAL_DURATION_DAYS:-15}
     volumes:
       - /usr/src/app/node_modules
+      # Huella de máquina estable para licencias node-locked: sin este mount,
+      # cada `docker compose up` recrea el contenedor con un /etc/machine-id
+      # nuevo y una licencia ya activada dejaría de coincidir. Se monta la del
+      # host en modo lectura.
+      - /etc/machine-id:/etc/machine-id:ro
     depends_on:
       - postgres
     networks:

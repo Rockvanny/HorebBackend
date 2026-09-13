@@ -1,12 +1,24 @@
 const express = require('express');
 const passport = require('passport');
+const boom = require('@hapi/boom');
 const UserService = require('./../services/user.service');
 const validatorHandler = require('./../middlewares/validator.handler');
+const { loginLimiter, otpLimiter } = require('../middlewares/rateLimiter');
 
 // NUEVA IMPORTACIÓN: Motor central de acceso y middleware de acciones
 const { checkAction: validateAction } = require('../config/access-manager');
 const { checkAction } = require('../middlewares/auth.handler');
-const { updateUserSchema, createUserSchema, getUserSchema, loginUserSchema } = require('./../schemas/user.schema');
+const {
+  updateUserSchema,
+  createUserSchema,
+  getUserSchema,
+  loginUserSchema,
+  verifyLoginOtpSchema,
+  resendLoginOtpSchema,
+  updateOwnPasswordSchema,
+  requestPasswordResetSchema,
+  resetPasswordSchema
+} = require('./../schemas/user.schema');
 
 const router = express.Router();
 const service = new UserService();
@@ -43,8 +55,10 @@ router.post('/permissions/check',
 
 // --- ENDPOINTS DE USUARIOS ---
 
-// 1. LOGIN (Abierto)
+// 1. LOGIN - PASO 1: valida email+password y envía un código OTP por email.
+// No emite JWT todavía (eso ocurre en /login/verify-otp).
 router.post('/login',
+    loginLimiter,
     validatorHandler(loginUserSchema, 'body'),
     async (req, res, next) => {
         try {
@@ -56,14 +70,100 @@ router.post('/login',
     }
 );
 
-// 2. CAMBIO CONTRASEÑA INICIAL (Especial: Validado en servicio)
+// 1b. LOGIN - PASO 2: verifica el código OTP del reto y, si es correcto, emite el JWT.
+router.post('/login/verify-otp',
+    otpLimiter,
+    validatorHandler(verifyLoginOtpSchema, 'body'),
+    async (req, res, next) => {
+        try {
+            const { challengeId, otp } = req.body;
+            const result = await service.verifyLoginOtp(challengeId, otp);
+            res.json({ success: true, data: result });
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+// 1c. LOGIN - Reenvío de código OTP para un reto pendiente.
+router.post('/login/resend-otp',
+    otpLimiter,
+    validatorHandler(resendLoginOtpSchema, 'body'),
+    async (req, res, next) => {
+        try {
+            const { challengeId } = req.body;
+            const result = await service.resendLoginOtp(challengeId);
+            res.json({ success: true, data: result });
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+// 1d. OLVIDÉ MI CONTRASEÑA - PASO 1: sin sesión previa. Si el email existe,
+// envía un OTP de reseteo; si no, responde igual para no filtrar por la
+// respuesta si el email está registrado.
+router.post('/forgot-password',
+    loginLimiter,
+    validatorHandler(requestPasswordResetSchema, 'body'),
+    async (req, res, next) => {
+        try {
+            const result = await service.requestPasswordReset(req.body.email);
+            res.json({ success: true, data: result });
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+// 1e. OLVIDÉ MI CONTRASEÑA - Reenvío de código para un reto pendiente.
+router.post('/forgot-password/resend-otp',
+    otpLimiter,
+    validatorHandler(resendLoginOtpSchema, 'body'),
+    async (req, res, next) => {
+        try {
+            const { challengeId } = req.body;
+            const result = await service.resendPasswordReset(challengeId);
+            res.json({ success: true, data: result });
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+// 1f. OLVIDÉ MI CONTRASEÑA - PASO 2: verifica el OTP y fija la nueva
+// contraseña en la misma llamada. No requiere sesión ni contraseña actual:
+// la prueba de identidad es el acceso al email.
+router.post('/forgot-password/reset',
+    otpLimiter,
+    validatorHandler(resetPasswordSchema, 'body'),
+    async (req, res, next) => {
+        try {
+            const { challengeId, otp, password } = req.body;
+            const result = await service.resetPassword(challengeId, otp, password);
+            res.json({ success: true, ...result });
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+// 2. CAMBIO DE CONTRASEÑA PROPIO (inicial tras mustChangePassword, o voluntario).
+// Requiere sesión válida (login + OTP ya completados) y conocer la contraseña actual.
 router.patch('/update-password-initial/:id',
+    passport.authenticate('jwt', { session: false }),
     validatorHandler(getUserSchema, 'params'),
+    validatorHandler(updateOwnPasswordSchema, 'body'),
     async (req, res, next) => {
         try {
             const { id } = req.params;
-            const { password, securityKey } = req.body;
-            const result = await service.updatePassword(id, password, securityKey);
+
+            if (id !== req.user.code) {
+                throw boom.forbidden('Solo puedes cambiar tu propia contraseña');
+            }
+
+            const { currentPassword, password } = req.body;
+            const result = await service.updatePassword(id, currentPassword, password);
             res.json({ success: true, ...result });
         } catch (error) {
             next(error);

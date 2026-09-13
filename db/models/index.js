@@ -17,6 +17,8 @@ const { purchPostInvoiceLine, purchPostInvoiceLineSchema } = require('./purchPos
 const { seriesNumber, seriesNumberSchema } = require('./SeriesNumber.model');
 const { VerifactuLog, verifactuLogSchema } = require('./verifactuLogs.model');
 const { OperatingExpenses, OperatingExpensesSchema } = require('./operatingExpenses.model');
+const { LoginOtp, LoginOtpSchema } = require('./loginOtp.model');
+const { LicenseState, LicenseStateSchema } = require('./licenseState.model');
 
 function setupModels(sequelize) {
   // 1. Inicialización de modelos
@@ -39,6 +41,8 @@ function setupModels(sequelize) {
   seriesNumber.init(seriesNumberSchema, seriesNumber.config(sequelize));
   VerifactuLog.init(verifactuLogSchema, VerifactuLog.config(sequelize));
   OperatingExpenses.init(OperatingExpensesSchema, OperatingExpenses.config(sequelize));
+  LoginOtp.init(LoginOtpSchema, LoginOtp.config(sequelize));
+  LicenseState.init(LicenseStateSchema, LicenseState.config(sequelize));
 
   // 2. Definición de asociaciones
   Company.associate(sequelize.models);
@@ -57,6 +61,7 @@ function setupModels(sequelize) {
   purchPostInvoiceLine.associate(sequelize.models);
   seriesNumber.associate(sequelize.models);
   VerifactuLog.associate(sequelize.models);
+  LoginOtp.associate(sequelize.models);
 }
 
 module.exports = setupModels;

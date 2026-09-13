@@ -11,7 +11,7 @@ const options = {
   // Extrae el token del Header 'Authorization: Bearer <token>'
   jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
   // La misma clave que usaste para firmar
-  secretOrKey: config.jwtSecret || 'secret_key',
+  secretOrKey: config.jwtSecret,
 };
 
 // 🔥 2. Transformamos la función en ASÍNCRONA (async)

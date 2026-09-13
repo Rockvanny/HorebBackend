@@ -1,10 +1,11 @@
+/*
 'use strict';
 const { DataTypes, literal } = require('sequelize');
-const { SALESPOSTINVOICELINE_TABLE } = require('../models/salesPostInvoiceLine.model');
+const { PURCHINVOICELINE_TABLE } = require('../models/purchInvoiceLine.model');
 
 module.exports = {
   up: async ({ context: queryInterface }) => {
-    await queryInterface.createTable(SALESPOSTINVOICELINE_TABLE, {
+    await queryInterface.createTable(PURCHINVOICELINE_TABLE, {
       id: {
         field: 'id',
         allowNull: false,
@@ -17,7 +18,7 @@ module.exports = {
         allowNull: false,
         type: DataTypes.STRING,
         references: {
-          model: 'sales_post_invoices', // Referencia al histórico de cabeceras
+          model: 'purch_invoices',
           key: 'code'
         },
         onUpdate: 'CASCADE',
@@ -25,8 +26,8 @@ module.exports = {
       },
       lineNo: {
         field: 'line_no',
-        type: DataTypes.INTEGER,
         allowNull: false,
+        type: DataTypes.INTEGER,
       },
       codeItem: {
         field: 'item_code',
@@ -42,7 +43,7 @@ module.exports = {
         field: 'quantity',
         type: DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 0
+        defaultValue: 0.0000
       },
       unitMeasure: {
         field: 'unit_measure',
@@ -53,7 +54,7 @@ module.exports = {
         field: 'quantity_unit_measure',
         type: DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 1
+        defaultValue: 1.0000
       },
       width: {
         field: 'width',
@@ -70,7 +71,7 @@ module.exports = {
         field: 'unit_price',
         type: DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 0
+        defaultValue: 0.0000
       },
       taxType: {
         field: 'tax_type',
@@ -82,13 +83,13 @@ module.exports = {
         field: 'vat',
         type: DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 21
+        defaultValue: 21.0000
       },
       amountLine: {
         field: 'amount_line',
         type: DataTypes.DECIMAL(12, 4),
         allowNull: false,
-        defaultValue: 0
+        defaultValue: 0.0000
       },
       userName: {
         field: 'user_name',
@@ -109,17 +110,19 @@ module.exports = {
       }
     });
 
-    // Índice único para asegurar que no se repitan líneas en un documento registrado
-    await queryInterface.addIndex(SALESPOSTINVOICELINE_TABLE, ['code_document', 'line_no'], {
+    // Índice único para evitar duplicidad de líneas en el mismo documento
+    await queryInterface.addIndex(PURCHINVOICELINE_TABLE, ['code_document', 'line_no'], {
       unique: true,
-      name: 'sales_post_invoice_lines_unique_idx'
+      name: 'purch_invoice_lines_code_line_unique'
     });
   },
 
   down: async ({ context: queryInterface }) => {
-    await queryInterface.dropTable(SALESPOSTINVOICELINE_TABLE);
-    // Limpieza de ENUMs en Postgres al revertir
-    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_post_invoice_lines_unit_measure";');
-    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_post_invoice_lines_tax_type";');
+    await queryInterface.dropTable(PURCHINVOICELINE_TABLE);
+
+    // Limpieza de ENUMs específicos de las líneas de compra
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_purch_invoice_lines_unit_measure";');
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_purch_invoice_lines_tax_type";');
   }
 };
+*/

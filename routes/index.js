@@ -1,5 +1,8 @@
 const express = require('express');
+const licenseGate = require('../middlewares/licenseGate');
 
+const setupRouter = require('./setup.router');
+const licenseRouter = require('./license.router');
 const usersRouter = require('./users.router');
 const companyRouter = require('./company.router');
 const productsRouter = require('./product.router');
@@ -31,6 +34,12 @@ function routerApi(app) {
   const router = express.Router();
   app.use('/api/v1', router);
 
+  // Puerta de licencia/trial: primero, para que aplique a todo lo de abajo.
+  // Deja pasar sin más /setup, /license y /users/login (ver licenseGate.js).
+  router.use(licenseGate);
+
+  router.use('/setup', setupRouter);
+  router.use('/license', licenseRouter);
   router.use('/users', usersRouter);
   router.use('/company', companyRouter);
   router.use('/products', productsRouter);

@@ -21,6 +21,7 @@ const sequelize = require('./libs/sequelize');
 const JwtStrategy = require('./libs/jwt.strategy');
 const routerApi = require('./routes');
 const { logErrors, errorHandler, boomErrorHandler, ormErrorHandler } = require('./middlewares/error.handler');
+const LicenseService = require('./services/license.service');
 const { Umzug, SequelizeStorage } = require('umzug');
 
 const app = express();
@@ -68,24 +69,7 @@ const migrator = new Umzug({
 // --- 6. INICIO DEL SERVIDOR Y CONEXIÓN A BD ---
 let server;
 
-async function runSeed() {
-  const { User } = sequelize.models;
-  const count = await User.count();
-  if (count === 0) {
-    await User.create({
-      code: 'admin',
-      fullName: 'Administrador Maestro',
-      email: 'admin@horeb.com',
-      password: 'BdH0r3b2026', // ¡Asegúrate de hashear esto si tu modelo lo requiere!
-      role: 'system',
-      allowGestion: true,
-      allowSales: true,
-      allowPurchases: true,
-      allowReports: true,
-      allowSettings: true
-    });
-  }
-}
+const licenseService = new LicenseService();
 
 (async () => {
   try {
@@ -95,7 +79,12 @@ async function runSeed() {
     await migrator.up();
     console.log("Migraciones ejecutadas con éxito");
 
-    await runSeed();
+    // No hay seed de usuario maestro: en una instalación nueva (0 usuarios),
+    // el propio frontend usa POST /api/v1/setup/first-admin para crear el
+    // primer administrador. Aquí solo fijamos, si es la primera vez, el
+    // inicio del periodo de prueba de 15 días.
+    await licenseService.ensureTrialInitialized();
+
     server = app.listen(port, () => {
 
       // --- LOGS DE INICIO SEGUROS Y LIMPIOS ---
