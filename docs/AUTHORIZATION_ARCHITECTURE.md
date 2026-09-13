@@ -71,11 +71,13 @@ Ningún rol tiene hoy overrides por módulo en `ROLE_ACTIONS.modules` — el `de
 
 | Router | Estado |
 |---|---|
-| `stats.router.js` | ✅ **Activo** — `checkAction('VIEW_STATS')` en ambos endpoints. Único router con autorización granular funcionando de verdad hoy. |
+| `stats.router.js` | ✅ **Activo** — `checkAction('VIEW_STATS')` en ambos endpoints. |
+| `customers.router.js` | ✅ **Activo** — `checkAction` en los 7 endpoints (`VIEW`/`CREATE`/`UPDATE`/`DELETE_CUSTOMERS`). Probado con matriz de roles. |
+| `seriesNumber.router.js` | ✅ **Activo** — `checkAction` en los 8 endpoints (`VIEW`/`CREATE`/`UPDATE`/`DELETE_SERIES`). Probado: admin `200`, vendedor sin `allowSettings` `403`. |
 | `company.router.js` | 🔴 **Sin autenticación siquiera** (ni `passport.authenticate`) — CRUD completo accesible sin token. Crítico, pendiente. |
 | `conexion.router.js` | 🔴 **Sin autenticación siquiera** — igual que arriba. |
 | `enums.router.js` | 🔴 **Sin autenticación siquiera** — impacto menor (solo lectura de metadatos). |
-| Todo el resto (`users`, `customers`, `vendors`, `products`, `salesBudgets*`, `salesInvoices*`, `salesPostInvoice*`, `purchInvoice*`, `purchPostInvoice*`, `seriesNumber`, `verifactuLogs`, `operatingExpenses`, `documentTax`, `config`) | 🟡 JWT activo, `checkAction` comentado — cualquier usuario autenticado puede hacer cualquier cosa. |
+| Todo el resto (`users`, `vendors`, `products`, `salesBudgets*`, `salesInvoices*`, `salesPostInvoice*`, `purchInvoice*`, `purchPostInvoice*`, `verifactuLogs`, `operatingExpenses`, `documentTax`, `config`) | 🟡 JWT activo, `checkAction` comentado — cualquier usuario autenticado puede hacer cualquier cosa. |
 
 ## 9. Gaps conocidos que faltan por resolver antes de activar el resto
 
