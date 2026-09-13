@@ -23,6 +23,10 @@ const MODULE_HIERARCHY = {
   SETUP: {
     field: 'allowSettings',
     objects: ['company', 'series', 'users', 'conexion']
+  },
+  REPORTS: {
+    field: 'allowReports',
+    objects: ['stats']
   }
 };
 
@@ -60,8 +64,12 @@ const checkPermission = (user, actionString) => {
   const objectName = (parts.length > 1 ? parts.slice(1).join('_') : parts[0]).toUpperCase();
 
   // 1. Encontrar a qué módulo pertenece el objeto (ej. "COMPANY" -> "SETUP")
+  // Comparación case-insensitive: `objectName` siempre llega en mayúsculas,
+  // pero MODULE_HIERARCHY.objects usa camelCase (ej. 'salesBudgets'). Sin
+  // esto, .includes(objectName) nunca casa con nada y checkPermission
+  // deniega siempre, para cualquier usuario y cualquier acción.
   const moduleKey = Object.keys(MODULE_HIERARCHY).find(key =>
-    MODULE_HIERARCHY[key].objects.includes(objectName)
+    MODULE_HIERARCHY[key].objects.some(o => o.toUpperCase() === objectName)
   );
   if (!moduleKey) return false;
 
@@ -78,7 +86,8 @@ const checkPermission = (user, actionString) => {
   const rolePages = ROLE_PAGES[userRole];
   if (rolePages && rolePages[moduleKey]) {
     // Si el rol tiene páginas personalizadas para este módulo, el objeto solicitado DEBE estar ahí
-    if (!rolePages[moduleKey].includes(objectName)) {
+    // (mismo problema de mayúsculas que arriba: comparación case-insensitive)
+    if (!rolePages[moduleKey].some(o => o.toUpperCase() === objectName)) {
       // Intento de acceder a la API de una página oculta (Ej: Financiero intentando acceder a USERS)
       return false;
     }

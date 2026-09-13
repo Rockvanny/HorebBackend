@@ -12,7 +12,7 @@ const service = new StatsService();
  */
 router.get('/stats',
   passport.authenticate('jwt', { session: false }), // 3. Autenticación obligatoria
-  //('VIEW_STATS'), // 4. Permiso de ventas para ver estadísticas
+  checkAction('VIEW_STATS'), // 4. Requiere allowReports + rol con acción VIEW
   async (req, res, next) => {
     try {
       const data = await service.getBarChartStats();
@@ -29,7 +29,7 @@ router.get('/stats',
  */
 router.get('/budget/:code',
   passport.authenticate('jwt', { session: false }),
- // checkAction('VIEW_STATS'),
+  checkAction('VIEW_STATS'),
   async (req, res, next) => { // Cambiado a next para usar el error handler global
     try {
       const { code } = req.params;
