@@ -1,4 +1,3 @@
-/*
 'use strict';
 const { DataTypes, literal } = require('sequelize');
 const { COMPANY_TABLE } = require('../models/company.model');
@@ -108,4 +107,3 @@ module.exports = {
     await queryInterface.dropTable(COMPANY_TABLE);
   }
 };
-*/

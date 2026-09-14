@@ -1,4 +1,4 @@
-/*'use strict';
+'use strict';
 const { DataTypes, literal } = require('sequelize');
 const { VENDOR_TABLE } = require('./../models/vendor.model');
 
@@ -102,4 +102,3 @@ module.exports = {
     await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_vendors_payment_method";');
   }
 };
-*/
