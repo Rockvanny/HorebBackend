@@ -1,11 +1,10 @@
-/*
 'use strict';
 const { DataTypes, literal } = require('sequelize');
-const { SALESINVOICE_TABLE } = require('../models/salesInvoice.model');
+const { SALESPOSTINVOICE_TABLE } = require('../models/salesPostInvoice.model');
 
 module.exports = {
   up: async ({ context: queryInterface }) => {
-    await queryInterface.createTable(SALESINVOICE_TABLE, {
+    await queryInterface.createTable(SALESPOSTINVOICE_TABLE, {
       id: {
         field: 'id',
         allowNull: false,
@@ -13,32 +12,31 @@ module.exports = {
         primaryKey: true,
         type: DataTypes.INTEGER,
       },
-      // --- COLUMNA CRÍTICA PARA IMPUESTOS ---
+      // --- NUEVO: UUID HEREDADO ---
       movementId: {
         field: 'movement_id',
         allowNull: false,
         unique: true,
         type: DataTypes.UUID,
-        defaultValue: DataTypes.UUIDV4
       },
-      // --------------------------------------
+      // ----------------------------
       code: {
         field: 'code',
         allowNull: false,
         unique: true,
         type: DataTypes.STRING
       },
-      series_code: {
+      seriesCode: {
         field: 'series_code',
         type: DataTypes.STRING,
         allowNull: true
       },
-      codeposting: {
-        field: 'code_posting',
+      preInvoice: {
+        field: 'pre_invoice',
+        allowNull: false,
         type: DataTypes.STRING,
-        allowNull: true
       },
-      typeinvoice: {
+      typeInvoice: {
         field: 'type_invoice',
         type: DataTypes.ENUM('F1', 'F2', 'R1', 'R2', 'R3', 'R4', 'R5'),
         allowNull: false,
@@ -54,62 +52,60 @@ module.exports = {
         type: DataTypes.ENUM('S', 'I'),
         allowNull: true
       },
+      postingDate: {
+        field: 'posting_date',
+        type: DataTypes.DATE,
+        allowNull: false,
+      },
+      dueDate: {
+        field: 'due_date',
+        type: DataTypes.DATE,
+        allowNull: true,
+      },
       budgetCode: {
         field: 'budget_code',
         type: DataTypes.STRING,
         allowNull: true
       },
-      postingDate: {
-        field: 'posting_date',
-        type: DataTypes.DATE,
-        allowNull: false
-      },
-      dueDate: {
-        field: 'due_date',
-        type: DataTypes.DATE,
-        allowNull: true
-      },
       entityCode: {
         field: 'entity_code',
-        allowNull: false,
         type: DataTypes.STRING,
+        allowNull: false,
       },
       name: {
         field: 'name',
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: false,
       },
       nif: {
         field: 'nif',
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: false,
       },
       email: {
         field: 'email',
-        type: DataTypes.STRING
+        type: DataTypes.STRING,
+        allowNull: true,
       },
       phone: {
         field: 'phone',
-        type: DataTypes.STRING
+        type: DataTypes.STRING,
+        allowNull: true,
       },
       address: {
         field: 'address',
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: false,
       },
       postCode: {
         field: 'post_code',
-        type: DataTypes.STRING
+        type: DataTypes.STRING,
+        allowNull: true,
       },
       city: {
         field: 'city',
-        type: DataTypes.STRING
-      },
-      status: {
-        field: 'status',
-        type: DataTypes.ENUM('Abierto', 'Pagado'),
-        allowNull: false,
-        defaultValue: 'Abierto'
+        type: DataTypes.STRING,
+        allowNull: true,
       },
       paymentMethod: {
         field: 'payment_method',
@@ -122,19 +118,25 @@ module.exports = {
         allowNull: false,
         defaultValue: 'Transferencia'
       },
-      amountWithoutVat: {
+      status: {
+        field: 'status',
+        type: DataTypes.ENUM('Abierto', 'Pagado'),
+        allowNull: false,
+        defaultValue: 'Abierto'
+      },
+      amountWithoutVAT: {
         field: 'amount_without_vat',
         type: DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 0.0000
       },
-      amountVat: {
+      amountVAT: {
         field: 'amount_vat',
         type: DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 0.0000
       },
-      amountWithVat: {
+      amountWithVAT: {
         field: 'amount_with_vat',
         type: DataTypes.DECIMAL(12, 4),
         allowNull: false,
@@ -142,11 +144,13 @@ module.exports = {
       },
       comments: {
         field: 'comments',
-        type: DataTypes.TEXT
+        type: DataTypes.TEXT,
+        allowNull: true
       },
-      userName: {
+      username: {
         field: 'user_name',
-        type: DataTypes.STRING
+        type: DataTypes.STRING,
+        allowNull: true,
       },
       createdAt: {
         field: 'created_at',
@@ -162,19 +166,17 @@ module.exports = {
       }
     });
 
-    // ÍNDICES PARA RENDIMIENTO
-    await queryInterface.addIndex(SALESINVOICE_TABLE, ['entity_code']);
-    await queryInterface.addIndex(SALESINVOICE_TABLE, ['series_code']);
-    await queryInterface.addIndex(SALESINVOICE_TABLE, ['movement_id']); // Índice para DocumentTax
+    // Índices actualizados
+    await queryInterface.addIndex(SALESPOSTINVOICE_TABLE, ['code']);
+    await queryInterface.addIndex(SALESPOSTINVOICE_TABLE, ['movement_id']); // Vital para DocumentTax
+    await queryInterface.addIndex(SALESPOSTINVOICE_TABLE, ['entity_code']);
   },
 
   down: async ({ context: queryInterface }) => {
-    await queryInterface.dropTable(SALESINVOICE_TABLE);
-    // Limpieza de tipos ENUM en Postgres
-    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_invoices_type_invoice";');
-    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_invoices_status";');
-    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_invoices_rectification_type";');
-    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_invoices_payment_method";');
+    await queryInterface.dropTable(SALESPOSTINVOICE_TABLE);
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_post_invoices_type_invoice";');
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_post_invoices_status";');
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_post_invoices_rectification_type";');
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_post_invoices_payment_method";');
   }
 };
-*/

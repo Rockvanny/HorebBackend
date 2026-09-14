@@ -19,6 +19,12 @@ const salesBudgetSchema = {
     unique: true,
     defaultValue: () => randomUUID(),// También lo definimos a nivel de esquema por seguridad
   },
+
+  // Campo virtual para recibir la serie desde el front sin persistir en DB
+  // (mismo patrón que Customer/Vendor, ver libs/sequence.handler.js).
+  selectedSerie: {
+    type: DataTypes.VIRTUAL,
+  },
   code: {
     field: 'code',
     allowNull: false,
@@ -165,7 +171,7 @@ class salesBudget extends Model {
           }
           // 2. Generar UUID de movimiento si no existe
           if (instance.isNewRecord && !instance.movementId) {
-            instance.movementId = uuidv4();
+            instance.movementId = randomUUID();
           }
         },
 

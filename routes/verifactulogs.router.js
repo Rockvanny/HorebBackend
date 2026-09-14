@@ -15,7 +15,7 @@ const service = new VerifactuService();
  */
 router.get('/logs-paginated',
     passport.authenticate('jwt', { session: false }),
-   // checkAction('VIEW_VERIFACTU'),
+    checkAction('VIEW_VERIFACTULOGS'),
     async (req, res, next) => {
         try {
             const result = await service.findPaginated(req.query);
@@ -29,7 +29,7 @@ router.get('/logs-paginated',
  */
 router.get('/:id',
     passport.authenticate('jwt', { session: false }),
-   // checkAction('VIEW_VERIFACTU'),
+    checkAction('VIEW_VERIFACTULOGS'),
     async (req, res, next) => {
         try {
             const { id } = req.params;
@@ -48,7 +48,7 @@ router.get('/:id',
  */
 router.patch('/:id',
     passport.authenticate('jwt', { session: false }),
-   // checkAction('UPDATE_VERIFACTU'),
+    checkAction('UPDATE_VERIFACTULOGS'),
     validatorHandler(updateExternalReferenceSchema, 'body'),
     async (req, res, next) => {
         try {

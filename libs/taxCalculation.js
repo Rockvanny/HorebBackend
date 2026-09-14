@@ -88,7 +88,18 @@ const calculateDocumentTotals = (lines, movementId, docType) => {
       ...line,
       lineNo: line.lineNo || (index + 1),
       amountLine: lineFinalAmount,
-      taxType: type
+      taxType: type,
+      // quantityUnitMeasure es NOT NULL en BD (factor 1 por defecto): el
+      // front manda null cuando la unidad no es METRO (ver
+      // transactionLinesHandler.js#getLinesData), así que se normaliza aquí
+      // al mismo valor ya usado para el cálculo, en vez de dejar pasar el
+      // null crudo hacia el INSERT.
+      quantityUnitMeasure: factor,
+      // width/height sí admiten NULL en BD, pero al no ser METRO2 tampoco
+      // tienen valor real: se guardan en 0 para que el histórico sea
+      // consistente en vez de mezclar null y 0 según la unidad.
+      width: unitMeasure === 'METRO2' ? width : 0,
+      height: unitMeasure === 'METRO2' ? height : 0
     };
   });
 

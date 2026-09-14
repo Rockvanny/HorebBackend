@@ -6,7 +6,6 @@ const lineNo = Joi.number().integer().min(1);
 const codeItem = Joi.string().allow('', null);
 const description = Joi.string().allow('', null);
 const quantity = Joi.number().precision(4);
-const quantityUnitMeasure = Joi.number().precision(4).default(1);
 const unitPrice = Joi.number().precision(4);
 
 const taxType = Joi.string().valid('IVA', 'IRPF', 'RE', 'EXENTO').default('IVA');
@@ -19,6 +18,19 @@ const vat = Joi.number().min(0).max(100).precision(4).default(21);
 const amountLine = Joi.number().precision(4);
 const username = Joi.string().allow('', null);
 
+// Mismo criterio que salesBudgetLines.schema.js: quantityUnitMeasure solo
+// importa para METRO, width/height solo para METRO2. El resto de unidades
+// los mandan a null (ver transactionLinesHandler.js#getLinesData) y
+// libs/taxCalculation.js los normaliza antes de guardar.
+const quantityUnitMeasure = Joi.number().min(0).precision(4)
+  .when('unitMeasure', { is: 'METRO', then: Joi.required(), otherwise: Joi.optional().allow(null) });
+
+const width = Joi.number().min(0).precision(4)
+  .when('unitMeasure', { is: 'METRO2', then: Joi.required(), otherwise: Joi.optional().allow(null) });
+
+const height = Joi.number().min(0).precision(4)
+  .when('unitMeasure', { is: 'METRO2', then: Joi.required(), otherwise: Joi.optional().allow(null) });
+
 const getSalesInvoiceLineSchema = Joi.object({
   id: id.required(),
 });
@@ -30,7 +42,9 @@ const createSalesInvoiceLineSchema = Joi.object({
   description: description.required(),
   quantity: quantity.required(),
   unitMeasure: unitMeasure.optional(),
-  quantityUnitMeasure: quantityUnitMeasure.optional(),
+  quantityUnitMeasure,
+  width,
+  height,
   unitPrice: unitPrice.required(),
   taxType: taxType.optional(), // Agregado aquí
   vat: vat.optional(),
@@ -46,7 +60,9 @@ const updateSalesInvoiceLineSchema = Joi.object({
   description: description.optional(),
   quantity: quantity.optional(),
   unitMeasure: unitMeasure.optional(),
-  quantityUnitMeasure: quantityUnitMeasure.optional(),
+  quantityUnitMeasure,
+  width,
+  height,
   unitPrice: unitPrice.optional(),
   taxType: taxType.optional(), // Agregado aquí
   vat: vat.optional(),

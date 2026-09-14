@@ -13,7 +13,7 @@ const service = new salesPostInvoiceTaxService();
  */
 router.get('/by-invoice/:invoiceCode',
     passport.authenticate('jwt', { session: false }),
-    //checkAction('VIEW_SALESPOSTINVOICES'),
+    checkAction('VIEW_SALESPOSTINVOICES'),
     async (req, res, next) => {
         try {
             const { invoiceCode } = req.params;

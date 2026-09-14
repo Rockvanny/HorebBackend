@@ -16,7 +16,7 @@ const service = new SalesInvoiceLineService();
 // Obtener por ID
 router.get('/:id',
     passport.authenticate('jwt', { session: false }),
-   // checkAction('VIEW_SALESINVOICES'),
+   checkAction('VIEW_SALESINVOICES'),
     validatorHandler(getSalesInvoiceLineSchema, 'params'),
     async (req, res, next) => {
         try {
@@ -30,7 +30,7 @@ router.get('/:id',
 // Crear línea
 router.post('/',
     passport.authenticate('jwt', { session: false }),
-    //checkAction('CREATE_SALESINVOICES'),
+    checkAction('CREATE_SALESINVOICES'),
     validatorHandler(createSalesInvoiceLineSchema, 'body'),
     async (req, res, next) => {
         try {
@@ -44,7 +44,7 @@ router.post('/',
 // Actualizar por ID
 router.patch('/:id',
     passport.authenticate('jwt', { session: false }),
-    //checkAction('UPDATE_SALESINVOICES'),
+    checkAction('UPDATE_SALESINVOICES'),
     validatorHandler(getSalesInvoiceLineSchema, 'params'),
     validatorHandler(updateSalesInvoiceLineSchema, 'body'),
     async (req, res, next) => {
@@ -59,7 +59,7 @@ router.patch('/:id',
 // Eliminar por ID
 router.delete('/:id',
     passport.authenticate('jwt', { session: false }),
-   // checkAction('DELETE_SALESINVOICES'),
+   checkAction('DELETE_SALESINVOICES'),
     validatorHandler(getSalesInvoiceLineSchema, 'params'),
     async (req, res, next) => {
         try {

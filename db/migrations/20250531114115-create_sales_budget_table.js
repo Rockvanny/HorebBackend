@@ -1,4 +1,3 @@
-/*
 'use strict';
 const { DataTypes, literal } = require('sequelize');
 const { SALESBUDGET_TABLE } = require('../models/salesBudget.model');
@@ -119,4 +118,3 @@ module.exports = {
     await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_budgets_payment_method";');
   }
 };
-*/

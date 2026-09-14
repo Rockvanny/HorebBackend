@@ -5,7 +5,6 @@ const lineNo = Joi.number().integer().min(1);
 const codeItem = Joi.string().allow('', null);
 const description = Joi.string().allow('', null);
 const quantity = Joi.number().min(0).precision(4);
-const quantityUnitMeasure = Joi.number().min(0).precision(4).default(1);
 const unitPrice = Joi.number().min(0).precision(4);
 
 const taxType = Joi.string()
@@ -20,6 +19,22 @@ const vat = Joi.number().min(0).max(100).precision(4).default(21);
 const amountLine = Joi.number().min(0).precision(4);
 const username = Joi.string().allow('', null);
 
+// Cada campo dimensional solo importa (y solo es obligatorio) según la
+// unidad de medida elegida: quantityUnitMeasure para METRO (factor lineal),
+// width/height para METRO2 (superficie). Para el resto de unidades
+// (UNIDAD, HORA, DIA, SERVICIO, KILOGRAMO, LITRO, PACK) se aceptan vacíos
+// (el front los manda a null, ver transactionLinesHandler.js#getLinesData)
+// y libs/taxCalculation.js los normaliza a su valor por defecto antes de
+// guardar, así que nunca llega null a una columna NOT NULL.
+const quantityUnitMeasure = Joi.number().min(0).precision(4)
+  .when('unitMeasure', { is: 'METRO', then: Joi.required(), otherwise: Joi.optional().allow(null) });
+
+const width = Joi.number().min(0).precision(4)
+  .when('unitMeasure', { is: 'METRO2', then: Joi.required(), otherwise: Joi.optional().allow(null) });
+
+const height = Joi.number().min(0).precision(4)
+  .when('unitMeasure', { is: 'METRO2', then: Joi.required(), otherwise: Joi.optional().allow(null) });
+
 const getSalesBudgetLineSchema = Joi.object({
   codeDocument: codeDocument.required(),
   lineNo: lineNo.required(),
@@ -32,7 +47,9 @@ const createSalesBudgetLineSchema = Joi.object({
   description: description.required(),
   quantity: quantity.required(),
   unitMeasure: unitMeasure.optional(),
-  quantityUnitMeasure: quantityUnitMeasure.optional(),
+  quantityUnitMeasure,
+  width,
+  height,
   unitPrice: unitPrice.required(),
   taxType: taxType.optional(), // <-- Agregado
   vat: vat.optional(),
@@ -47,7 +64,9 @@ const updateSalesBudgetLineSchema = Joi.object({
   description: description.optional(),
   quantity: quantity.optional(),
   unitMeasure: unitMeasure.optional(),
-  quantityUnitMeasure: quantityUnitMeasure.optional(),
+  quantityUnitMeasure,
+  width,
+  height,
   unitPrice: unitPrice.optional(),
   taxType: taxType.optional(), // <-- Agregado
   vat: vat.optional(),

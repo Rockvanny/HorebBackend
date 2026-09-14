@@ -1,18 +1,23 @@
-/*
 'use strict';
 const { DataTypes, literal } = require('sequelize');
-const { SALESBUDGETLINE_TABLE } = require('../models/salesBudgetLines.model');
+const { SALESINVOICELINE_TABLE } = require('../models/salesInvoiceLine.model');
 
 module.exports = {
   up: async ({ context: queryInterface }) => {
-    await queryInterface.createTable(SALESBUDGETLINE_TABLE, {
+    await queryInterface.createTable(SALESINVOICELINE_TABLE, {
+      id: {
+        field: 'id',
+        allowNull: false,
+        autoIncrement: true,
+        primaryKey: true,
+        type: DataTypes.INTEGER,
+      },
       codeDocument: {
         field: 'code_document',
         allowNull: false,
-        primaryKey: true,
         type: DataTypes.STRING,
         references: {
-          model: 'sales_budgets',
+          model: 'sales_invoices',
           key: 'code'
         },
         onUpdate: 'CASCADE',
@@ -21,10 +26,9 @@ module.exports = {
       lineNo: {
         field: 'line_no',
         allowNull: false,
-        primaryKey: true,
         type: DataTypes.INTEGER,
       },
-      itemCode: {
+      codeItem: {
         field: 'item_code',
         type: DataTypes.STRING,
         allowNull: true,
@@ -62,18 +66,23 @@ module.exports = {
         type: DataTypes.DECIMAL(12, 4),
         defaultValue: 0
       },
+
       unitPrice: {
         field: 'unit_price',
         type: DataTypes.DECIMAL(12, 4),
         allowNull: false,
         defaultValue: 0.0000
       },
+
+      // --- NUEVA COLUMNA DE TIPO DE IMPUESTO ---
       taxType: {
         field: 'tax_type',
-        allowNull: false,
         type: DataTypes.ENUM('IVA', 'IRPF', 'RE', 'EXENTO'),
+        allowNull: false,
         defaultValue: 'IVA'
       },
+      // -----------------------------------------
+
       vat: {
         field: 'vat',
         type: DataTypes.DECIMAL(12, 4),
@@ -105,13 +114,16 @@ module.exports = {
       }
     });
 
-    await queryInterface.addIndex(SALESBUDGETLINE_TABLE, ['code_document']);
+    await queryInterface.addIndex(SALESINVOICELINE_TABLE, ['code_document', 'line_no'], {
+      unique: true,
+      name: 'sales_invoice_lines_code_line_unique'
+    });
   },
 
   down: async ({ context: queryInterface }) => {
-    await queryInterface.dropTable(SALESBUDGETLINE_TABLE);
-    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_budget_lines_unit_measure";');
-    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_budget_lines_tax_type";');
+    await queryInterface.dropTable(SALESINVOICELINE_TABLE);
+    // IMPORTANTE: Limpiar los ENUMs en Postgres al revertir
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_invoice_lines_unit_measure";');
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_sales_invoice_lines_tax_type";');
   }
 };
-*/

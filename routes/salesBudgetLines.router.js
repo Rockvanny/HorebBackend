@@ -21,7 +21,7 @@ const service = new salesBudgetLineService();
 
 router.get('/paginated',
   passport.authenticate('jwt', { session: false }), // 2. Autenticación obligatoria
-  //checkAction('VIEW_SALESBUDGETS'), // 3. Permiso unificado (Ventas)
+  checkAction('VIEW_SALESBUDGETS'), // 3. Permiso unificado (Ventas)
   validatorHandler(querySalesBudgetLineSchema, 'query'),
   async (req, res, next) => {
     try {
@@ -33,7 +33,7 @@ router.get('/paginated',
 
 router.get('/:codeDocument/:lineNo',
   passport.authenticate('jwt', { session: false }),
-  //checkAction('VIEW_SALESBUDGETS'),
+  checkAction('VIEW_SALESBUDGETS'),
   validatorHandler(getSalesBudgetLineSchema, 'params'),
   async (req, res, next) => {
     try {
@@ -50,7 +50,7 @@ router.get('/:codeDocument/:lineNo',
 
 router.post('/:codeDocument',
   passport.authenticate('jwt', { session: false }),
-  //checkAction('CREATE_SALESBUDGETS'),
+  checkAction('CREATE_SALESBUDGETS'),
   validatorHandler(Joi.object({ codeDocument: Joi.string().required() }), 'params'),
   validatorHandler(createSalesBudgetLineSchema, 'body'),
   async (req, res, next) => {
@@ -66,7 +66,7 @@ router.post('/:codeDocument',
 
 router.patch('/:codeDocument/:lineNo',
   passport.authenticate('jwt', { session: false }),
- // checkAction('UPDATE_SALESBUDGETS'),
+ checkAction('UPDATE_SALESBUDGETS'),
   validatorHandler(getSalesBudgetLineSchema, 'params'),
   validatorHandler(updateSalesBudgetLineSchema, 'body'),
   async (req, res, next) => {
@@ -81,7 +81,7 @@ router.patch('/:codeDocument/:lineNo',
 
 router.delete('/:codeDocument/:lineNo',
   passport.authenticate('jwt', { session: false }),
-  //checkAction('DELETE_SALESBUDGETS'),
+  checkAction('DELETE_SALESBUDGETS'),
   validatorHandler(getSalesBudgetLineSchema, 'params'),
   async (req, res, next) => {
     try {

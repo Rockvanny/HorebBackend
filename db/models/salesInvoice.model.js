@@ -19,6 +19,15 @@ const salesInvoiceSchema = {
     defaultValue: DataTypes.UUIDV4 // Genera uno por defecto si no viene
   },
 
+  // Campo virtual para recibir la serie desde el front sin persistir en DB
+  // (mismo patrón que Customer/Vendor/salesBudget, ver
+  // libs/sequence.handler.js). Al registrar (archiveInvoice), seriesCode ya
+  // viene relleno desde codePosting, así que este campo solo importa al
+  // crear la factura directamente.
+  selectedSerie: {
+    type: DataTypes.VIRTUAL,
+  },
+
   code: {
     field: 'code',
     allowNull: false,

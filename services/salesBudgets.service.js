@@ -224,7 +224,7 @@ class salesBudgetService {
       if (currentStatus === 'Aprobado' || currentStatus === 'Rechazado') {
         const allowedFields = ['comments', 'username'];
         const isAttemptingForbidden = Object.keys(headerChanges).some(key => !allowedFields.includes(key));
-        if (isAttemptingForbidden || lines) {
+        if (isAttemptingForbidden || rawLines) {
           throw boom.forbidden(`En estado ${currentStatus} solo se pueden modificar comentarios`);
         }
       }
@@ -241,9 +241,9 @@ class salesBudgetService {
       // --- PROCESAMIENTO DE LÓGICA Y CÁLCULOS ---
       let totalsUpdate = {};
 
-      if (lines) {
+      if (rawLines) {
         const { processedLines, taxesToInsert, headerTotals } = calculateDocumentTotals(
-          lines,
+          rawLines,
           instance.movementId,
           'budget'
         );

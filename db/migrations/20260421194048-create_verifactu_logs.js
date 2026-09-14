@@ -1,4 +1,3 @@
-/*
 'use strict';
 const { DataTypes, literal } = require('sequelize');
 const { VERIFACTU_LOG_TABLE } = require('../models/verifactuLogs.model');
@@ -75,4 +74,3 @@ module.exports = {
     await queryInterface.dropTable(VERIFACTU_LOG_TABLE);
   }
 };
-*/

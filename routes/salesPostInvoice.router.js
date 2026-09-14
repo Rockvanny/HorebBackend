@@ -14,7 +14,7 @@ const service = new SalesPostInvoiceService();
 
 router.get('/salesPostInvoices-paginated',
     passport.authenticate('jwt', { session: false }),
-    //checkAction('VIEW_SALESPOSTINVOICES'),
+    checkAction('VIEW_SALESPOSTINVOICES'),
     async(req, res, next) => {
         try {
             const { limit, offset, searchTerm, overdue } = req.query;
@@ -32,7 +32,7 @@ router.get('/salesPostInvoices-paginated',
 // Listado de histórico (facturas registradas)
 router.get('/',
   passport.authenticate('jwt', { session: false }),
-  //checkAction('VIEW_SALESPOSTINVOICES'),
+  checkAction('VIEW_SALESPOSTINVOICES'),
   validatorHandler(querySalesPostInvoiceSchema, 'query'),
   async (req, res, next) => {
     try {
@@ -45,7 +45,7 @@ router.get('/',
 // Obtener una factura específica por su CÓDIGO (Ej: FAC-2026-0001)
 router.get('/:code',
   passport.authenticate('jwt', { session: false }),
- // checkAction('VIEW_SALESPOSTINVOICES'),
+ checkAction('VIEW_SALESPOSTINVOICES'),
   // Validamos que el parámetro 'code' cumpla con el esquema getSalesPostInvoiceSchema
   validatorHandler(getSalesPostInvoiceSchema, 'params'),
   async (req, res, next) => {
@@ -61,7 +61,7 @@ router.get('/:code',
 // Registrar una factura (Este endpoint suele ser llamado internamente por el archiveInvoice)
 router.post('/',
   passport.authenticate('jwt', { session: false }),
- // checkAction('CREATE_SALESPOSTINVOICES'),
+ checkAction('CREATE_SALESPOSTINVOICES'),
   validatorHandler(createSalesPostInvoiceSchema, 'body'),
   async (req, res, next) => {
     try {
