@@ -174,5 +174,31 @@ Añadidas hoy sobre la lista de ayer: sin tablas nuevas, solo columnas (`budget_
 ### Para continuar
 
 1. Probar en la app real: seleccionar líneas del modal de presupuesto, y cambiar el tipo de una línea entre PRODUCTO/COMENTARIO — no se pudo verificar interactivamente esta sesión (misma limitación de firmar JWT de prueba de siempre).
-2. Sigue pendiente activar compras y `operating_expenses` (ver sesión anterior) — ahora ya heredarían `type`/`budget_line_no` (este último no aplica a compras) desde el primer día si se activan.
+2. ~~Sigue pendiente activar compras y `operating_expenses`~~ — hecho más tarde el mismo día, ver bloque siguiente.
 3. El resto de puntos "para continuar" de la sesión anterior (proveedor externo Veri*factu, `documentTax.router.js` sin `checkAction`) siguen abiertos, sin tocar hoy.
+
+---
+
+### Activadas TODAS las migraciones restantes: compras y operating_expenses
+
+Últimas 5 tablas: `purch_invoices`, `purch_invoice_lines`, `purch_post_invoices`, `purch_post_invoice_lines`, `operating_expenses`. **Ya no queda ningún `.js.bak` en `db/migrations/`.** `checkAction` reactivado en `purchInvoice.router.js`, `purchInvoiceLines.router.js`, `purchPostInvoice.router.js`, `operatingExpenses.router.js` (los nombres de acción ya coincidían con `MODULE_HIERARCHY.PURCHASES`/`GESTION` — a diferencia de `verifactuLogs` no hubo mismatches que arreglar).
+
+Antes de activar, se revisaron modelos/servicios/routers de compras con la misma rigurosidad que ventas, y salieron los mismos tipos de bug (compras es una réplica bastante fiel de ventas, así que arrastraba los mismos huecos):
+
+- `purchInvoice.model.js` no tenía el campo virtual `selectedSerie` (igual que `salesInvoice`/`salesBudget` antes de ayer) — la serie elegida en el formulario se habría descartado en silencio al crear. Añadido. `purchPostInvoice` no lo necesita, por el mismo motivo que `salesPostInvoice`: `seriesCode` se rellena explícitamente desde `codePosting` en `archiveInvoice()`.
+- `purchPostInvoice.service.js#create()` (bulk-insert manual al registrar) no copiaba `width`/`height` ni `type` — mismo bug exacto que tenía `salesPostInvoice.service.js` antes de corregirse ayer. Corregido igual.
+- **`purchPostInvoice.router.js` tenía un `POST '/'` directo**, igual que tenía `salesPostInvoice.router.js` antes del cierre a solo lectura de ayer — mismo problema de fondo (salta el flujo real de `archiveInvoice()`, que llama al servicio en proceso). Aplicado el mismo cierre: sin `POST`/`PATCH`/`PUT`/`DELETE`, rechazo explícito `403` para cualquier perfil, cumplimiento AEAT igual que en ventas.
+- Migraciones de compras y `operating_expenses` revisadas contra sus modelos antes de aplicar (NOT NULL, enums) — ya venían alineadas de sesiones anteriores (categoría unificada, campo `type`), no hizo falta tocar su contenido salvo lo anterior.
+
+Verificado: las 5 tablas existen, todas las rutas nuevas responden `401` sin token (no `404`), y las 4 de escritura de `purchPostInvoices` (`POST`/`PATCH`/`PUT`/`DELETE`) confirmadas bloqueadas igual que en ventas. No probado con sesión real (misma limitación de siempre).
+
+### Migraciones activas ahora (todas)
+
+`users`, `login_otps`, `license_state`, `customers`, `series_numbers`, `vendors`, `products`, `company`, `module_config`, `verifactu_config`, `sales_budgets`, `sales_budget_lines`, `sales_invoices`, `sales_invoice_lines`, `sales_post_invoices`, `sales_post_invoice_lines`, `verifactu_logs`, `document_taxes`, `purch_invoices`, `purch_invoice_lines`, `purch_post_invoices`, `purch_post_invoice_lines`, `operating_expenses`. **No queda ninguna tabla del dominio de negocio sin activar.**
+
+### Para continuar
+
+1. Probar en la app real todo lo activado hoy y ayer — sigue siendo el mayor hueco de esta sesión (sin poder firmar JWT de prueba, todo el trabajo de backend/frontend de los últimos días está verificado por código y por Docker, pero no por una sesión de usuario real de principio a fin).
+2. `documentTax.router.js` sigue con `checkAction` comentado (endpoint genérico multi-documento, sin permiso fijo que encaje) y es ahora el único router de negocio activo sin permisos activos — decidir el criterio.
+3. Proveedor externo de Veri*factu (`verifactu_config.useProvider=true`) sigue sin implementar la llamada HTTP real.
+4. Con compras ya activas, el selector de líneas de presupuesto (hoy solo en factura de venta) podría tener sentido replicarlo en factura de compra si el usuario lo pide — no implementado, no pedido todavía.
