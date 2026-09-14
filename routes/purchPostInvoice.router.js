@@ -1,11 +1,11 @@
 // routes/purchPostInvoices.router.js
 const express = require('express');
 const passport = require('passport');
+const boom = require('@hapi/boom');
 const PurchPostInvoiceService = require('../services/purchPostInvoice.service');
 const validatorHandler = require('../middlewares/validator.handler');
 const { checkAction } = require('../middlewares/auth.handler');
 const {
-  createPurchPostInvoiceSchema,
   getPurchPostInvoiceSchema,
   queryPurchPostInvoiceSchema
 } = require('../schemas/purchPostInvoice.schema');
@@ -13,10 +13,24 @@ const {
 const router = express.Router();
 const service = new PurchPostInvoiceService();
 
+/**
+ * FACTURAS DE COMPRA REGISTRADAS — SOLO CONSULTA.
+ *
+ * Mismo criterio que routes/salesPostInvoice.router.js: cumplimiento AEAT,
+ * una factura registrada es inmutable. Este router NUNCA debe exponer
+ * creación, actualización ni borrado directos.
+ *
+ * La única forma legítima de que exista una fila aquí es archiveInvoice()
+ * en services/purchInvoice.service.js, que llama a
+ * PurchPostInvoiceService#create() DIRECTAMENTE (en proceso, no por HTTP).
+ * Antes había un POST '/' aquí que exponía esa misma creación por API, sin
+ * pasar por ese flujo — se quitó a propósito, no lo vuelvas a añadir.
+ */
+
 // Listado paginado con soporte para términos de búsqueda
 router.get('/purchPostInvoices-paginated',
     passport.authenticate('jwt', { session: false }),
-    //checkAction('VIEW_PURCHPOSTINVOICES'),
+    checkAction('VIEW_PURCHPOSTINVOICES'),
     async(req, res, next) => {
         try {
             const { limit, offset, searchTerm, overdue } = req.query;
@@ -34,7 +48,7 @@ router.get('/purchPostInvoices-paginated',
 // Listado de histórico (facturas registradas)
 router.get('/',
   passport.authenticate('jwt', { session: false }),
-  //checkAction('VIEW_PURCHPOSTINVOICES'),
+  checkAction('VIEW_PURCHPOSTINVOICES'),
   validatorHandler(queryPurchPostInvoiceSchema, 'query'),
   async (req, res, next) => {
     try {
@@ -46,17 +60,11 @@ router.get('/',
 
 router.get('/report/excel',
   passport.authenticate('jwt', { session: false }),
-  //checkAction('VIEW_PURCHPOSTINVOICES'),
+  checkAction('VIEW_PURCHPOSTINVOICES'),
   async (req, res, next) => {
     try {
       const { startDate, endDate } = req.query;
-
-      // Asegúrate de usar la instancia del servicio correcta
-      // Si antes usabas 'service', verifica que sea el PurchPostInvoiceService
       const data = await service.findForReport(startDate, endDate);
-
-      // La serialización JSON.parse(JSON.stringify()) sigue siendo una buena práctica
-      // para limpiar objetos de Sequelize antes de enviarlos.
       return res.status(200).json(data);
     } catch (error) {
       console.error("Error en router.get /report/excel:", error);
@@ -68,36 +76,24 @@ router.get('/report/excel',
 // Obtener una factura específica por su CÓDIGO (Ej: FAC-2026-0001)
 router.get('/:code',
   passport.authenticate('jwt', { session: false }),
-  //checkAction('VIEW_PURCHPOSTINVOICES'),
-  // Validamos que el parámetro 'code' cumpla con el esquema getPurchPostInvoiceSchema
+  checkAction('VIEW_PURCHPOSTINVOICES'),
   validatorHandler(getPurchPostInvoiceSchema, 'params'),
   async (req, res, next) => {
     try {
       const { code } = req.params;
-      // El servicio ahora incluye automáticamente las líneas y se expone directo como en ventas
       const invoice = await service.findOne(code, { includeLines: true });
       res.json(invoice);
     } catch (error) { next(error); }
   }
 );
 
-// Registrar una factura (Este endpoint suele ser llamado internamente por el archiveInvoice)
-router.post('/',
-  passport.authenticate('jwt', { session: false }),
- // checkAction('CREATE_PURCHPOSTINVOICES'),
-  validatorHandler(createPurchPostInvoiceSchema, 'body'),
-  async (req, res, next) => {
-    try {
-      const data = {
-        ...req.body,
-        // Inyectamos metadatos del usuario autenticado respetando las propiedades del modelo de compras
-        userName: req.user.username || req.user.email || 'system',
-        userId: req.user.code
-      };
-      const result = await service.create(data);
-      res.status(201).json(result);
-    } catch (error) { next(error); }
-  }
-);
+const rejectWrite = (req, res, next) => {
+  next(boom.forbidden('Las facturas de compra registradas son de solo lectura (cumplimiento AEAT): no se pueden crear, modificar ni eliminar desde esta API.'));
+};
+
+router.post('/', passport.authenticate('jwt', { session: false }), rejectWrite);
+router.patch('/:code', passport.authenticate('jwt', { session: false }), rejectWrite);
+router.put('/:code', passport.authenticate('jwt', { session: false }), rejectWrite);
+router.delete('/:code', passport.authenticate('jwt', { session: false }), rejectWrite);
 
 module.exports = router;

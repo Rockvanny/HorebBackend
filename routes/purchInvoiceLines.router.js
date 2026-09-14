@@ -17,7 +17,7 @@ const service = new PurchInvoiceLineService();
 // Obtener por ID
 router.get('/:id',
     passport.authenticate('jwt', { session: false }),
-    //checkAction('VIEW_PURCHINVOICES'),
+    checkAction('VIEW_PURCHINVOICES'),
     validatorHandler(getPurchInvoiceLineSchema, 'params'),
     async (req, res, next) => {
         try {
@@ -31,7 +31,7 @@ router.get('/:id',
 // Crear línea
 router.post('/',
     passport.authenticate('jwt', { session: false }),
-    //checkAction('CREATE_PURCHINVOICES'),
+    checkAction('CREATE_PURCHINVOICES'),
     validatorHandler(createPurchInvoiceLineSchema, 'body'),
     async (req, res, next) => {
         try {
@@ -45,7 +45,7 @@ router.post('/',
 // Actualizar por ID (Cambiado a PATCH para calcar ventas)
 router.patch('/:id',
     passport.authenticate('jwt', { session: false }),
-    //checkAction('UPDATE_PURCHINVOICES'),
+    checkAction('UPDATE_PURCHINVOICES'),
     validatorHandler(getPurchInvoiceLineSchema, 'params'),
     validatorHandler(updatePurchInvoiceLineSchema, 'body'),
     async (req, res, next) => {
@@ -60,7 +60,7 @@ router.patch('/:id',
 // Eliminar por ID
 router.delete('/:id',
     passport.authenticate('jwt', { session: false }),
-    //checkAction('DELETE_PURCHINVOICES'),
+    checkAction('DELETE_PURCHINVOICES'),
     validatorHandler(getPurchInvoiceLineSchema, 'params'),
     async (req, res, next) => {
         try {

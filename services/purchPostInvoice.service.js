@@ -104,11 +104,17 @@ class PurchPostInvoiceService {
           return {
             code_document: newPostInvoice.code,
             line_no: line.lineNo,
+            type: line.type || 'PRODUCTO',
             item_code: line.codeItem || null,
             description: line.description || '',
             quantity: parseFloat(line.quantity) || 0,
             unit_measure: line.unitMeasure || 'UNIDAD',
             quantity_unit_measure: parseFloat(line.quantityUnitMeasure) || 1,
+            // Antes se perdían al registrar: una factura con líneas en
+            // METRO2 llegaba al histórico definitivo sin ancho/alto (mismo
+            // bug que tenía salesPostInvoice.service.js).
+            width: parseFloat(line.width) || 0,
+            height: parseFloat(line.height) || 0,
             unit_price: parseFloat(line.unitPrice) || 0,
             tax_type: line.taxType || 'IVA',
             vat: porcentajeIVA,

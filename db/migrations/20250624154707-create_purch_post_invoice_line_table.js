@@ -1,4 +1,3 @@
-/*
 'use strict';
 const { DataTypes, literal } = require('sequelize');
 const { PURCHPOSTINVOICELINE_TABLE } = require('../models/purchPostInvoiceLine.model');
@@ -130,4 +129,3 @@ module.exports = {
     await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_purch_post_invoice_lines_type";');
   }
 };
-*/

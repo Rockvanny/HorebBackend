@@ -1,4 +1,3 @@
-/*
 'use strict';
 const { DataTypes, literal } = require('sequelize');
 const { OPERATING_EXPENSES_TABLE } = require('../models/operatingExpenses.model');
@@ -123,4 +122,3 @@ module.exports = {
     await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_operating_expenses_payment_method";');
   }
 };
-*/
