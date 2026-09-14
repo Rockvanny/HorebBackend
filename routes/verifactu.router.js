@@ -1,28 +1,31 @@
 const express = require('express');
-const validatorHandler = require('../middlewares/validator.handler');
 const { getVerifactuSchema } = require('../schemas/verifactu.schema');
-const VerifactuService = require('../services/verifactu.service');
-const VerifactuXmlService = require('../services/verifactuXml.service');
+const VerifactuService = require('../services/verifactulogs.service');
+const VerifactuXmlService = require('../services/VerifactuXml.service');
+const { protectedRoute } = require('../libs/router-factory');
 
 const router = express.Router();
 const service = new VerifactuService();
 const xmlService = new VerifactuXmlService();
 
-// GET para descargar el archivo
+// Descarga del XML exportable para modo 'local' (ver
+// services/verifactuConfig.service.js): el admin lo sube a mano a la
+// plataforma de la AEAT. Reutiliza el permiso ya existente de
+// verifactuLogs (módulo SALES).
 router.get('/download-xml/:invoiceCode',
-  validatorHandler(getVerifactuSchema, 'params'), // <-- AQUÍ USAS EL SCHEMA
+  ...protectedRoute('VIEW_VERIFACTULOGS', { params: getVerifactuSchema }),
   async (req, res, next) => {
     try {
       const { invoiceCode } = req.params;
 
-      // 1. Recuperamos el log de la DB usando el servicio que ya teníamos
       const log = await service.getTraceability(invoiceCode);
 
-      // 2. Convertimos el payload (JSON) a XML
-      const payload = JSON.parse(log.payload);
-      const xmlContent = xmlService.generateInvoiceXml(payload, log.fingerprint);
+      // payload es JSONB: Sequelize ya lo entrega como objeto, no como
+      // string (un JSON.parse aquí rompería con "Unexpected token o").
+      const xmlContent = xmlService.generateInvoiceXml(log.payload, log.fingerprint);
 
-      // 3. Forzamos la descarga en el navegador
+      await service.markExported(invoiceCode);
+
       res.header('Content-Type', 'application/xml');
       res.attachment(`Verifactu_${invoiceCode}.xml`);
       res.send(xmlContent);

@@ -196,6 +196,17 @@ class VerifactuService {
     if (!log) throw boom.notFound('Registro Veri*factu no encontrado');
     return log;
   }
+
+  /**
+   * Marca cuándo se descargó el XML exportable (modo 'local', ver
+   * services/verifactuConfig.service.js). Deja constancia de qué facturas
+   * ya se subieron a mano a la plataforma de la AEAT y cuáles siguen
+   * pendientes.
+   */
+  async markExported(invoiceCode) {
+    const log = await this.findOne(invoiceCode);
+    return await log.update({ exportedAt: new Date() });
+  }
 }
 
 module.exports = VerifactuService;

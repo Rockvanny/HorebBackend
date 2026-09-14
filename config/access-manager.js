@@ -22,7 +22,7 @@ const MODULE_HIERARCHY = {
   },
   SETUP: {
     field: 'allowSettings',
-    objects: ['company', 'series', 'users', 'conexion']
+    objects: ['company', 'series', 'users', 'conexion', 'moduleConfig', 'verifactuConfig']
   },
   REPORTS: {
     field: 'allowReports',

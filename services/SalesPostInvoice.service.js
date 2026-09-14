@@ -2,6 +2,7 @@ const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
 const sequelize = require('../libs/sequelize');
 const VerifactuService = require('./verifactulogs.service');
+const ModuleConfigService = require('./moduleConfig.service');
 const { calculateDocumentTotals } = require('../libs/taxCalculation');
 
 const {
@@ -12,6 +13,7 @@ const {
 } = sequelize.models;
 
 const verifactuService = new VerifactuService();
+const moduleConfigService = new ModuleConfigService();
 
 class SalesPostInvoiceService {
   async findPaginated({ limit, offset, searchTerm }) {
@@ -135,7 +137,12 @@ class SalesPostInvoiceService {
         { where: { movementId: newPostInvoice.movementId }, transaction }
       );
 
-      await verifactuService.createLog(newPostInvoice.code, true, transaction);
+      // Veri*factu es un módulo activable (ver services/moduleConfig.service.js
+      // y la tabla module_config): si está desactivado, la factura se registra
+      // igual pero sin generar hash/XML/traza AEAT.
+      if (await moduleConfigService.isEnabled('VERIFACTU')) {
+        await verifactuService.createLog(newPostInvoice.code, true, transaction);
+      }
       await transaction.commit();
 
       return await this.findOne(newPostInvoice.code, { includeLines: true });
