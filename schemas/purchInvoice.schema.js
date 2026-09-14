@@ -37,13 +37,20 @@ const money = Joi.number().precision(4).default(0);
 // SINCRONIZADO CON VENTAS: Todo en minúsculas para unificar el validador
 const username = Joi.string().allow('', null);
 
-// Exclusivo de compras para analítica interna
+// Exclusivo de compras para analítica interna. Mismo set que
+// vendor.schema.js#category (ver db/models/vendor.model.js).
 const category = Joi.string().valid(
   'Suministros de Obra',
   'Logística de Materiales',
   'Material de Construcción',
   'Equipamiento / Maquinaria',
-  'Servicios Externos de Obra'
+  'Servicios Externos de Obra',
+  'Suministros Públicos',
+  'Alquileres e Inmuebles',
+  'Vehículos y Movilidad',
+  'Herramientas de Empresa',
+  'Personal y Nóminas',
+  'Gastos de Oficina y Administración'
 );
 
 // --- ESQUEMAS DE ACCIÓN ---

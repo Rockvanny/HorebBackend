@@ -18,6 +18,9 @@ module.exports = {
         type: DataTypes.DATEONLY
       },
       category: {
+        // Mismo enum que vendors.category (ver
+        // 20260914195102-align_vendor_category_enum.js): el gasto suele
+        // autocompletarse desde el proveedor seleccionado.
         field: 'category',
         type: DataTypes.ENUM(
           'Personal y Nóminas',
@@ -25,7 +28,12 @@ module.exports = {
           'Vehículos y Movilidad',
           'Alquileres e Inmuebles',
           'Herramientas de Empresa',
-          'Gastos de Oficina y Administración'
+          'Gastos de Oficina y Administración',
+          'Suministros de Obra',
+          'Logística de Materiales',
+          'Material de Construcción',
+          'Equipamiento / Maquinaria',
+          'Servicios Externos de Obra'
         ),
         allowNull: false,
         defaultValue: 'Personal y Nóminas'

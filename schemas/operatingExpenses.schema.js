@@ -2,13 +2,20 @@ const Joi = require('joi');
 
 const id = Joi.number().integer();
 const date = Joi.date().iso();
+// Mismo set que vendor.schema.js#category: el gasto suele autocompletarse
+// desde el proveedor seleccionado, así que ambos enums deben coincidir.
 const category = Joi.string().valid(
   'Personal y Nóminas',
   'Suministros Públicos',
   'Vehículos y Movilidad',
   'Alquileres e Inmuebles',
   'Herramientas de Empresa',
-  'Gastos de Oficina y Administración'
+  'Gastos de Oficina y Administración',
+  'Suministros de Obra',
+  'Logística de Materiales',
+  'Material de Construcción',
+  'Equipamiento / Maquinaria',
+  'Servicios Externos de Obra'
 );
 const entityCode = Joi.string().min(2).max(100);
 const name = Joi.string().min(3).max(100);

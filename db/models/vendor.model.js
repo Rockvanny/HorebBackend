@@ -58,6 +58,11 @@ const VendorSchema = {
     allowNull: false,
   },
 
+  // Compartido byte a byte con OperatingExpensesSchema.category (mismo enum
+  // en Postgres, ver migración 20260914195102-align_vendor_category_enum):
+  // un proveedor se usa tanto para compras de obra como para gasto interno
+  // recurrente (luz, alquiler, nóminas...), así que necesita las categorías
+  // de ambos mundos para poder clasificarse correctamente en cualquiera.
   category: {
     field: 'category',
     type: DataTypes.ENUM(
@@ -65,7 +70,13 @@ const VendorSchema = {
       'Logística de Materiales',
       'Material de Construcción',
       'Equipamiento / Maquinaria',
-      'Servicios Externos de Obra'
+      'Servicios Externos de Obra',
+      'Suministros Públicos',
+      'Alquileres e Inmuebles',
+      'Vehículos y Movilidad',
+      'Herramientas de Empresa',
+      'Personal y Nóminas',
+      'Gastos de Oficina y Administración'
     ),
     allowNull: false,
     defaultValue: 'Suministros de Obra'

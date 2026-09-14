@@ -47,13 +47,25 @@ module.exports = {
         type: DataTypes.STRING,
       },
       category: {
+        // Mismo set que operating_expenses.category (ver migración
+        // 20260426101302-create_operating_expenses_table.js.bak): un
+        // proveedor se usa tanto en compras de obra como en gasto interno.
+        // Una instalación nueva ya crea el enum completo aquí; las
+        // instalaciones existentes lo completan vía
+        // 20260914195102-align_vendor_category_enum.js.
         field: 'category',
         type: DataTypes.ENUM(
           'Suministros de Obra',
           'Logística de Materiales',
           'Material de Construcción',
           'Equipamiento / Maquinaria',
-          'Servicios Externos de Obra'
+          'Servicios Externos de Obra',
+          'Suministros Públicos',
+          'Alquileres e Inmuebles',
+          'Vehículos y Movilidad',
+          'Herramientas de Empresa',
+          'Personal y Nóminas',
+          'Gastos de Oficina y Administración'
         ),
         allowNull: false,
         defaultValue: 'Suministros de Obra'

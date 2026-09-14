@@ -8,12 +8,21 @@ const phone = Joi.string();
 const address = Joi.string();
 const postCode = Joi.string();
 const city = Joi.string();
+// Mismo set que operatingExpenses.schema.js#category: un proveedor se usa
+// tanto en compras de obra como en gasto interno recurrente (luz, alquiler,
+// nóminas...), ver db/models/vendor.model.js.
 const category = Joi.string().valid(
   'Suministros de Obra',
   'Logística de Materiales',
   'Material de Construcción',
   'Equipamiento / Maquinaria',
-  'Servicios Externos de Obra'
+  'Servicios Externos de Obra',
+  'Suministros Públicos',
+  'Alquileres e Inmuebles',
+  'Vehículos y Movilidad',
+  'Herramientas de Empresa',
+  'Personal y Nóminas',
+  'Gastos de Oficina y Administración'
 );
 const paymentMethod = Joi.string().valid(
   'Transferencia',
