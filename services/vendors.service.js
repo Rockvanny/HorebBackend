@@ -1,9 +1,96 @@
-const { Op } = require('sequelize');
+const { Op, fn, col } = require('sequelize');
 const boom = require('@hapi/boom');
 const { models } = require('../libs/sequelize');
+const logger = require('../libs/logger');
+
+// Mismo criterio que CustomerService: F1/F2 suman al saldo, las
+// rectificativas (R1-R5) restan.
+const INVOICED_TYPES = ['F1', 'F2'];
+const RECTIFICATION_TYPES = ['R1', 'R2', 'R3', 'R4', 'R5'];
+
+// SQLSTATE de Postgres para "la tabla no existe" — mientras purch_post_invoices
+// no esté activa (migración en .bak durante el desarrollo por módulos),
+// degradamos a saldo 0 en vez de romper el listado/detalle de proveedores.
+const UNDEFINED_TABLE = '42P01';
 
 class VendorService {
   constructor() { }
+
+  /**
+   * Saldo facturado (F1/F2 netas de rectificativas) y saldo pendiente (mismo
+   * cálculo, restringido a facturas en estado 'Abierto') para un conjunto de
+   * proveedores. Se recalcula contra `purch_post_invoices` en cada consulta.
+   */
+  async #computeBalances(vendorCodes) {
+    const balances = {};
+    vendorCodes.forEach(code => {
+      balances[code] = { saldoFacturado: 0, saldoPendiente: 0 };
+    });
+
+    if (!vendorCodes.length) return balances;
+
+    let rows;
+    try {
+      rows = await models.purchPostInvoice.findAll({
+        attributes: [
+          'entityCode',
+          'typeInvoice',
+          'status',
+          [fn('SUM', col('amount_with_vat')), 'total']
+        ],
+        where: { entityCode: { [Op.in]: vendorCodes } },
+        group: ['entityCode', 'typeInvoice', 'status'],
+        raw: true
+      });
+    } catch (error) {
+      if (error.original?.code === UNDEFINED_TABLE || error.parent?.code === UNDEFINED_TABLE) {
+        logger.error('VendorService#computeBalances: purch_post_invoices no existe todavía, devolviendo saldos en 0.');
+        return balances;
+      }
+      throw error;
+    }
+
+    rows.forEach(row => {
+      const isInvoiced = INVOICED_TYPES.includes(row.typeInvoice);
+      const isRectification = RECTIFICATION_TYPES.includes(row.typeInvoice);
+      if (!isInvoiced && !isRectification) return;
+
+      const total = parseFloat(row.total) || 0;
+      const signedTotal = isRectification ? -total : total;
+
+      balances[row.entityCode].saldoFacturado += signedTotal;
+      if (row.status === 'Abierto') {
+        balances[row.entityCode].saldoPendiente += signedTotal;
+      }
+    });
+
+    return balances;
+  }
+
+  /**
+   * Saldo facturado/pendiente de un único proveedor (usado por el endpoint
+   * de detalle).
+   */
+  async getBalances(code) {
+    const balances = await this.#computeBalances([code]);
+    return balances[code];
+  }
+
+  /**
+   * Convierte instancias Vendor en objetos planos con
+   * `saldoFacturado`/`saldoPendiente` añadidos (una sola query agregada).
+   */
+  async #attachBalances(vendors) {
+    if (!vendors.length) return [];
+
+    const codes = vendors.map(v => v.code);
+    const balances = await this.#computeBalances(codes);
+
+    return vendors.map(v => ({
+      ...v.toJSON(),
+      ...balances[v.code]
+    }));
+  }
 
   async findPaginated({ limit, offset, searchTerm }) {
     const parsedLimit = parseInt(limit, 10) || 100;
@@ -29,7 +116,7 @@ class VendorService {
     try {
       const { count, rows } = await models.Vendor.findAndCountAll(options);
       return {
-        records: rows,
+        records: await this.#attachBalances(rows),
         hasMore: (parsedOffset + rows.length) < count,
         total: count,
       };
