@@ -146,3 +146,33 @@ Bugs reales encontrados de paso (no eran solo tablas ausentes):
 4. Implementar el envío real a un proveedor externo de Veri*factu cuando `verifactu_config.useProvider=true` — hoy solo se guarda la configuración, no hay llamada HTTP.
 5. Probar contra la API real con sesión de usuario (crear oferta completa, aprobarla, facturarla, registrarla) — no se pudo esta sesión.
 6. Seguir afinando reglas de negocio de líneas de venta a medida que el usuario las vaya probando (por ahora: descripción/cantidad/precio siempre, factor/ancho/alto según unidad).
+
+---
+
+## 2026-09-15
+
+### Selector de líneas de presupuesto en factura de venta
+
+Al elegir un presupuesto en la cabecera de una factura de venta, se abre un modal con las líneas de ese presupuesto y su cantidad pendiente de facturar (ya facturado se calcula contra `sales_post_invoice_lines`, el histórico definitivo, con el mismo criterio F1/F2 suma / R1-R5 resta que `saldoFacturado`). Al confirmar la selección, cada línea se inserta en la factura con **cantidad = pendiente**, editable por si se quiere facturar menos.
+
+- Columna nueva `budget_line_no` en `sales_invoice_lines` y `sales_post_invoice_lines` (se propaga al registrar). Nuevo endpoint `GET /salesBudgetLines/:codeDocument/pending` (`services/salesBudgetsLines.service.js#getPendingLines`).
+- De paso, `salesPostInvoice.service.js#create()` (el bulk-insert manual al registrar) **tampoco copiaba `width`/`height`** — una factura con líneas en METRO2 perdía esos datos al pasar a histórico definitivo. Corregido en el mismo sitio.
+- 2 bugs de UX corregidos tras probarlo: (1) la línea en blanco por defecto se quedaba vacía delante de las insertadas desde el modal — nuevo `linesHandler.removeEmptyLines()`, se llama antes de insertar; (2) el desplegable de presupuesto mostraba el nombre del **cliente** (así lo guarda `salesBudget.name`, copiado de la cabecera) en vez del código del presupuesto — `renderDependentSelect` ahora acepta qué campo mostrar.
+
+### Facturas de venta registradas — solo lectura, cumplimiento AEAT
+
+`routes/salesPostInvoice.router.js` solo tenía GET, pero además tenía un `POST /` directo que **saltaba por completo el flujo real de archivado** (`archiveInvoice()` llama al servicio en proceso, no por HTTP — ese POST era una puerta trasera para fabricar una "factura registrada" sin pasar por el encadenamiento de huella Veri*factu). Quitado. Añadido un rechazo explícito para `POST`/`PATCH`/`PUT`/`DELETE` — `403` para cualquier usuario autenticado, sin depender de rol ni de `checkAction` (deliberado: no debe poder eliminarla **ningún perfil**, ni siquiera admin). Frontend: el botón "EDITAR" ya no se muestra en páginas inmutables (antes se mostraba y no hacía nada al pulsarlo).
+
+### Línea de tipo PRODUCTO / COMENTARIO
+
+Campo `type` nuevo en las 5 tablas de líneas (`sales_budget_lines`, `sales_invoice_lines`, `sales_post_invoice_lines`, y en los `.bak` de compras para que nazcan ya con él). COMENTARIO = solo texto libre en `description`, el resto de campos no se exige (Joi condicional por `type`, igual patrón que el condicional por `unitMeasure` de ayer) y no suma a los totales (`libs/taxCalculation.js` la trata aparte, verificado con una línea mixta). En el frontend, al marcar una línea como COMENTARIO se deshabilitan y limpian sus demás campos (`transactionLinesHandler.js#applyLineTypeState`), y se reactivan si se vuelve a PRODUCTO.
+
+### Migraciones activas ahora (acumulado)
+
+Añadidas hoy sobre la lista de ayer: sin tablas nuevas, solo columnas (`budget_line_no` y `type` en `sales_invoice_lines`/`sales_post_invoice_lines`; `type` en `sales_budget_lines`). Compras y `operating_expenses` siguen en `.bak`, ya con `type` incluido en su contenido.
+
+### Para continuar
+
+1. Probar en la app real: seleccionar líneas del modal de presupuesto, y cambiar el tipo de una línea entre PRODUCTO/COMENTARIO — no se pudo verificar interactivamente esta sesión (misma limitación de firmar JWT de prueba de siempre).
+2. Sigue pendiente activar compras y `operating_expenses` (ver sesión anterior) — ahora ya heredarían `type`/`budget_line_no` (este último no aplica a compras) desde el primer día si se activan.
+3. El resto de puntos "para continuar" de la sesión anterior (proveedor externo Veri*factu, `documentTax.router.js` sin `checkAction`) siguen abiertos, sin tocar hoy.
