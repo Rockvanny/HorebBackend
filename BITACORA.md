@@ -87,9 +87,62 @@ Se replicó en bloque el patrón ya rodado con `customers` sobre los tres maestr
 - **No tocado a propósito** (son hallazgos, no ajustes ya hechos en `customers` que tocara replicar): `updateVendorSchema` tiene el mismo problema que `updateCustomerSchema` (fuerza reenviar todos los campos en el `PATCH`, no es un parcial real) — sigue sin resolver en clientes, así que no se replicó el fix en proveedores. `updateProductSchema` y `updateCompanySchema` ya eran parciales reales (`.min(1)` / todo opcional) desde antes, no tenían este problema.
 - `SEGURIDAD.md` actualizado (sección "Control de accesos", nota de migraciones `.bak`, prioridad sugerida) y fecha de revisión movida a hoy.
 
-### Para continuar
+### Para continuar (de la sesión de "Maestros restantes")
 
 1. Router de `users`: sigue con `checkAction` comentado y es el que más lógica de permisos especiales necesita (autogestión del propio usuario vs. gestión de otros).
-2. Antes de tocar `verifactuLogs`/`documentTax`: resolver los mismatches de nombre ya documentados (`VERIFACTU`→`verifactuLogs`, `SALES` genérico).
-3. `conexion.router.js`/`enums.router.js` siguen sin autenticación — hallazgo crítico abierto, independiente de cualquier entidad.
-4. Verificar dominio propio en Resend — sigue bloqueando onboarding de cliente real.
+2. `conexion.router.js`/`enums.router.js` siguen sin autenticación — hallazgo crítico abierto, independiente de cualquier entidad.
+3. Verificar dominio propio en Resend — sigue bloqueando onboarding de cliente real.
+
+---
+
+### Módulos activables, configuración Veri*factu y activación completa del flujo de ventas
+
+Sesión larga, en el mismo día. Tres bloques de trabajo encadenados a partir de peticiones del usuario ("categoría de proveedores para servicios", "Veri*factu debe ser activable", "por qué no se pueden crear ofertas").
+
+**1. Categoría de vendors unificada con operating_expenses/purchInvoice/purchPostInvoice.**
+Un proveedor se usa tanto para compras de obra como para gasto interno recurrente (luz, alquiler...), pero `vendors.category` solo tenía categorías de obra y `operating_expenses.category` un set de gasto interno totalmente distinto — el autofill de categoría al buscar un proveedor desde gastos internos nunca casaba. Unificado en un único enum de 11 valores (unión de ambos sets) en las 4 tablas. `vendors` ya tenía datos/tabla activa → migración nueva `align_vendor_category_enum.js` con `ALTER TYPE ADD VALUE`. Las otras 3 siguen en `.bak`, se les actualizó el enum en el propio fichero para que nazcan ya alineadas cuando se activen.
+
+**2. `module_config` (nueva tabla) — módulos on/off, genérico y reutilizable.**
+CRUD completo (`key` en mayúsculas como PK, no autonumerada) siguiendo el patrón de `company`. `services/moduleConfig.service.js#isEnabled(key)` es el punto único de consulta; ya conectado de verdad en `salesPostInvoice.service.js` (el registro Veri*factu solo se genera si `VERIFACTU` está activo). Semilla: `VERIFACTU` nace `enabled=true` (preserva el comportamiento previo, que era obligatorio).
+
+**3. `verifactu_config` (nueva tabla) — modo local vs. proveedor externo.**
+`useProvider` (boolean) + `providerName`/`apiBaseUrl`/`apiKey`/`apiSecret`, obligatorios solo si `useProvider=true` (Joi `.when`). `apiSecret` cifrado en reposo (`libs/crypto.js`, AES-256-GCM) — primer consumidor real de `AES_SECRET`, que estaba en el `.env` sin usar. **La llamada HTTP real al proveedor NO está implementada**, solo el almacenamiento de la config (`getActiveConfig()` queda listo para cuando se construya).
+
+**4. `routes/verifactu.router.js` (exportación de XML) — estaba roto y sin montar.**
+Importaba `services/verifactu.service.js`, que no existe (el real es `verifactulogs.service.js`); hacía `JSON.parse()` sobre un JSONB que Sequelize ya entrega parseado; sin autenticación; no montado en `routes/index.js`. Corregido, protegido con `VIEW_VERIFACTULOGS`, y ahora marca `exportedAt` en el log al descargar. Frontend: IPC dedicado `export-verifactu-xml` (mismo patrón que `write-excel-file`) + botón "DESCARGAR XML" en el listado de logs.
+
+**5. Navegación directa a ficha para tablas de registro único.**
+`company` y `verifactu_config` ahora abren la ficha directamente desde el sidebar (`sidebar.singleton: true` en `document-schema.mjs`, resuelto en `sidebar.js#openSingletonEditor`) en vez de pasar por el Explorer — consultan si ya existe un registro (modo VER) o no (modo NUEVO).
+
+**6. Activación completa del flujo de ventas (oferta → factura de venta → factura de venta registrada).**
+Causa raíz de "no se pueden crear ofertas": **ninguna tabla de la cadena de ventas existía** (`sales_budgets`, `sales_budget_lines`, `sales_invoices`, `sales_invoice_lines`, `sales_post_invoices`, `sales_post_invoice_lines`, `document_taxes`, `verifactu_logs` — las 8, todas en `.bak`). Restauradas todas (mismo proceso que `customers`: contenido revisado contra el modelo antes de aplicar). `checkAction` reactivado en `salesBudgets`, `salesBudgetLines`, `salesInvoices`, `salesInvoiceLines`, `salesPostInvoice`, `salesPostInvoiceTax`, `verifactulogs`.
+
+Bugs reales encontrados de paso (no eran solo tablas ausentes):
+- `verifactulogs.router.js` usaba `VIEW_VERIFACTU`/`UPDATE_VERIFACTU` (el objeto registrado en `MODULE_HIERARCHY.SALES` es `verifactuLogs` → debía ser `VIEW_VERIFACTULOGS`). Si se activaba `checkAction` tal cual, bloqueaba a todo el mundo siempre. Corregido antes de descomentar.
+- `salesBudget.model.js`: hook `beforeValidate` llamaba a `uuidv4()` sin importar (solo existía `randomUUID` de `crypto`) — código muerto en la práctica porque `movementId` ya tiene `defaultValue`, pero una bomba si algún día fallaba ese default. Corregido.
+- `salesBudget.model.js` y `salesInvoice.model.js` no tenían el campo virtual `selectedSerie` (sí lo tienen `Customer`/`Vendor`) — la serie elegida en el formulario se descartaba en silencio al crear (`generateNextCode` caía siempre al fallback "cualquier serie activa del tipo"). Añadido.
+- **`salesBudgets.service.js#update()` — bug grave**: usaba una variable `lines` que nunca se declaró (la desestructuración es `rawLines`). Cualquier intento de editar una oferta ya creada tiraba `ReferenceError`. Corregido (2 sitios).
+- `salesBudgetLines.schema.js` / `salesInvoiceLine.schema.js` **no incluían `width`/`height`** (sí existen en modelo/tabla) — Joi rechaza claves no declaradas por defecto, así que cualquier guardado con líneas fallaba con "datos no válidos" en cuanto se activaron las tablas. Añadidos como condicionales.
+- `libs/taxCalculation.js` reenviaba `quantityUnitMeasure` crudo (puede llegar `null` desde el front) hacia el `INSERT`, pero esa columna es `NOT NULL` — habría roto igual aunque Joi lo permitiera. Normalizado al valor ya calculado (factor 1 por defecto).
+
+**7. Regla de negocio: campos de línea obligatorios según unidad de medida.**
+`quantityUnitMeasure` obligatorio solo si `unitMeasure='METRO'`; `width`+`height` obligatorios solo si `unitMeasure='METRO2'`; el resto de unidades no los piden. Implementado con `Joi.when('unitMeasure', ...)` en ambos schemas de líneas (budget/invoice) y replicado en el frontend (`transactionLinesHandler.js#validate()`, antes un no-op que nunca validaba nada — ni siquiera descripción/cantidad/precio, que sí son siempre obligatorios).
+
+**8. Otro bug de UI encontrado (patrón "guardar no hace nada" sin ningún aviso)**: `fields-budget-handler.js` usaba `alert()` nativo (inconsistente, posiblemente invisible en la ventana Electron) en vez del patrón `validate()`/`getValidationError()` ya establecido; `fields-salesinvoice-handler.js` tenía `validate()` pero **nunca lo exponía en el objeto público** que lee `transaction.js`, así que `hError` siempre era `null` y un fallo de validación interna hacía `return` en silencio. Ambos corregidos.
+
+**No verificado en vivo con sesión real** (bloqueo de política del entorno para firmar un JWT de prueba esta sesión) — pendiente que el usuario cree una oferta completa desde la app y confirme.
+
+### Migraciones activas ahora (acumulado)
+
+`users`, `login_otps`, `license_state`, `customers`, `series_numbers`, `vendors`, `products`, `company`, `module_config`, `verifactu_config`, `sales_budgets`, `sales_budget_lines`, `sales_invoices`, `sales_invoice_lines`, `sales_post_invoices`, `sales_post_invoice_lines`, `verifactu_logs`, `document_taxes`.
+
+**Siguen en `.bak`**: `operating_expenses`, `purch_invoice(_line)`, `purch_post_invoice(_line)`. Candidata natural siguiente: compras (`purchInvoice`/`purchPostInvoice`), simétrica a ventas — probablemente con los mismos tipos de bugs (revisar `selectedSerie` virtual, variables `lines`/`rawLines`, `width`/`height` en schemas de líneas, nombres de `checkAction`).
+
+### Para continuar
+
+1. Activar compras (`purch_invoices`, `purch_post_invoices` y sus líneas) — mismo patrón que ventas, revisar los mismos puntos de bug ya vistos ahí antes de dar por bueno el `checkAction`.
+2. Activar `operating_expenses` — su enum de categoría ya está alineado desde el bloque 1, solo falta la migración.
+3. `documentTax.router.js` sigue con `checkAction` comentado — es un endpoint genérico para cualquier tipo de documento (`budget`/`salesinvoice`/`purchinvoice`...), no encaja en un único permiso fijo; decidir el criterio antes de activarlo.
+4. Implementar el envío real a un proveedor externo de Veri*factu cuando `verifactu_config.useProvider=true` — hoy solo se guarda la configuración, no hay llamada HTTP.
+5. Probar contra la API real con sesión de usuario (crear oferta completa, aprobarla, facturarla, registrarla) — no se pudo esta sesión.
+6. Seguir afinando reglas de negocio de líneas de venta a medida que el usuario las vaya probando (por ahora: descripción/cantidad/precio siempre, factor/ancho/alto según unidad).
