@@ -10,6 +10,28 @@ const calculateDocumentTotals = (lines, movementId, docType) => {
   const taxGroups = {};
 
   const processedLines = lines.map((line, index) => {
+    // Línea COMENTARIO: solo texto libre en 'description', no suma a
+    // totales ni genera desglose de impuestos (ver
+    // db/models/salesBudgetLines.model.js#type). Todo lo demás se normaliza
+    // a su valor neutro, sin ejecutar la lógica de cálculo por unidad de
+    // medida (que no aplica aquí).
+    if ((line.type || 'PRODUCTO') === 'COMENTARIO') {
+      return {
+        ...line,
+        lineNo: line.lineNo || (index + 1),
+        type: 'COMENTARIO',
+        codeItem: null,
+        quantity: 0,
+        unitPrice: 0,
+        quantityUnitMeasure: 1,
+        width: 0,
+        height: 0,
+        vat: 0,
+        taxType: line.taxType || 'IVA',
+        amountLine: 0
+      };
+    }
+
     const qty = parseFloat(line.quantity) || 0;
     const price = parseFloat(line.unitPrice) || 0;
     const factor = parseFloat(line.quantityUnitMeasure) || 1;

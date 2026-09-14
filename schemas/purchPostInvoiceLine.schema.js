@@ -21,6 +21,7 @@ const taxType = Joi.string().valid('IVA', 'IRPF', 'RE', 'EXENTO');
 const vat = Joi.number().precision(4);
 const amountLine = Joi.number().precision(4);
 const userName = Joi.string();
+const type = Joi.string().valid('PRODUCTO', 'COMENTARIO').default('PRODUCTO');
 
 const limit = Joi.number().integer();
 const offset = Joi.number().integer();
@@ -39,6 +40,7 @@ const getPurchPostInvoiceLineSchema = Joi.object({
 const createPurchPostInvoiceLineSchema = Joi.object({
   codeDocument: codeDocument.required(),
   lineNo: lineNo.required(),
+  type: type.optional(),
   codeItem: codeItem.optional(),
   description: description.required(),
   quantity: quantity.default(0),

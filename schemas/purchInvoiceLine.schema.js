@@ -15,6 +15,15 @@ const vat = Joi.number().min(0).max(100).precision(4).default(21);
 const amountLine = Joi.number().precision(4);
 const userName = Joi.string().allow('', null); // Sincronizado con el modelo
 
+// PRODUCTO: línea normal con cantidad/precio. COMENTARIO: solo texto libre
+// en 'description' — el resto de campos no aplica (ver
+// requiredUnlessComment y libs/taxCalculation.js, que no suma estas
+// líneas a los totales).
+const type = Joi.string().valid('PRODUCTO', 'COMENTARIO').default('PRODUCTO');
+
+const requiredUnlessComment = (schema) =>
+  schema.when('type', { is: 'COMENTARIO', then: Joi.optional().allow(null), otherwise: Joi.required() });
+
 // --- ESQUEMAS DE ACCIÓN ---
 
 /**
@@ -31,12 +40,13 @@ const getPurchInvoiceLineSchema = Joi.object({
 const createPurchInvoiceLineSchema = Joi.object({
   codeDocument: codeDocument.optional().allow('', null),
   lineNo: lineNo.required(),
+  type: type.optional(),
   codeItem: codeItem.optional(),
   description: description.required(),
-  quantity: quantity.required(),
+  quantity: requiredUnlessComment(quantity),
   unitMeasure: unitMeasure.optional(),
   quantityUnitMeasure: quantityUnitMeasure.optional(),
-  unitPrice: unitPrice.required(),
+  unitPrice: requiredUnlessComment(unitPrice),
   taxType: taxType.optional(), // Añadido
   vat: vat.optional(),
   amountLine: amountLine.required(),
@@ -49,6 +59,7 @@ const createPurchInvoiceLineSchema = Joi.object({
 const updatePurchInvoiceLineSchema = Joi.object({
   codeDocument: codeDocument.optional(),
   lineNo: lineNo.optional(),
+  type: type.optional(),
   codeItem: codeItem.optional(),
   description: description.optional(),
   quantity: quantity.optional(),

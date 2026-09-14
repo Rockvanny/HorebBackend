@@ -31,6 +31,25 @@ router.get('/paginated',
   }
 );
 
+/**
+ * Líneas de un presupuesto con cantidad ya facturada/pendiente (para el
+ * selector de líneas al crear una factura desde un presupuesto). Va antes
+ * de '/:codeDocument/:lineNo' para que Express no confunda "pending" con
+ * un lineNo.
+ */
+router.get('/:codeDocument/pending',
+  passport.authenticate('jwt', { session: false }),
+  checkAction('VIEW_SALESBUDGETS'),
+  validatorHandler(Joi.object({ codeDocument: Joi.string().required() }), 'params'),
+  async (req, res, next) => {
+    try {
+      const { codeDocument } = req.params;
+      const lines = await service.getPendingLines(codeDocument);
+      res.json({ success: true, data: lines });
+    } catch (error) { next(error); }
+  }
+);
+
 router.get('/:codeDocument/:lineNo',
   passport.authenticate('jwt', { session: false }),
   checkAction('VIEW_SALESBUDGETS'),

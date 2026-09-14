@@ -25,6 +25,26 @@ const salesInvoiceLineSchema = {
     type: DataTypes.INTEGER,
   },
 
+  // PRODUCTO: línea normal con cantidad/precio (validaciones de siempre).
+  // COMENTARIO: solo texto libre en 'description' — el resto de campos se
+  // deshabilita en el frontend y no suma a los totales (ver
+  // libs/taxCalculation.js).
+  type: {
+    field: 'type',
+    type: DataTypes.ENUM('PRODUCTO', 'COMENTARIO'),
+    allowNull: false,
+    defaultValue: 'PRODUCTO'
+  },
+
+  // Línea de sales_budget_lines de la que proviene (si se insertó desde el
+  // selector de líneas pendientes de un presupuesto). Junto con
+  // codeDocument->budgetCode de la cabecera identifica el origen exacto.
+  budgetLineNo: {
+    field: 'budget_line_no',
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
+
   codeItem: {
     field: 'item_code',
     type: DataTypes.STRING,

@@ -25,6 +25,23 @@ const salesPostInvoiceLineSchema = {
     type: DataTypes.INTEGER,
   },
 
+  // PRODUCTO/COMENTARIO, heredado de sales_invoice_lines.type al registrar.
+  type: {
+    field: 'type',
+    type: DataTypes.ENUM('PRODUCTO', 'COMENTARIO'),
+    allowNull: false,
+    defaultValue: 'PRODUCTO'
+  },
+
+  // Heredado de sales_invoice_lines.budget_line_no al registrar (ver
+  // salesPostInvoice.service.js#create): permite calcular cuánto se ha
+  // facturado de cada línea de presupuesto contra el histórico definitivo.
+  budgetLineNo: {
+    field: 'budget_line_no',
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
+
   codeItem: {
     field: 'item_code',
     type: DataTypes.STRING,

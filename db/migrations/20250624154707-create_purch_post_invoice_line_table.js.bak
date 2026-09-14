@@ -29,6 +29,12 @@ module.exports = {
         type: DataTypes.INTEGER,
         allowNull: false,
       },
+      type: {
+        field: 'type',
+        type: DataTypes.ENUM('PRODUCTO', 'COMENTARIO'),
+        allowNull: false,
+        defaultValue: 'PRODUCTO'
+      },
       codeItem: {
         field: 'item_code',
         type: DataTypes.STRING,
@@ -121,6 +127,7 @@ module.exports = {
     // Limpieza de ENUMS para las líneas
     await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_purch_post_invoice_lines_unit_measure";');
     await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_purch_post_invoice_lines_tax_type";');
+    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_purch_post_invoice_lines_type";');
   }
 };
 */

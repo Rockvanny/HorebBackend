@@ -18,6 +18,7 @@ const unitMeasure = Joi.string()
 const vat = Joi.number().min(0).max(100).precision(4).default(21);
 const amountLine = Joi.number().precision(4);
 const username = Joi.string().allow('', null);
+const type = Joi.string().valid('PRODUCTO', 'COMENTARIO').default('PRODUCTO');
 
 const getSalesPostInvoiceLineSchema = Joi.object({
   id: id.optional(),
@@ -28,6 +29,7 @@ const getSalesPostInvoiceLineSchema = Joi.object({
 const createSalesPostInvoiceLineSchema = Joi.object({
   codeDocument: codeDocument.required(),
   lineNo: lineNo.required(),
+  type: type.optional(),
   codeItem: codeItem.optional(),
   description: description.required(),
   quantity: quantity.required(),

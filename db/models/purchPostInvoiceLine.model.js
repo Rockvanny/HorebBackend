@@ -22,6 +22,14 @@ const purchPostInvoiceLineSchema = {
     type: DataTypes.INTEGER,
   },
 
+  // PRODUCTO/COMENTARIO, heredado de purch_invoice_lines.type al registrar.
+  type: {
+    field: 'type',
+    type: DataTypes.ENUM('PRODUCTO', 'COMENTARIO'),
+    allowNull: false,
+    defaultValue: 'PRODUCTO'
+  },
+
   codeItem: {
     field: 'item_code',
     type: DataTypes.STRING,

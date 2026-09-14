@@ -28,6 +28,17 @@ const purchInvoiceLineSchema = {
     type: DataTypes.INTEGER,
   },
 
+  // PRODUCTO: línea normal con cantidad/precio (validaciones de siempre).
+  // COMENTARIO: solo texto libre en 'description' — el resto de campos se
+  // deshabilita en el frontend y no suma a los totales (ver
+  // libs/taxCalculation.js).
+  type: {
+    field: 'type',
+    type: DataTypes.ENUM('PRODUCTO', 'COMENTARIO'),
+    allowNull: false,
+    defaultValue: 'PRODUCTO'
+  },
+
   codeItem: {
     field: 'item_code',
     type: DataTypes.STRING,
