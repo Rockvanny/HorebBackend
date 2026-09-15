@@ -131,6 +131,12 @@ const salesInvoiceSchema = {
     allowNull: true
   },
 
+  province: {
+    field: 'province',
+    type: DataTypes.STRING,
+    allowNull: true
+  },
+
   status: {
     field: 'status',
     type: DataTypes.ENUM('Abierto', 'Pagado'),

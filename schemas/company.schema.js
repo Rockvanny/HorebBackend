@@ -13,6 +13,7 @@ const phone = Joi.string().allow(null, '');
 const address = Joi.string().allow(null, '');
 const postCode = Joi.string().allow(null, ''); // Mismo nombre que la llave
 const city = Joi.string().allow(null, '');
+const province = Joi.string().allow(null, '');
 const bankName = Joi.string().allow(null, '');
 const iban = Joi.string().allow(null, '');
 const swift = Joi.string().allow(null, '');
@@ -39,6 +40,7 @@ const createCompanySchema = Joi.object({
     address: address.optional(),
     postCode: postCode.optional(),
     city: city.optional(),
+    province: province.optional(),
     bankName: bankName.optional(),
     iban: iban.optional(),
     swift: swift.optional(),
@@ -57,6 +59,7 @@ const updateCompanySchema = Joi.object({
     address: address.optional(),
     postCode: postCode.optional(),
     city: city.optional(),
+    province: province.optional(),
     bankName: bankName.optional(),
     iban: iban.optional(),
     swift: swift.optional(),

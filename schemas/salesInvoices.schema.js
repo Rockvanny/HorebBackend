@@ -22,6 +22,7 @@ const phone = Joi.string().allow('', null);
 const address = Joi.string().allow('', null);
 const postCode = Joi.string().allow('', null);
 const city = Joi.string().allow('', null);
+const province = Joi.string().allow('', null);
 const paymentMethod = Joi.string().valid(
   'Transferencia',
   'Efectivo',
@@ -57,6 +58,7 @@ const createSalesInvoiceSchema = Joi.object({
   address: address.optional(),
   postCode: postCode.optional(),
   city: city.optional(),
+  province: province.optional(),
   paymentMethod: paymentMethod.optional(),
   status: status.optional(),
   paymentMethod: paymentMethod.default('Transferencia'),
@@ -87,6 +89,7 @@ const updateSalesInvoiceSchema = Joi.object({
   address: address.optional(),
   postCode: postCode.optional(),
   city: city.optional(),
+  province: province.optional(),
   paymentMethod: paymentMethod.optional(),
   status: status.optional(),
   paymentMethod: paymentMethod.optional(),

@@ -56,6 +56,16 @@ const CustomerSchema = {
     allowNull: false,
   },
 
+  // Nullable a propósito, a diferencia del resto de campos de dirección:
+  // es un dato nuevo (ver migración) y las filas existentes no lo tienen.
+  // Se rellena como sugerencia opcional desde el código postal (ver
+  // postalCodeSuggestion.js en el frontend), nunca es obligatorio.
+  province: {
+    field: 'province',
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+
   paymentMethod: {
     field: 'payment_method',
     type: DataTypes.ENUM(

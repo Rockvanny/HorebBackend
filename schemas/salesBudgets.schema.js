@@ -17,6 +17,7 @@ const phone = Joi.string().allow('', null);
 const address = Joi.string().allow('', null);
 const postCode = Joi.string().allow('', null);
 const city = Joi.string().allow('', null);
+const province = Joi.string().allow('', null);
 const status = Joi.string().default('Borrador');
 const paymentMethod = Joi.string().valid(
   'Transferencia',
@@ -66,6 +67,7 @@ const createSalesBudgetSchema = Joi.object({
   address: address.optional(),
   postCode: postCode.optional(),
   city: city.optional(),
+  province: province.optional(),
   status: status.optional(),
   paymentMethod: paymentMethod.default('Transferencia'),
   comments: comments.optional(),
@@ -95,6 +97,7 @@ const updateSalesBudgetSchema = Joi.object({
   address: address.optional(),
   postCode: postCode.optional(),
   city: city.optional(),
+  province: province.optional(),
   status: status.optional(),
   paymentMethod: paymentMethod.optional(),
   comments: comments.optional(),

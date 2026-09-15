@@ -72,6 +72,10 @@ const salesBudgetSchema = {
     field: 'city',
     type: DataTypes.STRING
   },
+  province: {
+    field: 'province',
+    type: DataTypes.STRING
+  },
   status: {
     field: 'status',
     type: DataTypes.ENUM('Borrador', 'Enviado', 'Aprobado', 'Rechazado'),

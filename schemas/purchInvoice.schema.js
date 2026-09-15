@@ -22,6 +22,7 @@ const phone = Joi.string().allow('', null);
 const address = Joi.string().allow('', null); // Igualado a Ventas (Opcional)
 const postCode = Joi.string().allow('', null);
 const city = Joi.string().allow('', null);
+const province = Joi.string().allow('', null);
 
 const paymentMethod = Joi.string().valid(
   'Transferencia',
@@ -78,6 +79,7 @@ const createPurchInvoiceSchema = Joi.object({
   address: address.optional(),
   postCode: postCode.optional(),
   city: city.optional(),
+  province: province.optional(),
 
   // Específicos de Compras bien estructurados
   category: category.required(),
@@ -114,6 +116,7 @@ const updatePurchInvoiceSchema = Joi.object({
   address: address.optional(),
   postCode: postCode.optional(),
   city: city.optional(),
+  province: province.optional(),
 
   // Específicos de Compras
   category: category.optional(),

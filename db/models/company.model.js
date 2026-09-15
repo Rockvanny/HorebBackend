@@ -50,6 +50,11 @@ const CompanySchema = {
     type: DataTypes.STRING,
   },
 
+  province: {
+    field: 'province',
+    type: DataTypes.STRING,
+  },
+
   bankName: {
     field: 'bank_name', // Mantenemos el mapeo a la columna de la DB si es necesario
     type: DataTypes.STRING,

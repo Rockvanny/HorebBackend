@@ -8,6 +8,7 @@ const phone = Joi.string();
 const address = Joi.string();
 const postCode = Joi.string();
 const city = Joi.string();
+const province = Joi.string().allow('', null);
 // Mismo set que operatingExpenses.schema.js#category: un proveedor se usa
 // tanto en compras de obra como en gasto interno recurrente (luz, alquiler,
 // nóminas...), ver db/models/vendor.model.js.
@@ -48,6 +49,7 @@ const createVendorSchema = Joi.object({
   address: address.required(),
   postCode: postCode.required(),
   city: city.required(),
+  province: province.optional(),
   category: category.required(),
   paymentMethod: paymentMethod.default('Transferencia'),
 });
@@ -60,6 +62,7 @@ const updateVendorSchema = Joi.object({
   address: address.required(),
   postCode: postCode.required(),
   city: city.required(),
+  province: province.optional(),
   category: category.optional(),
   paymentMethod: paymentMethod.optional(),
 });

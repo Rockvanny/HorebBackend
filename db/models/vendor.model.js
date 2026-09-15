@@ -58,6 +58,16 @@ const VendorSchema = {
     allowNull: false,
   },
 
+  // Nullable a propósito, a diferencia del resto de campos de dirección:
+  // es un dato nuevo (ver migración) y las filas existentes no lo tienen.
+  // Se rellena como sugerencia opcional desde el código postal (ver
+  // postalCodeSuggestion.js en el frontend), nunca es obligatorio.
+  province: {
+    field: 'province',
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+
   // Compartido byte a byte con OperatingExpensesSchema.category (mismo enum
   // en Postgres, ver migración 20260914195102-align_vendor_category_enum):
   // un proveedor se usa tanto para compras de obra como para gasto interno
