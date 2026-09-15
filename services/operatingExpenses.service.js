@@ -1,6 +1,7 @@
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
 const { models } = require('../libs/sequelize');
+const { isExpenseMonthClosed } = require('../libs/monthClose.helper');
 
 class OperatingExpensesService {
   constructor() { }
@@ -69,6 +70,7 @@ class OperatingExpensesService {
 
   async update(id, changes, userExecutor) {
     const expense = await this.findOne(id);
+    this.assertEditable(expense);
 
     // Si los cambios incluyen importes, los recalculamos/validamos
     const validatedChanges = this.prepareAndValidateFinancials({
@@ -81,14 +83,23 @@ class OperatingExpensesService {
 
   async delete(id, userExecutor) {
     const expense = await this.findOne(id);
-
-    // Validación de lógica de negocio antes de eliminar
-    if (expense.isValidated) {
-      throw boom.conflict('No se puede eliminar: el gasto ya ha sido validado.');
-    }
+    this.assertEditable(expense);
 
     await expense.destroy({ userExecutor });
     return { id };
+  }
+
+  /**
+   * Un gasto deja de poder tocarse si ya fue validado manualmente, o si su
+   * mes calendario ya finalizó (cierre automático por fecha).
+   */
+  assertEditable(expense) {
+    if (expense.isValidated) {
+      throw boom.conflict('No se puede modificar: el gasto ya ha sido validado.');
+    }
+    if (isExpenseMonthClosed(expense.date)) {
+      throw boom.conflict('No se puede modificar: el mes de este gasto ya ha finalizado.');
+    }
   }
 
   async validatePreviousMonth(userExecutor) {

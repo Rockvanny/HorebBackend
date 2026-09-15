@@ -3,6 +3,7 @@ const passport = require('passport');
 const OperatingExpensesService = require('../services/operatingExpenses.service');
 const validatorHandler = require('../middlewares/validator.handler');
 const { checkAction } = require('../middlewares/auth.handler');
+const { isExpenseMonthClosed } = require('../libs/monthClose.helper');
 const {
   createOperatingExpenseSchema,
   getOperatingExpenseSchema,
@@ -42,7 +43,9 @@ router.get('/:id',
     try {
       const { id } = req.params;
       const expense = await service.findOne(id);
-      res.json(expense);
+      const data = expense.toJSON();
+      data.locked = expense.isValidated || isExpenseMonthClosed(expense.date);
+      res.json(data);
     } catch (error) {
       next(error);
     }
