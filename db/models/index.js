@@ -21,6 +21,8 @@ const { LoginOtp, LoginOtpSchema } = require('./loginOtp.model');
 const { LicenseState, LicenseStateSchema } = require('./licenseState.model');
 const { ModuleConfig, ModuleConfigSchema } = require('./moduleConfig.model');
 const { VerifactuConfig, VerifactuConfigSchema } = require('./verifactuConfig.model');
+const { Notification, NotificationSchema } = require('./notification.model');
+const { MailAccount, MailAccountSchema } = require('./mailAccount.model');
 
 function setupModels(sequelize) {
   // 1. Inicialización de modelos
@@ -47,6 +49,8 @@ function setupModels(sequelize) {
   LicenseState.init(LicenseStateSchema, LicenseState.config(sequelize));
   ModuleConfig.init(ModuleConfigSchema, ModuleConfig.config(sequelize));
   VerifactuConfig.init(VerifactuConfigSchema, VerifactuConfig.config(sequelize));
+  Notification.init(NotificationSchema, Notification.config(sequelize));
+  MailAccount.init(MailAccountSchema, MailAccount.config(sequelize));
 
   // 2. Definición de asociaciones
   Company.associate(sequelize.models);
@@ -68,6 +72,8 @@ function setupModels(sequelize) {
   LoginOtp.associate(sequelize.models);
   ModuleConfig.associate(sequelize.models);
   VerifactuConfig.associate(sequelize.models);
+  Notification.associate(sequelize.models);
+  MailAccount.associate(sequelize.models);
 }
 
 module.exports = setupModels;

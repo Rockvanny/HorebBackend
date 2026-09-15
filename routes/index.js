@@ -28,6 +28,9 @@ const verifactuConfigRouter = require('./verifactuConfig.router');
 const operatingExpenses = require('./operatingExpenses.router');
 const conexionRouter = require('./conexion.router');
 const authRouter = require('./auth.router');
+const notificationsRouter = require('./notifications.router');
+const mailAccountsRouter = require('./mailAccounts.router');
+const mailRouter = require('./mail.router');
 
 // Rutas internas que no apuntan a tablas
 const statsRouter = require('./stats.router');
@@ -70,6 +73,9 @@ function routerApi(app) {
   router.use('/enums', enumsRouter);
   router.use('/conexion', conexionRouter);
   router.use('/auth', authRouter);
+  router.use('/notifications', notificationsRouter);
+  router.use('/mail-accounts', mailAccountsRouter);
+  router.use('/mail', mailRouter);
 }
 
 module.exports = routerApi;
