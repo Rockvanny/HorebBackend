@@ -77,6 +77,15 @@ const MailAccountSchema = {
     defaultValue: true,
   },
 
+  // Firma de texto que el frontend añade al pie de correos nuevos/respuestas
+  // (ver mailAccount.service.js#updateSignature). Se edita aparte del resto
+  // de la cuenta: no requiere volver a probar IMAP/SMTP para guardarla.
+  signature: {
+    field: 'signature',
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+
   // Cifrado en reposo con libs/crypto.js (AES-256-GCM), igual que
   // verifactuConfig.apiSecret. Nunca se expone en claro por la API.
   passwordEncrypted: {

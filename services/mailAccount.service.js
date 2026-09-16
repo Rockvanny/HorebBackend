@@ -91,6 +91,17 @@ class MailAccountService {
     return this.#findRawForUser(userCode);
   }
 
+  /**
+   * Firma editable aparte del resto de la cuenta: a diferencia de
+   * saveForUser(), no requiere contraseña ni vuelve a probar IMAP/SMTP -es
+   * solo texto que el frontend añade al pie de los correos que se envían-.
+   */
+  async updateSignature(userCode, signature) {
+    const account = await this.#findRawForUser(userCode);
+    await account.update({ signature });
+    return this.#toSafeJSON(account);
+  }
+
   async updateLastSeenUid(userCode, lastSeenUid) {
     await models.MailAccount.update(
       { lastSeenUid, lastCheckedAt: new Date() },

@@ -2,7 +2,7 @@ const express = require('express');
 const passport = require('passport');
 const MailAccountService = require('../services/mailAccount.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { createMailAccountSchema } = require('../schemas/mailAccount.schema');
+const { createMailAccountSchema, updateSignatureSchema } = require('../schemas/mailAccount.schema');
 
 const router = express.Router();
 const service = new MailAccountService();
@@ -29,6 +29,19 @@ router.post('/me',
   async (req, res, next) => {
     try {
       const account = await service.saveForUser(req.user.code, req.body);
+      res.json(account);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.put('/me/signature',
+  passport.authenticate('jwt', { session: false }),
+  validatorHandler(updateSignatureSchema, 'body'),
+  async (req, res, next) => {
+    try {
+      const account = await service.updateSignature(req.user.code, req.body.signature);
       res.json(account);
     } catch (error) {
       next(error);

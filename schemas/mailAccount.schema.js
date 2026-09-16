@@ -21,6 +21,10 @@ const getMailMessageSchema = Joi.object({
   uid: Joi.number().integer().required(),
 });
 
+const updateSignatureSchema = Joi.object({
+  signature: Joi.string().allow('').max(5000).required(),
+});
+
 const sendMailSchema = Joi.object({
   to: Joi.string().email().required(),
   subject: Joi.string().allow('').max(500).required(),
@@ -33,5 +37,6 @@ module.exports = {
   createMailAccountSchema,
   queryMailSchema,
   getMailMessageSchema,
+  updateSignatureSchema,
   sendMailSchema,
 };
