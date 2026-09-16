@@ -1,10 +1,13 @@
 const express = require('express');
+const passport = require('passport');
 const UtilsService = require('../services/util.service');
 const router = express.Router();
 const service = new UtilsService();
 
 // Ejemplo: /api/v1/enums/purchInvoice/paymentMethod
-router.get('/:model/:field', async (req, res, next) => {
+router.get('/:model/:field',
+  passport.authenticate('jwt', { session: false }),
+  async (req, res, next) => {
     try {
         const { model, field } = req.params;
         const values = await service.getEnumValues(model, field);
