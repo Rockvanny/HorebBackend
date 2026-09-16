@@ -7,6 +7,9 @@ const createMailAccountSchema = Joi.object({
   imapHost: Joi.string().min(3).max(255).required(),
   imapPort: Joi.number().integer().min(1).max(65535).default(993),
   imapSecure: Joi.boolean().default(true),
+  smtpHost: Joi.string().min(3).max(255).required(),
+  smtpPort: Joi.number().integer().min(1).max(65535).default(465),
+  smtpSecure: Joi.boolean().default(true),
 });
 
 const queryMailSchema = Joi.object({
@@ -18,4 +21,17 @@ const getMailMessageSchema = Joi.object({
   uid: Joi.number().integer().required(),
 });
 
-module.exports = { createMailAccountSchema, queryMailSchema, getMailMessageSchema };
+const sendMailSchema = Joi.object({
+  to: Joi.string().email().required(),
+  subject: Joi.string().allow('').max(500).required(),
+  html: Joi.string().allow('').required(),
+  inReplyTo: Joi.string().max(998).optional(),
+  references: Joi.string().max(998).optional(),
+});
+
+module.exports = {
+  createMailAccountSchema,
+  queryMailSchema,
+  getMailMessageSchema,
+  sendMailSchema,
+};

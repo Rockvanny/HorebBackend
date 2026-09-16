@@ -54,6 +54,29 @@ const MailAccountSchema = {
     allowNull: false,
   },
 
+  // Servidor de correo saliente, para responder/redactar desde la bandeja
+  // (ver services/mail.service.js#sendMail). Mismas credenciales que IMAP
+  // (username/passwordEncrypted), como es habitual en este tipo de proveedor.
+  smtpHost: {
+    field: 'smtp_host',
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+
+  smtpPort: {
+    field: 'smtp_port',
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    defaultValue: 465,
+  },
+
+  smtpSecure: {
+    field: 'smtp_secure',
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: true,
+  },
+
   // Cifrado en reposo con libs/crypto.js (AES-256-GCM), igual que
   // verifactuConfig.apiSecret. Nunca se expone en claro por la API.
   passwordEncrypted: {

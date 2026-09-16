@@ -1,13 +1,14 @@
 const { ImapFlow } = require('imapflow');
 const { simpleParser } = require('mailparser');
+const nodemailer = require('nodemailer');
 const boom = require('@hapi/boom');
 const cryptoHelper = require('../libs/crypto');
 
 /**
- * Acceso IMAP de solo lectura a la bandeja de entrada de la cuenta de correo
- * personal del usuario (ver services/mailAccount.service.js). No hay cron:
- * cada operación abre y cierra su propia conexión, disparada bajo demanda
- * desde el frontend (ver routes/mail.router.js).
+ * Acceso IMAP (lectura) y SMTP (envío) a la cuenta de correo personal del
+ * usuario (ver services/mailAccount.service.js). No hay cron: cada operación
+ * abre y cierra su propia conexión, disparada bajo demanda desde el frontend
+ * (ver routes/mail.router.js).
  */
 class MailService {
   #buildClient({ imapHost, imapPort, imapSecure, username, password }) {
@@ -17,6 +18,15 @@ class MailService {
       secure: imapSecure,
       auth: { user: username, pass: password },
       logger: false,
+    });
+  }
+
+  #buildSmtpTransport({ smtpHost, smtpPort, smtpSecure, username, password }) {
+    return nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpSecure,
+      auth: { user: username, pass: password },
     });
   }
 
@@ -39,6 +49,50 @@ class MailService {
       try { await client.logout(); } catch (_) { /* conexión ya caída, no pasa nada */ }
     }
     return true;
+  }
+
+  /**
+   * Prueba las credenciales SMTP (correo saliente), igual que
+   * testConnection() hace con IMAP: se usa al dar de alta o cambiar la
+   * cuenta, antes de guardar nada.
+   */
+  async testSmtpConnection(credentials) {
+    const transport = this.#buildSmtpTransport(credentials);
+    try {
+      await transport.verify();
+    } catch (error) {
+      throw boom.badRequest(`No se pudo conectar con el servidor de correo saliente: ${error.message}`);
+    }
+    return true;
+  }
+
+  /**
+   * Envía un correo (nuevo o respuesta) desde la cuenta personal del
+   * usuario. `inReplyTo`/`references` son opcionales, para hilos de
+   * respuesta (ver RFC 5322).
+   */
+  async sendMail(mailAccount, { to, subject, html, text, inReplyTo, references }) {
+    const transport = this.#buildSmtpTransport({
+      smtpHost: mailAccount.smtpHost,
+      smtpPort: mailAccount.smtpPort,
+      smtpSecure: mailAccount.smtpSecure,
+      username: mailAccount.username,
+      password: cryptoHelper.decrypt(mailAccount.passwordEncrypted),
+    });
+
+    try {
+      return await transport.sendMail({
+        from: mailAccount.email,
+        to,
+        subject,
+        html,
+        text,
+        inReplyTo,
+        references,
+      });
+    } catch (error) {
+      throw boom.badGateway(`Error enviando el correo: ${error.message}`);
+    }
   }
 
   async #withAccountClient(mailAccount, fn) {
@@ -109,6 +163,9 @@ class MailService {
         date: parsed.date || null,
         html: parsed.html || null,
         text: parsed.text || '',
+        // Para hilos de respuesta (ver sendMail): References = históricas + este mensaje.
+        messageId: parsed.messageId || null,
+        references: [...(parsed.references || []), ...(parsed.messageId ? [parsed.messageId] : [])].join(' '),
       };
     });
   }

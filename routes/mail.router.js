@@ -4,7 +4,7 @@ const MailService = require('../services/mail.service');
 const MailAccountService = require('../services/mailAccount.service');
 const NotificationsService = require('../services/notifications.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { queryMailSchema, getMailMessageSchema } = require('../schemas/mailAccount.schema');
+const { queryMailSchema, getMailMessageSchema, sendMailSchema } = require('../schemas/mailAccount.schema');
 
 const router = express.Router();
 const mailService = new MailService();
@@ -61,6 +61,20 @@ router.post('/check-new',
       }
 
       res.json({ newCount: newMessages.length });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.post('/send',
+  passport.authenticate('jwt', { session: false }),
+  validatorHandler(sendMailSchema, 'body'),
+  async (req, res, next) => {
+    try {
+      const account = await mailAccountService.getRawForUser(req.user.code);
+      const info = await mailService.sendMail(account, req.body);
+      res.json({ messageId: info.messageId });
     } catch (error) {
       next(error);
     }

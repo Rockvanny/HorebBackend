@@ -40,12 +40,22 @@ class MailAccountService {
       ...raw,
       imapPort: raw.imapPort ?? 993,
       imapSecure: raw.imapSecure ?? true,
+      smtpPort: raw.smtpPort ?? 465,
+      smtpSecure: raw.smtpSecure ?? true,
     };
 
     await mailService.testConnection({
       imapHost: rest.imapHost,
       imapPort: rest.imapPort,
       imapSecure: rest.imapSecure,
+      username: rest.username,
+      password,
+    });
+
+    await mailService.testSmtpConnection({
+      smtpHost: rest.smtpHost,
+      smtpPort: rest.smtpPort,
+      smtpSecure: rest.smtpSecure,
       username: rest.username,
       password,
     });
