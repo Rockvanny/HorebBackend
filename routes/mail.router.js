@@ -65,9 +65,38 @@ router.get('/messages/:uid',
 );
 
 /**
+ * Badge propio del icono de correo (ver main.js del frontend): ya no pasa
+ * por la campana general, así que necesita su propio contador de no leídas.
+ */
+router.get('/unread-count',
+  passport.authenticate('jwt', { session: false }),
+  async (req, res, next) => {
+    try {
+      const result = await notificationsService.unreadCountByType(req.user.code, 'NEW_EMAIL');
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/** Al abrir el buzón (o su icono) se dan por vistas las notificaciones de correo nuevo, y el badge se limpia. */
+router.post('/notifications/read-all',
+  passport.authenticate('jwt', { session: false }),
+  async (req, res, next) => {
+    try {
+      const result = await notificationsService.markAllReadByType(req.user.code, 'NEW_EMAIL');
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
  * Disparado bajo demanda desde el frontend (no hay cron): revisa si hay
  * mensajes nuevos desde el último `lastSeenUid` y los convierte en
- * notificaciones de la campana.
+ * notificaciones (badge del icono de correo, ver /unread-count arriba).
  */
 router.post('/check-new',
   passport.authenticate('jwt', { session: false }),

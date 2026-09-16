@@ -10,12 +10,13 @@ const { getMonthEndReviewStatus } = require('../libs/monthClose.helper');
  * para no duplicar avisos ya creados.
  */
 class NotificationsService {
-  async findForUser(userCode, { limit = 20, offset = 0, onlyUnread = false } = {}) {
+  async findForUser(userCode, { limit = 20, offset = 0, onlyUnread = false, excludeTypes = [] } = {}) {
     const parsedLimit = parseInt(limit, 10) || 20;
     const parsedOffset = parseInt(offset, 10) || 0;
 
     const where = { recipientUser: userCode };
     if (onlyUnread) where.isRead = false;
+    if (excludeTypes.length) where.type = { [Op.notIn]: excludeTypes };
 
     const { count, rows } = await models.Notification.findAndCountAll({
       where,
@@ -31,8 +32,16 @@ class NotificationsService {
     };
   }
 
-  async unreadCount(userCode) {
-    const count = await models.Notification.count({ where: { recipientUser: userCode, isRead: false } });
+  async unreadCount(userCode, { excludeTypes = [] } = {}) {
+    const where = { recipientUser: userCode, isRead: false };
+    if (excludeTypes.length) where.type = { [Op.notIn]: excludeTypes };
+    const count = await models.Notification.count({ where });
+    return { count };
+  }
+
+  /** Usado por el icono de correo (badge propio, ver mail.router.js), que ya no pasa por la campana. */
+  async unreadCountByType(userCode, type) {
+    const count = await models.Notification.count({ where: { recipientUser: userCode, isRead: false, type } });
     return { count };
   }
 
@@ -47,6 +56,14 @@ class NotificationsService {
     await models.Notification.update(
       { isRead: true },
       { where: { recipientUser: userCode, isRead: false } }
+    );
+    return { success: true };
+  }
+
+  async markAllReadByType(userCode, type) {
+    await models.Notification.update(
+      { isRead: true },
+      { where: { recipientUser: userCode, isRead: false, type } }
     );
     return { success: true };
   }

@@ -11,11 +11,15 @@ const service = new NotificationsService();
 // notificaciones de otro usuario), así que no hace falta pasar por
 // checkAction/checkRole del sistema de permisos por módulo.
 
+// El correo nuevo ya no se muestra en la campana: tiene su propio icono con
+// su propio badge (ver GET /mail/unread-count en mail.router.js).
+const BELL_EXCLUDED_TYPES = ['NEW_EMAIL'];
+
 router.get('/unread-count',
   passport.authenticate('jwt', { session: false }),
   async (req, res, next) => {
     try {
-      const result = await service.unreadCount(req.user.code);
+      const result = await service.unreadCount(req.user.code, { excludeTypes: BELL_EXCLUDED_TYPES });
       res.json(result);
     } catch (error) {
       next(error);
@@ -46,7 +50,7 @@ router.get('/',
 
       const { limit, offset } = req.query;
       const onlyUnread = req.query.onlyUnread === 'true';
-      const result = await service.findForUser(req.user.code, { limit, offset, onlyUnread });
+      const result = await service.findForUser(req.user.code, { limit, offset, onlyUnread, excludeTypes: BELL_EXCLUDED_TYPES });
       res.json(result);
     } catch (error) {
       next(error);
