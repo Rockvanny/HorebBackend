@@ -163,10 +163,22 @@ class SalesPostInvoiceService {
       }
 
       // 4. Actualización de impuestos y Verifactu
-      await DocumentTax.update(
+      // Camino normal: reclasificamos las filas de DocumentTax que ya creó el
+      // borrador (mismo movementId) en vez de duplicarlas -conserva su id/
+      // created_at-. Pero si no había ninguna fila que reclasificar (ej. un
+      // registro creado sin pasar por la creación normal del borrador), el
+      // histórico se quedaba para siempre sin desglose de impuestos aunque
+      // las líneas sí tuvieran IVA -confirmado en producción-: si el UPDATE
+      // no tocó ninguna fila, se insertan aquí mismo las ya calculadas en
+      // `totals.taxesToInsert`, para que el histórico nunca dependa de que
+      // el borrador previo hiciera bien su parte.
+      const [reclassified] = await DocumentTax.update(
         { codeDocument: 'salespostinvoices' },
         { where: { movementId: newPostInvoice.movementId }, transaction }
       );
+      if (reclassified === 0 && totals.taxesToInsert && totals.taxesToInsert.length > 0) {
+        await DocumentTax.bulkCreate(totals.taxesToInsert, { transaction });
+      }
 
       // Veri*factu es un módulo activable (ver services/moduleConfig.service.js
       // y la tabla module_config): si está desactivado, la factura se registra

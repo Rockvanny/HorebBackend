@@ -150,10 +150,21 @@ class PurchPostInvoiceService {
       }
 
       // 4. Actualización de impuestos
-      await DocumentTax.update(
+      // Camino normal: reclasificamos las filas de DocumentTax que ya creó el
+      // borrador (mismo movementId) en vez de duplicarlas -conserva su id/
+      // created_at-. Pero si no había ninguna fila que reclasificar (ej. un
+      // registro creado sin pasar por la creación normal del borrador), el
+      // histórico se quedaba para siempre sin desglose de impuestos aunque
+      // las líneas sí tuvieran IVA -confirmado en producción, mismo bug que
+      // en salesPostInvoice.service.js-: si el UPDATE no tocó ninguna fila,
+      // se insertan aquí mismo las ya calculadas en `totals.taxesToInsert`.
+      const [reclassified] = await DocumentTax.update(
         { codeDocument: 'purchpostinvoices' },
         { where: { movementId: newPostInvoice.movementId }, transaction }
       );
+      if (reclassified === 0 && totals.taxesToInsert && totals.taxesToInsert.length > 0) {
+        await DocumentTax.bulkCreate(totals.taxesToInsert, { transaction });
+      }
 
       await transaction.commit();
 
