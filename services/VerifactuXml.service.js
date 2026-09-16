@@ -53,6 +53,20 @@ class VerifactuXmlService {
             },
             'sf:NombreRazonEmisor': payload.nombreRazonEmisor,
             'sf:TipoFactura': payload.tipoFactura,
+            // Rectificativas (R1-R5): TipoRectificativa y FacturasRectificadas van
+            // justo aquí en la secuencia -entre TipoFactura y DescripcionOperacion-,
+            // según RegistroFacturacionAltaType (ambos minOccurs="0", se omiten por
+            // completo si la factura no es una rectificativa con origen conocido).
+            ...(payload.tipoRectificativa ? { 'sf:TipoRectificativa': payload.tipoRectificativa } : {}),
+            ...(payload.facturasRectificadas?.length ? {
+              'sf:FacturasRectificadas': {
+                'sf:IDFacturaRectificada': payload.facturasRectificadas.map((f) => ({
+                  'sf:IDEmisorFactura': f.idEmisorFactura,
+                  'sf:NumSerieFactura': f.numSerieFactura,
+                  'sf:FechaExpedicionFactura': f.fechaExpedicionFactura,
+                }))
+              }
+            } : {}),
             'sf:DescripcionOperacion': payload.descripcionOperacion,
             'sf:Desglose': {
               'sf:DetalleDesglose': payload.desglose.map((d) => ({

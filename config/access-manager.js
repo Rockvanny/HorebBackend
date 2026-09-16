@@ -14,11 +14,11 @@ const MODULE_HIERARCHY = {
   },
   SALES: {
     field: 'allowSales',
-    objects: ['salesBudgets', 'salesInvoices', 'salesOverdueInvoices', 'salesPostInvoices', 'verifactuLogs']
+    objects: ['salesBudgets', 'salesInvoices', 'salesOverdueInvoices', 'salesPostInvoices', 'salesCreditNotes', 'verifactuLogs']
   },
   PURCHASES: {
     field: 'allowPurchases',
-    objects: ['purchInvoices', 'purchOverDueInvoices', 'purchPostInvoices']
+    objects: ['purchInvoices', 'purchOverDueInvoices', 'purchPostInvoices', 'purchCreditNotes']
   },
   SETUP: {
     field: 'allowSettings',

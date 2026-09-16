@@ -33,12 +33,19 @@ router.get('/purchPostInvoices-paginated',
     checkAction('VIEW_PURCHPOSTINVOICES'),
     async(req, res, next) => {
         try {
-            const { limit, offset, searchTerm, overdue } = req.query;
+            const { limit, offset, searchTerm, overdue, creditNotes, invoicesOnly } = req.query;
             const result = await service.findPaginated({
                 limit,
                 offset,
                 searchTerm,
-                filter: overdue === 'true' ? 'overdue' : null
+                // 'creditNotes': solo rectificativas (typeInvoice R1-R5) -> página "Abonos
+                // de compra registrados". 'invoicesOnly': lo contrario, solo F1/F2 -> excluye
+                // los abonos de "Facturas de compra registradas" para no duplicar la
+                // información entre ambas páginas (ver
+                // services/purchPostInvoice.service.js#findPaginated).
+                filter: creditNotes === 'true' ? 'creditNotes'
+                    : invoicesOnly === 'true' ? 'invoicesOnly'
+                    : (overdue === 'true' ? 'overdue' : null)
             });
             res.json(result);
         } catch (error) { next(error); }
@@ -54,6 +61,24 @@ router.get('/',
     try {
       const result = await service.findPaginated(req.query);
       res.json(result);
+    } catch (error) { next(error); }
+  }
+);
+
+/**
+ * Busca facturas REGISTRADAS de un proveedor. Alimenta el selector de
+ * "Factura origen" al crear una rectificativa (ver
+ * services/purchPostInvoice.service.js#findByVendor): una rectificativa
+ * siempre referencia una factura ya registrada, nunca un borrador.
+ */
+router.get('/by-vendor/:entityCode',
+  passport.authenticate('jwt', { session: false }),
+  checkAction('VIEW_PURCHPOSTINVOICES'),
+  async (req, res, next) => {
+    try {
+      const { entityCode } = req.params;
+      const result = await service.findByVendor(entityCode);
+      res.json({ success: true, data: result });
     } catch (error) { next(error); }
   }
 );

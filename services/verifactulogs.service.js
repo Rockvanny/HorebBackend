@@ -190,6 +190,30 @@ class VerifactuService {
         ? invoice.taxes
         : [{ taxPercentage: 21, taxableAmount: invoice.amountWithoutVAT || 0, taxAmount: invoice.amountVAT || 0 }];
 
+      // Rectificativas (R1-R5, ver RegistroFacturacionAltaType): TipoRectificativa
+      // y FacturasRectificadas solo se rellenan cuando la factura referencia una
+      // factura origen (invoice.parentCode) ya registrada -si el usuario marcó
+      // R1-R5 pero no seleccionó origen, se envía igualmente pero sin estos
+      // bloques, tal como permite el esquema (minOccurs="0" en ambos).
+      let tipoRectificativa;
+      let facturasRectificadas;
+      if (tipoFactura.startsWith('R') && invoice.parentCode) {
+        const parentInvoice = await salesPostInvoice.findOne({
+          where: { code: invoice.parentCode },
+          transaction: t
+        });
+        if (parentInvoice) {
+          // 'I' (Incremental/por diferencias) como valor por defecto si el
+          // usuario no especificó S/Sustitutiva -es el caso más común-.
+          tipoRectificativa = invoice.rectificationType || 'I';
+          facturasRectificadas = [{
+            idEmisorFactura: nif,
+            numSerieFactura: parentInvoice.code,
+            fechaExpedicionFactura: toFechaAEAT(parentInvoice.postingDate),
+          }];
+        }
+      }
+
       const payload = {
         idVersion: '1.0',
         idFactura: {
@@ -199,6 +223,8 @@ class VerifactuService {
         },
         nombreRazonEmisor: (company.name || '').trim(),
         tipoFactura,
+        ...(tipoRectificativa ? { tipoRectificativa } : {}),
+        ...(facturasRectificadas ? { facturasRectificadas } : {}),
         descripcionOperacion,
         // Impuesto "01" (IVA) y CalificacionOperacion "S1" (sujeta y no
         // exenta, sin inversión del sujeto pasivo): el caso general de una

@@ -56,6 +56,27 @@ class salesInvoiceService {
     return record;
   }
 
+  /**
+   * Busca facturas (borrador) por código de cliente. Equivalente exacto a
+   * purchInvoice.service.js#findByVendor -antes no existía, y la ruta
+   * GET /salesInvoices/by-customer/:entityCode que la invoca devolvía un
+   * 500 en cuanto se llamaba-.
+   */
+  async findByCustomer(entityCode) {
+    if (!entityCode || entityCode === 'undefined' || entityCode === 'null') {
+      return [];
+    }
+
+    try {
+      return await salesInvoice.findAll({
+        where: { entityCode },
+        order: [['createdAt', 'DESC']]
+      });
+    } catch (error) {
+      throw boom.badImplementation('Error al buscar facturas por cliente', error);
+    }
+  }
+
   async create(data, userId) {
     const { lines: rawLines, ...headerData } = data;
     const transaction = await sequelize.transaction();

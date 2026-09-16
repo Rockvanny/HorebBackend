@@ -11,8 +11,13 @@ const {
   DocumentTax // Tabla universal de impuestos
 } = sequelize.models;
 
+// Facturas rectificativas (abonos): ClaveTipoFacturaType R1-R5, ver
+// resources/verifactu-xsd/SuministroInformacion.xsd. Mismo criterio que
+// salesPostInvoice.service.js#CREDIT_NOTE_TYPES.
+const CREDIT_NOTE_TYPES = ['R1', 'R2', 'R3', 'R4', 'R5'];
+
 class PurchPostInvoiceService {
-  async findPaginated({ limit, offset, searchTerm }) {
+  async findPaginated({ limit, offset, searchTerm, filter }) {
     const parsedLimit = parseInt(limit, 10) || 100;
     const parsedOffset = parseInt(offset, 10) || 0;
 
@@ -22,6 +27,18 @@ class PurchPostInvoiceService {
       order: [['created_at', 'DESC']],
       where: {}
     };
+
+    // 'creditNotes': alimenta la página "Abonos de compra registrados" del
+    // sidebar -misma tabla que las facturas registradas, filtrada por
+    // typeInvoice (ver document-schema.mjs#purchCreditNotes). 'invoicesOnly'
+    // es el complemento: alimenta "Facturas de compra registradas"
+    // excluyendo los abonos, para que no aparezcan duplicados en ambas
+    // páginas.
+    if (filter === 'creditNotes') {
+      options.where.typeInvoice = { [Op.in]: CREDIT_NOTE_TYPES };
+    } else if (filter === 'invoicesOnly') {
+      options.where.typeInvoice = { [Op.notIn]: CREDIT_NOTE_TYPES };
+    }
 
     if (searchTerm) {
       options.where[Op.or] = [

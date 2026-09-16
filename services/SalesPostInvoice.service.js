@@ -19,8 +19,14 @@ const moduleConfigService = new ModuleConfigService();
 const verifactuConfigService = new VerifactuConfigService();
 const verifactuProviderClient = new VerifactuProviderClient();
 
+// Facturas rectificativas (abonos): ClaveTipoFacturaType R1-R5, ver
+// resources/verifactu-xsd/SuministroInformacion.xsd. Se centraliza aquí
+// porque tanto el filtro de listado (findPaginated) como cualquier otra
+// consulta futura sobre "solo abonos" deben usar exactamente el mismo set.
+const CREDIT_NOTE_TYPES = ['R1', 'R2', 'R3', 'R4', 'R5'];
+
 class SalesPostInvoiceService {
-  async findPaginated({ limit, offset, searchTerm }) {
+  async findPaginated({ limit, offset, searchTerm, filter }) {
     const parsedLimit = parseInt(limit, 10) || 100;
     const parsedOffset = parseInt(offset, 10) || 0;
 
@@ -30,6 +36,18 @@ class SalesPostInvoiceService {
       order: [['created_at', 'DESC']],
       where: {}
     };
+
+    // 'creditNotes': alimenta la página "Abonos de venta registrados" del
+    // sidebar -misma tabla que las facturas registradas, filtrada por
+    // typeInvoice (ver document-schema.mjs#salesCreditNotes). 'invoicesOnly'
+    // es el complemento: alimenta "Facturas de venta registradas"
+    // excluyendo los abonos, para que no aparezcan duplicados en ambas
+    // páginas.
+    if (filter === 'creditNotes') {
+      options.where.typeInvoice = { [Op.in]: CREDIT_NOTE_TYPES };
+    } else if (filter === 'invoicesOnly') {
+      options.where.typeInvoice = { [Op.notIn]: CREDIT_NOTE_TYPES };
+    }
 
     if (searchTerm) {
       options.where[Op.or] = [
