@@ -2,8 +2,21 @@ const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
 const sequelize = require('../libs/sequelize');
 const generateVerifactuHash = require('../libs/hasInvoice');
+const { toFechaAEAT, toFechaHoraHusoAEAT } = require('../libs/verifactuDates');
+const { getMachineFingerprint } = require('../libs/fingerprint');
 
-const { VerifactuLog, salesPostInvoice, DocumentTax, Company } = sequelize.models;
+const { VerifactuLog, salesPostInvoice, salesPostInvoiceLine, DocumentTax, Company } = sequelize.models;
+
+// Identidad del sistema informático (SistemaInformatico en el XML): quién
+// desarrolla el software, no la empresa que factura. Ver
+// resources/verifactu-xsd/SuministroInformacion.xsd#SistemaInformaticoType.
+const SISTEMA_INFORMATICO = {
+  nombreRazon: 'HOREB',
+  nif: '55821164A',
+  nombreSistemaInformatico: 'HOREB',
+  idSistemaInformatico: '01',
+  version: '1.0.0',
+};
 
 class VerifactuService {
   constructor() { }
@@ -19,17 +32,14 @@ class VerifactuService {
       ? "https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR"
       : "https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR";
 
-    // payload.factura.fecha_emision se guarda en ISO (YYYY-MM-DD) para el
-    // XML/auditoría; la AEAT exige DD-MM-YYYY en el QR, así que se
-    // reformatea solo aquí, sin tocar el payload persistido.
-    const [year, month, day] = String(payload.factura.fecha_emision).split('-');
-    const fechaQR = (year && month && day) ? `${day}-${month}-${year}` : payload.factura.fecha_emision;
-
+    // payload.idFactura.fechaExpedicionFactura ya está en DD-MM-YYYY (ver
+    // libs/verifactuDates.js), el mismo formato que exige el QR -no hace
+    // falta reformatear nada aquí-.
     const params = new URLSearchParams({
-      nif: payload.emisor.nif,
-      numserie: payload.factura.numero_serie,
-      fecha: fechaQR,
-      importe: payload.factura.importe_total
+      nif: payload.idFactura.idEmisorFactura,
+      numserie: payload.idFactura.numSerieFactura,
+      fecha: payload.idFactura.fechaExpedicionFactura,
+      importe: payload.importeTotal
     });
     return `${baseUrl}?${params.toString()}`;
   }
@@ -100,6 +110,11 @@ class VerifactuService {
     }
   }
 
+  /**
+   * `payload` refleja 1:1 la estructura real de RegistroFacturacionAltaType
+   * (ver resources/verifactu-xsd/SuministroInformacion.xsd), para que
+   * VerifactuXml.service.js pueda volcarlo al XML sin reinterpretar nada.
+   */
   async createLog(invoiceCode, isTest = false, transaction = null) {
     const t = transaction || await sequelize.transaction();
     try {
@@ -108,7 +123,10 @@ class VerifactuService {
 
       const invoice = await salesPostInvoice.findOne({
         where: { code: invoiceCode },
-        include: [{ model: DocumentTax, as: 'taxes' }],
+        include: [
+          { model: DocumentTax, as: 'taxes' },
+          { model: salesPostInvoiceLine, as: 'lines' }
+        ],
         transaction: t
       });
 
@@ -119,44 +137,99 @@ class VerifactuService {
         transaction: t
       });
 
+      const nif = (company.vatRegistration || '').trim().toUpperCase();
+      const fechaExpedicionFactura = toFechaAEAT(invoice.postingDate);
+      const fechaHoraHusoGenRegistro = toFechaHoraHusoAEAT();
+      const tipoFactura = invoice.typeInvoice || 'F1';
+      const cuotaTotal = parseFloat(invoice.amountVAT || 0).toFixed(2);
+      const importeTotal = parseFloat(invoice.amountWithVAT || 0).toFixed(2);
       const prevFingerprint = lastLog ? lastLog.fingerprint : null;
-      const fingerprint = generateVerifactuHash(invoice, prevFingerprint);
-      const now = new Date();
 
-      const dateStr = invoice.postingDate instanceof Date
-        ? invoice.postingDate.toISOString().split('T')[0]
-        : invoice.postingDate;
+      // Huella: algoritmo oficial exacto (ver libs/hasInvoice.js), verificado
+      // contra los ejemplos publicados por la AEAT. huellaAnterior vacía (no
+      // "0" repetido) si es el primer registro de la cadena -así lo exige la
+      // especificación-.
+      const fingerprint = generateVerifactuHash({
+        idEmisorFactura: nif,
+        numSerieFactura: invoice.code,
+        fechaExpedicionFactura,
+        tipoFactura,
+        cuotaTotal,
+        importeTotal,
+        huellaAnterior: prevFingerprint || '',
+        fechaHoraHusoGenRegistro,
+      });
+
+      // Encadenamiento: el primer registro de la cadena no tiene "registro
+      // anterior" (PrimerRegistro="S", ver RegistroFacturacionAltaType); el
+      // resto referencia NIF/serie/fecha/huella del registro justo anterior.
+      // La fecha se recupera del propio payload guardado en su momento (no
+      // hay que volver a consultar esa factura anterior).
+      const encadenamiento = lastLog
+        ? {
+          registroAnterior: {
+            idEmisorFactura: nif,
+            numSerieFactura: lastLog.invoiceCode,
+            fechaExpedicionFactura: lastLog.payload?.idFactura?.fechaExpedicionFactura || fechaExpedicionFactura,
+            huella: lastLog.fingerprint,
+          }
+        }
+        : { primerRegistro: 'S' };
+
+      // DescripcionOperacion es obligatorio y no hay un campo de "descripción
+      // de la operación" propio en la cabecera de la factura: se construye a
+      // partir de las líneas (mejor esfuerzo, revisable) o de las notas, con
+      // un texto genérico como último recurso.
+      const descripcionOperacion = (
+        (invoice.lines || []).map((line) => line.description).filter(Boolean).join('; ')
+        || invoice.comments
+        || `Factura ${invoice.code}`
+      ).trim().slice(0, 500);
+
+      const taxLines = invoice.taxes && invoice.taxes.length > 0
+        ? invoice.taxes
+        : [{ taxPercentage: 21, taxableAmount: invoice.amountWithoutVAT || 0, taxAmount: invoice.amountVAT || 0 }];
 
       const payload = {
-        sistema_informatico: {
-          nombre: "HOREB",
-          version: "1.0.0",
-          nif_desarrollador: "55821164A"
+        idVersion: '1.0',
+        idFactura: {
+          idEmisorFactura: nif,
+          numSerieFactura: invoice.code,
+          fechaExpedicionFactura,
         },
-        tipo_registro: "ALTA",
-        timestamp: now.toISOString(),
-        emisor: {
-          nif: (company.vatRegistration || '').trim().toUpperCase(),
-          nombre: (company.name || '').trim()
+        nombreRazonEmisor: (company.name || '').trim(),
+        tipoFactura,
+        descripcionOperacion,
+        // Impuesto "01" (IVA) y CalificacionOperacion "S1" (sujeta y no
+        // exenta, sin inversión del sujeto pasivo): el caso general de una
+        // venta nacional con IVA repercutido -no cubre exportaciones,
+        // operaciones exentas ni inversión del sujeto pasivo-.
+        desglose: taxLines.map((tax) => ({
+          impuesto: '01',
+          calificacionOperacion: 'S1',
+          tipoImpositivo: parseFloat(tax.taxPercentage || 0).toFixed(2),
+          baseImponibleOimporteNoSujeto: parseFloat(tax.taxableAmount ?? tax.taxBase ?? 0).toFixed(2),
+          cuotaRepercutida: parseFloat(tax.taxAmount || 0).toFixed(2),
+        })),
+        cuotaTotal,
+        importeTotal,
+        encadenamiento,
+        sistemaInformatico: {
+          ...SISTEMA_INFORMATICO,
+          // Identificador estable de esta instalación (mismo que ata la
+          // licencia, ver libs/fingerprint.js) -no hay un "número de
+          // instalación" registrado en la AEAT todavía, es el mejor
+          // identificador real disponible-.
+          numeroInstalacion: getMachineFingerprint().slice(0, 100),
+          // Este sistema admite operar sin transmitir en tiempo real (modo
+          // local, ver services/verifactuConfig.service.js), así que no es
+          // "exclusivamente Veri*factu".
+          tipoUsoPosibleSoloVerifactu: 'N',
+          tipoUsoPosibleMultiOT: 'N',
+          indicadorMultiplesOT: 'N',
         },
-        factura: {
-          numero_serie: invoice.code,
-          fecha_emision: dateStr,
-          hora_expedicion: now.toTimeString().split(' ')[0],
-          tipo_factura: invoice.typeInvoice || 'F1',
-          cuota_total: parseFloat(invoice.taxAmount || 0).toFixed(2),
-          importe_total: parseFloat(invoice.amountWithVAT || 0).toFixed(2),
-          desglose: (invoice.taxes || []).map(tax => ({
-            clave_regimen: "01",
-            tipo_impuesto: tax.taxType || "IVA",
-            base_imponible: parseFloat(tax.taxableAmount).toFixed(2),
-            tipo_impositivo: parseFloat(tax.taxPercentage).toFixed(2),
-            cuota_repercutida: parseFloat(tax.taxAmount).toFixed(2)
-          }))
-        },
-        encadenamiento: {
-          huella_anterior: prevFingerprint || "0".repeat(64)
-        }
+        fechaHoraHusoGenRegistro,
+        tipoHuella: '01',
       };
 
       const qrData = this.generateQRText(payload, isTest);
@@ -169,7 +242,7 @@ class VerifactuService {
         qrData: qrData,
         payload: payload, // Sequelize manejará el JSONB
         isTest: isTest,
-        createdAt: now
+        createdAt: new Date()
       }, { transaction: t });
 
       if (!transaction) await t.commit();

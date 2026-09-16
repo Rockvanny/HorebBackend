@@ -1,48 +1,86 @@
 const { create } = require('xmlbuilder2');
 
-class VerifactuXmlService {
-  constructor() {}
+// Namespaces reales del esquema oficial (ver resources/verifactu-xsd/):
+// - SFLR_NS: SuministroLR.xsd -SOLO el sobre exterior (RegFactuSistemaFacturacion,
+//   Cabecera, RegistroFactura)-.
+// - SF_NS: SuministroInformacion.xsd -todo lo demás (RegistroAlta y cada
+//   campo dentro), incluido ObligadoEmision dentro de la propia Cabecera-.
+// Un solo namespace para todo (como se hacía antes) no valida: xmllint lo
+// confirma con "No matching global declaration available for the
+// validation root" en cuanto el elemento raíz no está en el namespace que
+// declara su propio esquema.
+const SFLR_NS = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd';
+const SF_NS = 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd';
 
+class VerifactuXmlService {
+  constructor() { }
+
+  /**
+   * `payload` es el objeto guardado en verifactu_logs.payload (ver
+   * services/verifactulogs.service.js#createLog), con la misma forma que
+   * RegistroFacturacionAltaType del esquema oficial -este método solo lo
+   * vuelca a XML, no reinterpreta ni recalcula nada-.
+   */
   generateInvoiceXml(payload, fingerprint) {
-    // Estructura siguiendo el esquema oficial de la AEAT para Veri*factu
+    const encadenamiento = payload.encadenamiento?.primerRegistro
+      ? { 'sf:PrimerRegistro': payload.encadenamiento.primerRegistro }
+      : {
+        'sf:RegistroAnterior': {
+          'sf:IDEmisorFactura': payload.encadenamiento.registroAnterior.idEmisorFactura,
+          'sf:NumSerieFactura': payload.encadenamiento.registroAnterior.numSerieFactura,
+          'sf:FechaExpedicionFactura': payload.encadenamiento.registroAnterior.fechaExpedicionFactura,
+          'sf:Huella': payload.encadenamiento.registroAnterior.huella,
+        }
+      };
+
     const xmlObj = {
-      'vfactu:RegFactuSistemaFacturacion': {
-        '@xmlns:vfactu': 'https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RegFactuSistemaFacturacion.xsd',
-        'vfactu:Cabecera': {
-          'vfactu:ObligadoEmision': {
-            'vfactu:NombreRazon': payload.emisor.nombre,
-            'vfactu:NIF': payload.emisor.nif
+      'sfLR:RegFactuSistemaFacturacion': {
+        '@xmlns:sfLR': SFLR_NS,
+        '@xmlns:sf': SF_NS,
+        'sfLR:Cabecera': {
+          'sf:ObligadoEmision': {
+            'sf:NombreRazon': payload.nombreRazonEmisor,
+            'sf:NIF': payload.idFactura.idEmisorFactura,
           }
         },
-        'vfactu:RegistroFactura': {
-          'vfactu:IDFactura': {
-            'vfactu:SerieNumeroFactura': payload.factura.numero_serie,
-            'vfactu:FechaExpedicionFactura': payload.factura.fecha_emision
-          },
-          'vfactu:NombreRazonExpedidor': payload.emisor.nombre,
-          'vfactu:TipoFactura': payload.factura.tipo_factura,
-          'vfactu:CuotaTotal': payload.factura.cuota_total,
-          'vfactu:ImporteTotal': payload.factura.importe_total,
-          'vfactu:DesgloseIVA': {
-            'vfactu:DetalleIVA': payload.factura.desglose.map(d => ({
-              'vfactu:ClaveRegimen': d.clave_regimen,
-              'vfactu:TipoImpositivo': d.tipo_impositivo,
-              'vfactu:BaseImponible': d.base_imponible,
-              'vfactu:CuotaRepercutida': d.cuota_repercutida
-            }))
-          },
-          'vfactu:Encadenamiento': {
-            'vfactu:RegistroAnterior': {
-              'vfactu:Huella': payload.encadenamiento.huella_anterior
-            }
-          },
-          'vfactu:SistemaInformatico': {
-            'vfactu:Nombre': payload.sistema_informatico.nombre,
-            'vfactu:Version': payload.sistema_informatico.version,
-            'vfactu:NIFDesarrollador': payload.sistema_informatico.nif_desarrollador
-          },
-          'vfactu:FechaHoraHito': payload.timestamp,
-          'vfactu:Huella': fingerprint
+        'sfLR:RegistroFactura': {
+          'sf:RegistroAlta': {
+            'sf:IDVersion': payload.idVersion,
+            'sf:IDFactura': {
+              'sf:IDEmisorFactura': payload.idFactura.idEmisorFactura,
+              'sf:NumSerieFactura': payload.idFactura.numSerieFactura,
+              'sf:FechaExpedicionFactura': payload.idFactura.fechaExpedicionFactura,
+            },
+            'sf:NombreRazonEmisor': payload.nombreRazonEmisor,
+            'sf:TipoFactura': payload.tipoFactura,
+            'sf:DescripcionOperacion': payload.descripcionOperacion,
+            'sf:Desglose': {
+              'sf:DetalleDesglose': payload.desglose.map((d) => ({
+                'sf:Impuesto': d.impuesto,
+                'sf:CalificacionOperacion': d.calificacionOperacion,
+                'sf:TipoImpositivo': d.tipoImpositivo,
+                'sf:BaseImponibleOimporteNoSujeto': d.baseImponibleOimporteNoSujeto,
+                'sf:CuotaRepercutida': d.cuotaRepercutida,
+              }))
+            },
+            'sf:CuotaTotal': payload.cuotaTotal,
+            'sf:ImporteTotal': payload.importeTotal,
+            'sf:Encadenamiento': encadenamiento,
+            'sf:SistemaInformatico': {
+              'sf:NombreRazon': payload.sistemaInformatico.nombreRazon,
+              'sf:NIF': payload.sistemaInformatico.nif,
+              'sf:NombreSistemaInformatico': payload.sistemaInformatico.nombreSistemaInformatico,
+              'sf:IdSistemaInformatico': payload.sistemaInformatico.idSistemaInformatico,
+              'sf:Version': payload.sistemaInformatico.version,
+              'sf:NumeroInstalacion': payload.sistemaInformatico.numeroInstalacion,
+              'sf:TipoUsoPosibleSoloVerifactu': payload.sistemaInformatico.tipoUsoPosibleSoloVerifactu,
+              'sf:TipoUsoPosibleMultiOT': payload.sistemaInformatico.tipoUsoPosibleMultiOT,
+              'sf:IndicadorMultiplesOT': payload.sistemaInformatico.indicadorMultiplesOT,
+            },
+            'sf:FechaHoraHusoGenRegistro': payload.fechaHoraHusoGenRegistro,
+            'sf:TipoHuella': payload.tipoHuella,
+            'sf:Huella': fingerprint,
+          }
         }
       }
     };
