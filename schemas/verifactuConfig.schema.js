@@ -2,6 +2,7 @@ const Joi = require('joi');
 
 const id = Joi.number().integer();
 const useProvider = Joi.boolean();
+const isTest = Joi.boolean();
 const providerName = Joi.string().min(2).max(100);
 const apiBaseUrl = Joi.string().uri().max(255);
 const apiKey = Joi.string().min(3).max(255);
@@ -29,11 +30,13 @@ const providerFields = {
 
 const createVerifactuConfigSchema = Joi.object({
   useProvider: useProvider.default(false),
+  isTest: isTest.default(true),
   ...providerFields,
 });
 
 const updateVerifactuConfigSchema = Joi.object({
   useProvider: useProvider.required(),
+  isTest: isTest.required(),
   ...providerFields,
 }).min(1);
 

@@ -205,6 +205,15 @@ class salesPostInvoice extends Model {
       sourceKey: 'movementId',
       scope: { codeDocument: 'salespostinvoices' }
     });
+
+    // Inversa de VerifactuLog.belongsTo(salesPostInvoice, ...) (ver
+    // verifactuLogs.model.js) -faltaba, así que hasta ahora no se podía
+    // hacer include('verifactuLog') desde el lado de la factura-.
+    this.hasOne(models.VerifactuLog, {
+      as: 'verifactuLog',
+      foreignKey: 'invoiceCode',
+      sourceKey: 'code'
+    });
   }
 
   static config(sequelize) {

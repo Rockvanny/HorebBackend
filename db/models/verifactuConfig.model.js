@@ -29,6 +29,17 @@ const VerifactuConfigSchema = {
     defaultValue: false
   },
 
+  // Entorno de pruebas (prewww2.aeat.es) o producción (agenciatributaria.gob.es)
+  // de la AEAT: afecta al QR (ver services/verifactulogs.service.js#generateQRText)
+  // y a cualquier envío real futuro. true por defecto -hay que desactivarlo
+  // a propósito para operar en producción-.
+  isTest: {
+    field: 'is_test',
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: true
+  },
+
   providerName: {
     field: 'provider_name',
     type: DataTypes.STRING,

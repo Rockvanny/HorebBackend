@@ -56,6 +56,36 @@ const verifactuLogSchema = {
     allowNull: true,
     type: DataTypes.DATE, // Almacena cuándo se descargó/envió el XML
   },
+
+  // --- Preparado para el envío a un proveedor Veri*factu externo (aún sin
+  // implementar, ver services/verifactulogs.service.js#applyProviderResponse) ---
+  status: {
+    field: 'status',
+    allowNull: false,
+    type: DataTypes.ENUM('pending', 'sent', 'accepted', 'rejected'),
+    defaultValue: 'pending',
+  },
+  // Respuesta cruda del proveedor (o, en modo local, se deja sin usar):
+  // formato genérico a propósito, se ajustará cuando se conozca el proveedor real.
+  providerResponse: {
+    field: 'provider_response',
+    allowNull: true,
+    type: DataTypes.JSONB,
+  },
+  // Motivo de rechazo/error, del proveedor o de la propia AEAT.
+  providerError: {
+    field: 'provider_error',
+    allowNull: true,
+    type: DataTypes.TEXT,
+  },
+  // Cuándo se transmitió de verdad (a un proveedor, o al exportar el XML
+  // local) -distinto de createdAt, que es cuándo se calculó el registro-.
+  submittedAt: {
+    field: 'submitted_at',
+    allowNull: true,
+    type: DataTypes.DATE,
+  },
+
   createdAt: {
     field: 'created_at',
     allowNull: false,

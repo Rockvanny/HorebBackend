@@ -3,6 +3,8 @@ const boom = require('@hapi/boom');
 const sequelize = require('../libs/sequelize');
 const VerifactuService = require('./verifactulogs.service');
 const ModuleConfigService = require('./moduleConfig.service');
+const VerifactuConfigService = require('./verifactuConfig.service');
+const VerifactuProviderClient = require('./verifactuProvider.client');
 const { calculateDocumentTotals } = require('../libs/taxCalculation');
 
 const {
@@ -14,6 +16,8 @@ const {
 
 const verifactuService = new VerifactuService();
 const moduleConfigService = new ModuleConfigService();
+const verifactuConfigService = new VerifactuConfigService();
+const verifactuProviderClient = new VerifactuProviderClient();
 
 class SalesPostInvoiceService {
   async findPaginated({ limit, offset, searchTerm }) {
@@ -149,10 +153,36 @@ class SalesPostInvoiceService {
       // Veri*factu es un módulo activable (ver services/moduleConfig.service.js
       // y la tabla module_config): si está desactivado, la factura se registra
       // igual pero sin generar hash/XML/traza AEAT.
+      let providerSubmission = null;
       if (await moduleConfigService.isEnabled('VERIFACTU')) {
-        await verifactuService.createLog(newPostInvoice.code, true, transaction);
+        // isTest decide si el QR (y el envío a proveedor, más abajo) apunta
+        // al entorno de pruebas o al de producción de la AEAT -antes iba
+        // fijo a true, así que nunca se podía operar en producción real-.
+        // Sin fila de configuración todavía, se mantiene en pruebas por
+        // defecto.
+        const verifactuConfig = await verifactuConfigService.getActiveConfig();
+        const isTest = verifactuConfig?.isTest ?? true;
+        const log = await verifactuService.createLog(newPostInvoice.code, isTest, transaction);
+
+        if (verifactuConfig?.useProvider) {
+          providerSubmission = { config: verifactuConfig, invoiceCode: newPostInvoice.code, payload: log.payload };
+        }
       }
       await transaction.commit();
+
+      // Envío al proveedor externo, si está activo: a propósito FUERA de la
+      // transacción y sin esperar a que termine (fire-and-forget) -es una
+      // llamada de red que puede tardar o fallar, y no debe bloquear la
+      // respuesta ni deshacer el alta de la factura, que ya quedó registrada
+      // localmente-. El resultado (aceptado/rechazado/error de conexión)
+      // queda reflejado en el propio registro vía applyProviderResponse,
+      // consultable en Registro Veri*factu.
+      if (providerSubmission) {
+        verifactuProviderClient.submit(providerSubmission.config, providerSubmission.payload)
+          .catch((error) => ({ accepted: false, error: error.message }))
+          .then((response) => verifactuService.applyProviderResponse(providerSubmission.invoiceCode, response))
+          .catch((error) => console.error('[SalesPostInvoice] Error aplicando la respuesta del proveedor Veri*factu:', error.message));
+      }
 
       return await this.findOne(newPostInvoice.code, { includeLines: true });
 

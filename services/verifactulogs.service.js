@@ -10,15 +10,26 @@ class VerifactuService {
 
   /**
    * Genera la URL del código QR según el estándar Veri*factu de la AEAT
+   * (Orden HAC/1177/2024): host de pruebas o producción según `isTest`,
+   * parámetros nif/numserie/fecha/importe -sin "huella", que no forma parte
+   * del QR público, la AEAT la casa internamente con el registro recibido-.
    */
-  generateQRText(payload, fingerprint) {
-    const baseUrl = "https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/v1/qr";
+  generateQRText(payload, isTest = false) {
+    const baseUrl = isTest
+      ? "https://prewww2.aeat.es/wlpl/TIKE-CONT/ValidarQR"
+      : "https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR";
+
+    // payload.factura.fecha_emision se guarda en ISO (YYYY-MM-DD) para el
+    // XML/auditoría; la AEAT exige DD-MM-YYYY en el QR, así que se
+    // reformatea solo aquí, sin tocar el payload persistido.
+    const [year, month, day] = String(payload.factura.fecha_emision).split('-');
+    const fechaQR = (year && month && day) ? `${day}-${month}-${year}` : payload.factura.fecha_emision;
+
     const params = new URLSearchParams({
       nif: payload.emisor.nif,
       numserie: payload.factura.numero_serie,
-      fecha: payload.factura.fecha_emision,
-      importe: payload.factura.importe_total,
-      huella: fingerprint
+      fecha: fechaQR,
+      importe: payload.factura.importe_total
     });
     return `${baseUrl}?${params.toString()}`;
   }
@@ -148,7 +159,7 @@ class VerifactuService {
         }
       };
 
-      const qrData = this.generateQRText(payload, fingerprint);
+      const qrData = this.generateQRText(payload, isTest);
 
       // Inserción usando el modelo para aprovechar las asociaciones
       const newLog = await VerifactuLog.create({
@@ -183,10 +194,45 @@ class VerifactuService {
         const updateData = {
             externalReference: changes.externalReference
         };
+        // Anotar el CSV/referencia a mano (modo local) es, en la práctica,
+        // la confirmación de que la AEAT aceptó el registro.
+        if (changes.externalReference) updateData.status = 'accepted';
 
         const updatedLog = await log.update(updateData);
         return updatedLog;
     }
+
+  /**
+   * Punto de enganche para cuando se integre un proveedor Veri*factu
+   * externo (hoy "Usar proveedor externo" en Configuración Veri*factu solo
+   * guarda las credenciales, no dispara ningún envío real -ver
+   * services/salesPostInvoice.service.js-). Cuando exista esa integración,
+   * bastará con llamar aquí con la respuesta del proveedor tal cual llegue;
+   * no debería hacer falta tocar el esquema de nuevo.
+   *
+   * `response` es deliberadamente genérico (se ajustará al shape real del
+   * proveedor elegido):
+   *   - accepted: boolean
+   *   - externalReference: string, CSV/ID de recepción
+   *   - qrData: string, opcional -si el proveedor calcula su propio QR,
+   *     prevalece sobre el generado localmente-
+   *   - error: string, motivo si fue rechazado
+   */
+  async applyProviderResponse(invoiceCode, response = {}) {
+    const log = await VerifactuLog.findOne({ where: { invoiceCode } });
+    if (!log) throw boom.notFound('Registro de Veri*factu no encontrado');
+
+    const status = response.accepted ? 'accepted' : (response.error ? 'rejected' : 'sent');
+
+    return await log.update({
+      status,
+      providerResponse: response,
+      providerError: response.error || null,
+      externalReference: response.externalReference || log.externalReference,
+      qrData: response.qrData || log.qrData,
+      submittedAt: log.submittedAt || new Date(),
+    });
+  }
 
   async getTraceability(invoiceCode) {
     const log = await VerifactuLog.findOne({
@@ -205,7 +251,13 @@ class VerifactuService {
    */
   async markExported(invoiceCode) {
     const log = await this.findOne(invoiceCode);
-    return await log.update({ exportedAt: new Date() });
+    return await log.update({
+      exportedAt: new Date(),
+      submittedAt: log.submittedAt || new Date(),
+      // Si ya estaba aceptado (externalReference ya anotado a mano) no lo
+      // retrocedemos a 'sent' solo por volver a descargar el XML.
+      status: log.status === 'accepted' ? log.status : 'sent',
+    });
   }
 }
 
