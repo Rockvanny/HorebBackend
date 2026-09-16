@@ -175,7 +175,7 @@ router.patch('/update-password-initial/:id',
 
 router.get('/users-paginated',
     passport.authenticate('jwt', { session: false }),
-   // checkAction('VIEW_USERS'),
+    checkAction('VIEW_USERS'),
     async (req, res, next) => {
         try {
             const { limit, offset, searchTerm } = req.query;
@@ -189,7 +189,7 @@ router.get('/users-paginated',
 
 router.get('/:id',
     passport.authenticate('jwt', { session: false }),
-   // checkAction('VIEW_USERS'),
+    checkAction('VIEW_USERS'),
     validatorHandler(getUserSchema, 'params'),
     async (req, res, next) => {
         try {
@@ -203,7 +203,7 @@ router.get('/:id',
 
 router.post('/',
     passport.authenticate('jwt', { session: false }),
-   // checkAction('CREATE_USERS'),
+    checkAction('CREATE_USERS'),
     validatorHandler(createUserSchema, 'body'),
     async (req, res, next) => {
         try {
@@ -217,7 +217,7 @@ router.post('/',
 
 router.patch('/:id',
     passport.authenticate('jwt', { session: false }),
-   // checkAction('UPDATE_USERS'),
+    checkAction('UPDATE_USERS'),
     validatorHandler(getUserSchema, 'params'),
     validatorHandler(updateUserSchema, 'body'),
     async (req, res, next) => {
@@ -233,7 +233,7 @@ router.patch('/:id',
 
 router.delete('/:id',
     passport.authenticate('jwt', { session: false }),
-   // checkAction('DELETE_USERS'),
+    checkAction('DELETE_USERS'),
     validatorHandler(getUserSchema, 'params'),
     async (req, res, next) => {
         try {
