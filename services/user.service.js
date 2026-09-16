@@ -12,7 +12,11 @@ const config = getConfig();
 const otpService = new OtpService();
 const LOGIN_OTP_PURPOSE = 'LOGIN_2FA';
 const PASSWORD_RESET_PURPOSE = 'PASSWORD_RESET';
-const ROLES = ['master', 'admin', 'financiero', 'vendedor', 'externo', 'viewer'];
+// Antes había aquí una lista de roles suelta (incluía 'master', que no
+// existe en access-manager.js) sin usarse en ningún sitio del archivo -ni
+// siquiera validaba nada-. La validación real de `role` vive ahora en
+// schemas/user.schema.js, importada de access-manager.js#ROLES (fuente
+// única de verdad).
 
 class UserService {
   constructor() { }

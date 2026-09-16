@@ -1,10 +1,24 @@
 const Joi = require('joi');
+const { ROLES } = require('../config/access-manager');
+
 // Definición de tipos base
 const code = Joi.string(); // Cambiado a camelCase para consistencia
 const fullName = Joi.string().min(3).max(100); // Nuevo campo
 const email = Joi.string().email();
 const password = Joi.string().min(8);
-const role = Joi.string().min(5);
+// Antes solo exigía "cadena de 5+ caracteres" (Joi.string().min(5)): aceptaba
+// cualquier valor, incluido un rol mal escrito o inexistente en
+// access-manager.js (ej. 'master', que llegó a estar en una lista de roles
+// de este mismo archivo -services/user.service.js- sin existir realmente en
+// ROLE_ACTIONS/ROLE_PAGES). Un usuario con un rol así no rompe nada -
+// checkPermission() deniega todo en silencio-, pero es confuso: parece un
+// bug, no una restricción esperada. Restringido a los roles que
+// access-manager.js reconoce de verdad, importados de ahí como única fuente
+// de verdad. SYSTEM se deja fuera a propósito: es un rol interno/de
+// servicio, no algo asignable desde la gestión de usuarios.
+const role = Joi.string().valid(
+  ROLES.ADMIN, ROLES.FINANCIERO, ROLES.VENDEDOR, ROLES.EXTERNO, ROLES.VIEWER
+);
 const mustChangePassword = Joi.boolean();
 
 // Permisos de módulos (Booleanos)
