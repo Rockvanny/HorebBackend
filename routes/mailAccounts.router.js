@@ -41,7 +41,7 @@ router.put('/me/signature',
   validatorHandler(updateSignatureSchema, 'body'),
   async (req, res, next) => {
     try {
-      const account = await service.updateSignature(req.user.code, req.body.signature);
+      const account = await service.updateSignature(req.user.code, req.body.signature, req.body.signatureLogo);
       res.json(account);
     } catch (error) {
       next(error);

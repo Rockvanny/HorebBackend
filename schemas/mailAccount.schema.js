@@ -21,8 +21,16 @@ const getMailMessageSchema = Joi.object({
   uid: Joi.number().integer().required(),
 });
 
+const getMailMessageQuerySchema = Joi.object({
+  folder: Joi.string().valid('inbox', 'sent').default('inbox'),
+});
+
 const updateSignatureSchema = Joi.object({
   signature: Joi.string().allow('').max(5000).required(),
+  // Data URI base64 (el frontend redimensiona la imagen antes de subirla,
+  // ver mailbox.js#resizeImageForSignature). ~400KB de margen de sobra para
+  // un logo pequeño ya comprimido.
+  signatureLogo: Joi.string().allow('', null).max(400000).optional(),
 });
 
 const sendMailSchema = Joi.object({
@@ -37,6 +45,7 @@ module.exports = {
   createMailAccountSchema,
   queryMailSchema,
   getMailMessageSchema,
+  getMailMessageQuerySchema,
   updateSignatureSchema,
   sendMailSchema,
 };

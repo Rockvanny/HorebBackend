@@ -96,9 +96,9 @@ class MailAccountService {
    * saveForUser(), no requiere contraseña ni vuelve a probar IMAP/SMTP -es
    * solo texto que el frontend añade al pie de los correos que se envían-.
    */
-  async updateSignature(userCode, signature) {
+  async updateSignature(userCode, signature, signatureLogo) {
     const account = await this.#findRawForUser(userCode);
-    await account.update({ signature });
+    await account.update({ signature, signatureLogo: signatureLogo || null });
     return this.#toSafeJSON(account);
   }
 

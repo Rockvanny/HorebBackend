@@ -95,7 +95,26 @@ class MailService {
     }
   }
 
-  async #withAccountClient(mailAccount, fn) {
+  /**
+   * El nombre real de la carpeta de enviados varía por proveedor ("Sent",
+   * "Sent Items", "INBOX.Enviados"...). Primero se busca por el atributo
+   * estándar \Sent (RFC 6154, SPECIAL-USE); si el servidor no lo anuncia, se
+   * cae a los nombres más habituales.
+   */
+  async #resolveSentMailboxPath(client) {
+    const mailboxes = await client.list();
+
+    const bySpecialUse = mailboxes.find((box) => box.specialUse === '\\Sent');
+    if (bySpecialUse) return bySpecialUse.path;
+
+    const commonNames = ['Sent', 'Sent Items', 'Sent Messages', 'INBOX.Sent', 'Enviados', 'INBOX.Enviados'];
+    const byName = mailboxes.find((box) => commonNames.includes(box.path) || commonNames.includes(box.name));
+    if (byName) return byName.path;
+
+    throw boom.badGateway('No se encontró la carpeta de correos enviados en el servidor.');
+  }
+
+  async #withAccountClient(mailAccount, fn, mailbox = 'INBOX') {
     const client = this.#buildClient({
       imapHost: mailAccount.imapHost,
       imapPort: mailAccount.imapPort,
@@ -106,7 +125,8 @@ class MailService {
 
     try {
       await client.connect();
-      const lock = await client.getMailboxLock('INBOX');
+      const mailboxPath = mailbox === 'SENT' ? await this.#resolveSentMailboxPath(client) : mailbox;
+      const lock = await client.getMailboxLock(mailboxPath);
       try {
         return await fn(client);
       } finally {
@@ -150,7 +170,33 @@ class MailService {
     });
   }
 
-  async fetchMessage(mailAccount, uid) {
+  /** Igual que fetchInbox pero sobre la carpeta de enviados, y con "to" en vez de "from". */
+  async fetchSent(mailAccount, { limit = 25, offset = 0 } = {}) {
+    return this.#withAccountClient(mailAccount, async (client) => {
+      const total = client.mailbox.exists;
+      if (!total) return { messages: [], total: 0 };
+
+      const to = Math.max(1, total - offset);
+      const from = Math.max(1, total - offset - limit + 1);
+      if (from > to) return { messages: [], total };
+
+      const messages = [];
+      for await (const msg of client.fetch(`${from}:${to}`, { envelope: true, flags: true })) {
+        messages.push({
+          uid: msg.uid,
+          subject: msg.envelope?.subject || '(sin asunto)',
+          to: this.#formatAddress(msg.envelope?.to?.[0]),
+          date: msg.envelope?.date || null,
+          isRead: msg.flags?.has('\\Seen') || false,
+        });
+      }
+
+      messages.sort((a, b) => new Date(b.date) - new Date(a.date));
+      return { messages, total };
+    }, 'SENT');
+  }
+
+  async fetchMessage(mailAccount, uid, mailbox = 'INBOX') {
     return this.#withAccountClient(mailAccount, async (client) => {
       const { content } = await client.download(uid, undefined, { uid: true });
       const parsed = await simpleParser(content);
@@ -167,7 +213,7 @@ class MailService {
         messageId: parsed.messageId || null,
         references: [...(parsed.references || []), ...(parsed.messageId ? [parsed.messageId] : [])].join(' '),
       };
-    });
+    }, mailbox);
   }
 
   /**

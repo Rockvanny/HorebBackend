@@ -86,6 +86,15 @@ const MailAccountSchema = {
     allowNull: true,
   },
 
+  // Logo opcional de la firma, como data URI (base64) ya redimensionado por
+  // el frontend antes de subirlo. TEXT por el mismo motivo que signature: no
+  // hay archivos en disco que gestionar, todo vive en la fila.
+  signatureLogo: {
+    field: 'signature_logo',
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+
   // Cifrado en reposo con libs/crypto.js (AES-256-GCM), igual que
   // verifactuConfig.apiSecret. Nunca se expone en claro por la API.
   passwordEncrypted: {

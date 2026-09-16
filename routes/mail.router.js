@@ -4,7 +4,12 @@ const MailService = require('../services/mail.service');
 const MailAccountService = require('../services/mailAccount.service');
 const NotificationsService = require('../services/notifications.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { queryMailSchema, getMailMessageSchema, sendMailSchema } = require('../schemas/mailAccount.schema');
+const {
+  queryMailSchema,
+  getMailMessageSchema,
+  getMailMessageQuerySchema,
+  sendMailSchema
+} = require('../schemas/mailAccount.schema');
 
 const router = express.Router();
 const mailService = new MailService();
@@ -27,13 +32,31 @@ router.get('/inbox',
   }
 );
 
-router.get('/messages/:uid',
+router.get('/sent',
   passport.authenticate('jwt', { session: false }),
-  validatorHandler(getMailMessageSchema, 'params'),
+  validatorHandler(queryMailSchema, 'query'),
   async (req, res, next) => {
     try {
       const account = await mailAccountService.getRawForUser(req.user.code);
-      const message = await mailService.fetchMessage(account, parseInt(req.params.uid, 10));
+      const limit = parseInt(req.query.limit, 10) || 25;
+      const offset = parseInt(req.query.offset, 10) || 0;
+      const result = await mailService.fetchSent(account, { limit, offset });
+      res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+router.get('/messages/:uid',
+  passport.authenticate('jwt', { session: false }),
+  validatorHandler(getMailMessageSchema, 'params'),
+  validatorHandler(getMailMessageQuerySchema, 'query'),
+  async (req, res, next) => {
+    try {
+      const account = await mailAccountService.getRawForUser(req.user.code);
+      const mailbox = req.query.folder === 'sent' ? 'SENT' : 'INBOX';
+      const message = await mailService.fetchMessage(account, parseInt(req.params.uid, 10), mailbox);
       res.json(message);
     } catch (error) {
       next(error);
