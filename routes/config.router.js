@@ -24,7 +24,7 @@ router.get('/permissions-map',
  */
 router.get('/',
   passport.authenticate('jwt', { session: false }), // 3. Autenticación obligatoria
-  //checkAction('VIEW_CONEXION'), // 4. Máximo nivel de permiso
+  checkAction('VIEW_CONEXION'), // 4. Máximo nivel de permiso
   (req, res, next) => {
     try {
       if (!fs.existsSync(envPath)) {
@@ -62,7 +62,7 @@ router.get('/',
  */
 router.put('/',
   passport.authenticate('jwt', { session: false }),
-  //checkAction('UPDATE_CONEXION'),
+  checkAction('UPDATE_CONEXION'),
   (req, res, next) => {
     const { host, port, user, password, dbName } = req.body;
 

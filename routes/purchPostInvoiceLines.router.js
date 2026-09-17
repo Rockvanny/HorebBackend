@@ -15,7 +15,7 @@ const service = new PurchPostInvoiceLineService();
 // Consulta paginada general
 router.get('/paginated',
   passport.authenticate('jwt', { session: false }),
-  //checkAction('VIEW_PURCHPOSTINVOICES'),
+  checkAction('VIEW_PURCHPOSTINVOICES'),
   validatorHandler(queryPurchPostInvoiceLineSchema, 'query'),
   async (req, res, next) => {
     try {
@@ -28,7 +28,7 @@ router.get('/paginated',
 // Obtener por ID técnico
 router.get('/:id',
   passport.authenticate('jwt', { session: false }),
-  //checkAction('VIEW_PURCHPOSTINVOICES'),
+  checkAction('VIEW_PURCHPOSTINVOICES'),
   validatorHandler(getPurchPostInvoiceLineSchema, 'params'),
   async (req, res, next) => {
     try {

@@ -1,12 +1,34 @@
 const express = require('express');
 const passport = require('passport');
+const boom = require('@hapi/boom');
 const DocumentTaxService = require('../services/documentTax.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { checkAction } = require('../middlewares/auth.handler');
+const { checkPermission } = require('../config/access-manager');
 const { filterDocumentTaxSchema } = require('../schemas/documentTax.schema');
 
 const router = express.Router();
 const service = new DocumentTaxService();
+
+// Este endpoint es transversal: 'codeDocument' puede ser un presupuesto, una
+// factura de venta o una de compra (ver schemas/documentTax.schema.js), cada
+// uno en un módulo distinto -por eso no vale un único checkAction('VIEW_X')
+// fijo (dejaría fuera la mitad de los casos legítimos, o los dejaría todos
+// abiertos). Se resuelve el permiso real según el tipo de documento pedido.
+const CODE_DOCUMENT_ACTIONS = {
+    budget: 'VIEW_SALESBUDGETS',
+    salesinvoice: 'VIEW_SALESINVOICES',
+    salespostinvoices: 'VIEW_SALESPOSTINVOICES',
+    purchinvoice: 'VIEW_PURCHINVOICES',
+    purchpostinvoices: 'VIEW_PURCHPOSTINVOICES',
+};
+
+function checkDocumentTaxAccess(req, res, next) {
+    const action = CODE_DOCUMENT_ACTIONS[req.params.codeDocument];
+    if (!action || !checkPermission(req.user, action)) {
+        return next(boom.forbidden(`Acceso denegado a la acción: VIEW_DOCUMENTTAX (${req.params.codeDocument})`));
+    }
+    next();
+}
 
 /**
  * Obtener el desglose de impuestos de cualquier documento mediante su UUID
@@ -14,8 +36,8 @@ const service = new DocumentTaxService();
  */
 router.get('/:codeDocument/:movementId',
     passport.authenticate('jwt', { session: false }),
-    //checkAction('VIEW_SALES'), // O un permiso más genérico si lo prefieres
     validatorHandler(filterDocumentTaxSchema, 'params'),
+    checkDocumentTaxAccess,
     async (req, res, next) => {
         try {
             const { codeDocument, movementId } = req.params;

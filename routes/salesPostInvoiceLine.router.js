@@ -14,7 +14,7 @@ const service = new SalesPostInvoiceLineService();
 // Consulta paginada general
 router.get('/paginated',
   passport.authenticate('jwt', { session: false }),
-  //('VIEW_SALESPOSTINVOICES'),
+  checkAction('VIEW_SALESPOSTINVOICES'),
   validatorHandler(querySalesPostInvoiceLineSchema, 'query'),
   async (req, res, next) => {
     try {
@@ -27,7 +27,7 @@ router.get('/paginated',
 // Obtener por ID técnico
 router.get('/:id',
   passport.authenticate('jwt', { session: false }),
-  //checkAction('VIEW_SALESPOSTINVOICES'),
+  checkAction('VIEW_SALESPOSTINVOICES'),
   validatorHandler(getSalesPostInvoiceLineSchema, 'params'),
   async (req, res, next) => {
     try {
