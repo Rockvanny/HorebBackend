@@ -235,6 +235,11 @@ class salesInvoice extends Model {
       hooks: {
         beforeValidate: async (instance, options) => {
           if (instance.isNewRecord && !instance.code) {
+            // Persistimos la serie borrador usada para poder consultar en vivo
+            // su postingSerie vigente al registrar (ver archiveInvoice).
+            if (!instance.seriesCode && instance.selectedSerie) {
+              instance.seriesCode = instance.selectedSerie;
+            }
             await generateNextCode(instance, options);
           }
         },

@@ -1,7 +1,8 @@
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
 const sequelize = require('../libs/sequelize');
-const { salesInvoice, salesInvoiceLine, DocumentTax } = sequelize.models;
+const { salesInvoice, salesInvoiceLine, DocumentTax, seriesNumber } = sequelize.models;
+const { SERIES_TYPES } = require('../db/models/SeriesNumber.model');
 
 const SalesPostInvoiceService = require('./salesPostInvoice.service');
 // IMPORTANTE: Cambiamos a la librería correcta y función correcta
@@ -201,7 +202,24 @@ class salesInvoiceService {
     // 4. Preparar datos para el histórico
     invoiceData.preInvoice = invoiceData.code; // Guardamos el código original
     invoiceData.username = userId;
-    invoiceData.seriesCode = invoiceData.codePosting;
+
+    // Serie de registro a usar: por defecto el valor congelado al crear el
+    // borrador (compatibilidad con borradores antiguos sin seriesCode).
+    let postingSerieCode = invoiceData.codePosting;
+
+    // Si conocemos la serie borrador real usada (seriesCode persistido),
+    // consultamos en vivo cuál es su postingSerie VIGENTE, por si un admin
+    // la cambió después de crear el borrador.
+    if (invoiceData.seriesCode) {
+      const draftSeries = await seriesNumber.findOne({
+        where: { code: invoiceData.seriesCode, type: SERIES_TYPES.salesinvoice.id }
+      });
+      if (draftSeries?.postingSerie) {
+        postingSerieCode = draftSeries.postingSerie;
+      }
+    }
+
+    invoiceData.seriesCode = postingSerieCode;
     invoiceData.code = null; // Se anula para que la nueva tabla genere su propio código si es necesario
     delete invoiceData.id;   // Eliminamos el ID antiguo para evitar conflictos de Primary Key en la tabla destino
 

@@ -2,7 +2,8 @@
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
 const sequelize = require('../libs/sequelize');
-const { purchInvoice, purchInvoiceLine, DocumentTax } = sequelize.models;
+const { purchInvoice, purchInvoiceLine, DocumentTax, seriesNumber } = sequelize.models;
+const { SERIES_TYPES } = require('../db/models/SeriesNumber.model');
 
 const PurchPostInvoiceService = require('./purchPostInvoice.service');
 // Librería de cálculo unificada
@@ -203,7 +204,24 @@ class purchInvoiceService {
     // Preparar datos para el histórico de compras
     invoiceData.preInvoice = invoiceData.code;
     invoiceData.userName = userId; // camelCase de auditoría de compras
-    invoiceData.seriesCode = invoiceData.codePosting;
+
+    // Serie de registro a usar: por defecto el valor congelado al crear el
+    // borrador (compatibilidad con borradores antiguos sin seriesCode).
+    let postingSerieCode = invoiceData.codePosting;
+
+    // Si conocemos la serie borrador real usada (seriesCode persistido),
+    // consultamos en vivo cuál es su postingSerie VIGENTE, por si un admin
+    // la cambió después de crear el borrador.
+    if (invoiceData.seriesCode) {
+      const draftSeries = await seriesNumber.findOne({
+        where: { code: invoiceData.seriesCode, type: SERIES_TYPES.purchinvoice.id }
+      });
+      if (draftSeries?.postingSerie) {
+        postingSerieCode = draftSeries.postingSerie;
+      }
+    }
+
+    invoiceData.seriesCode = postingSerieCode;
     invoiceData.code = null;
     delete invoiceData.id;
 
