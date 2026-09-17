@@ -29,7 +29,9 @@ const service = new UserService();
 router.get('/roles/list',
     passport.authenticate('jwt', { session: false }),
     (req, res) => {
-        res.json({ success: true, data: Object.keys(require('../config/access-manager').ROLES) });
+        const { ROLES } = require('../config/access-manager');
+        const assignableRoles = Object.values(ROLES).filter(role => role !== ROLES.SYSTEM);
+        res.json({ success: true, data: assignableRoles });
     }
 );
 
