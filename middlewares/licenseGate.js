@@ -11,6 +11,13 @@ const EXEMPT_PREFIXES = [
   '/api/v1/license',
   '/api/v1/users/login',
   '/api/v1/users/forgot-password',
+  // Autoservicio de clientes: que la licencia de la empresa haya caducado no
+  // es culpa del cliente ni algo que él pueda arreglar -igual razón que el
+  // login de empleados de arriba-. El resto de /customers (gestión interna,
+  // incidencias ya creadas, etc.) sigue bloqueado como cualquier otra ruta.
+  '/api/v1/customers/register',
+  '/api/v1/customers/login',
+  '/api/v1/customers/forgot-password',
 ];
 
 function isExempt(originalUrl) {

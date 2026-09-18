@@ -54,4 +54,49 @@ const queryCustomerSchema = Joi.object({
   offset
 });
 
-module.exports = { getCustomerSchema, createCustomerSchema, updateCustomerSchema, queryCustomerSchema };
+// --- Autoservicio de clientes (app móvil) ---
+const password = Joi.string().min(8);
+
+const registerCustomerAccountSchema = Joi.object({
+  nif: nif.required(),
+  email: email.required(),
+  password: password.required(),
+});
+
+const loginCustomerSchema = Joi.object({
+  email: email.required(),
+  password: Joi.string().required(),
+});
+
+const verifyCustomerOtpSchema = Joi.object({
+  challengeId: Joi.string().guid().required(),
+  otp: Joi.string().length(6).pattern(/^[0-9]+$/).required(),
+});
+
+const resendCustomerOtpSchema = Joi.object({
+  challengeId: Joi.string().guid().required(),
+});
+
+// --- "Olvidé mi contraseña" (sin sesión previa) ---
+const requestCustomerPasswordResetSchema = Joi.object({
+  email: email.required(),
+});
+
+const resetCustomerPasswordSchema = Joi.object({
+  challengeId: Joi.string().guid().required(),
+  otp: Joi.string().length(6).pattern(/^[0-9]+$/).required(),
+  password: password.required(),
+});
+
+module.exports = {
+  getCustomerSchema,
+  createCustomerSchema,
+  updateCustomerSchema,
+  queryCustomerSchema,
+  registerCustomerAccountSchema,
+  loginCustomerSchema,
+  verifyCustomerOtpSchema,
+  resendCustomerOtpSchema,
+  requestCustomerPasswordResetSchema,
+  resetCustomerPasswordSchema,
+};

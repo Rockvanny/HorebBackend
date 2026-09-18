@@ -1,7 +1,25 @@
+const crypto = require('crypto');
 const { Op, fn, col } = require('sequelize');
 const boom = require('@hapi/boom');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const { models } = require('../libs/sequelize');
+const { getConfig } = require('../config/config');
+const { maskEmail } = require('../libs/maskEmail');
+const OtpService = require('./otp.service');
 const logger = require('../libs/logger');
+
+const config = getConfig();
+const otpService = new OtpService();
+
+// Propósito propio para el login de clientes: distinto al 'LOGIN_2FA' de
+// empleados (user.service.js) para que un reto de uno no pueda verificarse
+// como si fuera del otro (assertUsable en otp.service.js compara 'purpose').
+const CUSTOMER_LOGIN_OTP_PURPOSE = 'CUSTOMER_LOGIN_2FA';
+// Mismo razonamiento para el reseteo de contraseña: distinto de 'PASSWORD_RESET'
+// (user.service.js) por si algún día un código de cliente coincidiera con uno
+// de empleado.
+const CUSTOMER_PASSWORD_RESET_PURPOSE = 'CUSTOMER_PASSWORD_RESET';
 
 // Tipos de factura que suman al saldo; las rectificativas (R1-R5) restan.
 const INVOICED_TYPES = ['F1', 'F2'];
@@ -283,6 +301,113 @@ class CustomerService {
     await customer.destroy({ userExecutor });
 
     return { code };
+  }
+
+  // ============================================================
+  // AUTOSERVICIO DE CLIENTES (app móvil): alta + login en 2 pasos,
+  // igual de forma que user.service.js pero contra 'customers'.
+  // ============================================================
+
+  /**
+   * Alta de cuenta: el cliente ya tiene que existir (creado por el personal
+   * interno al darlo de alta comercialmente) y no tener contraseña todavía.
+   * Verificar por NIF+email evita que cualquiera se registre como si fuera
+   * un cliente real solo por adivinar/conocer su código.
+   */
+  async registerAccount(nif, email, password) {
+    const customer = await models.Customer.findOne({ where: { nif, email } });
+
+    if (!customer) {
+      throw boom.notFound('No se ha encontrado ningún cliente con ese NIF y email. Contacta con la empresa.');
+    }
+    if (customer.password) {
+      throw boom.conflict('Ya existe una cuenta para este cliente. Inicia sesión.');
+    }
+
+    // El hook beforeUpdate del modelo se encarga de encriptar.
+    await customer.update({ password });
+    return { code: customer.code };
+  }
+
+  /**
+   * PASO 1 del login de cliente: valida email + contraseña y crea un reto OTP
+   * (mismo mecanismo de 2FA que los empleados, ver otp.service.js).
+   */
+  async login(email, password) {
+    const customer = await models.Customer.findOne({ where: { email } });
+
+    if (!customer || !customer.password) {
+      throw boom.unauthorized('Email o contraseña incorrectos');
+    }
+
+    const isMatch = await bcrypt.compare(password, customer.password);
+    if (!isMatch) throw boom.unauthorized('Email o contraseña incorrectos');
+
+    return otpService.createChallenge(customer, CUSTOMER_LOGIN_OTP_PURPOSE);
+  }
+
+  /**
+   * PASO 2: verifica el OTP y emite el JWT. `type: 'CUSTOMER'` en el payload
+   * es lo que distingue este token de uno de empleado (ver
+   * libs/customerJwt.strategy.js, que es la única estrategia que los acepta).
+   */
+  async verifyLoginOtp(challengeId, otp) {
+    const customerCode = await otpService.verifyChallenge(challengeId, otp, CUSTOMER_LOGIN_OTP_PURPOSE);
+
+    const customer = await models.Customer.findByPk(customerCode);
+    if (!customer) throw boom.unauthorized('Cliente no encontrado');
+
+    const token = jwt.sign({ sub: customer.code, type: 'CUSTOMER' }, config.jwtSecret, { expiresIn: '8h' });
+    return { token };
+  }
+
+  async resendLoginOtp(challengeId) {
+    return otpService.resendChallenge(challengeId, CUSTOMER_LOGIN_OTP_PURPOSE);
+  }
+
+  /**
+   * PASO 1 del reseteo de contraseña sin sesión previa ("olvidé mi
+   * contraseña"), igual que user.service.js#requestPasswordReset. Si el
+   * email no corresponde a ningún cliente, devuelve una respuesta con la
+   * misma forma (challengeId falso, sin crear reto ni enviar correo) para no
+   * filtrar si un email está registrado o no.
+   */
+  async requestPasswordReset(email) {
+    const customer = await models.Customer.findOne({ where: { email } });
+
+    if (!customer) {
+      return {
+        challengeId: crypto.randomUUID(),
+        expiresInSeconds: config.otpExpirationMinutes * 60,
+        maskedEmail: maskEmail(email)
+      };
+    }
+
+    return otpService.createChallenge(customer, CUSTOMER_PASSWORD_RESET_PURPOSE);
+  }
+
+  /**
+   * PASO 2: verifica el OTP de reseteo y fija la nueva contraseña
+   * directamente. No exige la contraseña actual: la prueba de identidad es
+   * tener acceso al email.
+   */
+  async resetPassword(challengeId, code, newPassword) {
+    const customerCode = await otpService.verifyChallenge(challengeId, code, CUSTOMER_PASSWORD_RESET_PURPOSE);
+
+    const customer = await models.Customer.findByPk(customerCode);
+    if (!customer) throw boom.unauthorized('Código inválido o expirado');
+
+    // El hook beforeUpdate del modelo se encarga de encriptar.
+    await customer.update({ password: newPassword });
+
+    return { message: 'Contraseña actualizada correctamente' };
+  }
+
+  /**
+   * Reenvía un nuevo código para un reto de reseteo de contraseña pendiente.
+   */
+  async resendPasswordReset(challengeId) {
+    return otpService.resendChallenge(challengeId, CUSTOMER_PASSWORD_RESET_PURPOSE);
   }
 }
 

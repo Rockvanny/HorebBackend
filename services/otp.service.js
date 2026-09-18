@@ -107,7 +107,11 @@ class OtpService {
       throw boom.tooManyRequests('Has alcanzado el límite de reenvíos. Vuelve a iniciar sesión.');
     }
 
-    const user = await models.User.findByPk(challenge.userCode);
+    // userCode puede ser un código de empleado o de cliente (ver
+    // customers.service.js#login, que reutiliza este mismo servicio) -no hay
+    // forma de saber cuál sin mirar 'purpose', así que se prueba primero en
+    // users y, si no está, en customers-.
+    const user = await models.User.findByPk(challenge.userCode) || await models.Customer.findByPk(challenge.userCode);
     if (!user) throw boom.unauthorized('Código inválido o expirado');
 
     const code = generateCode();
@@ -126,7 +130,7 @@ class OtpService {
   }
 
   async #dispatchEmail(user, code, purpose) {
-    const isReset = purpose === 'PASSWORD_RESET';
+    const isReset = purpose === 'PASSWORD_RESET' || purpose === 'CUSTOMER_PASSWORD_RESET';
     const subject = isReset
       ? 'Restablece tu contraseña - Horeb ERP'
       : 'Tu código de verificación - Horeb ERP';
@@ -141,7 +145,9 @@ class OtpService {
       await sendEmail({
         to: user.email,
         subject,
-        html: `<p>Hola ${user.fullName || ''},</p>` +
+        // fullName es de User; Customer usa 'name' -sin este fallback saldría
+        // "Hola undefined," para los clientes.
+        html: `<p>Hola ${user.fullName || user.name || ''},</p>` +
           `<p>${intro}</p>` +
           `<h2 style="letter-spacing:4px">${code}</h2>` +
           `<p>Caduca en ${config.otpExpirationMinutes} minutos. ${footer}</p>`,

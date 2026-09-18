@@ -1,4 +1,5 @@
 const { Model, DataTypes, Sequelize } = require('sequelize');
+const bcrypt = require('bcryptjs');
 const { generateNextCode } = require('../../libs/sequence.handler');
 
 const CUSTOMER_TABLE = 'customers';
@@ -83,6 +84,16 @@ const CustomerSchema = {
     type: DataTypes.STRING,
   },
 
+  // Autoservicio desde la app móvil (ver customers.service.js#registerAccount):
+  // null hasta que el propio cliente se registra encima de su fila ya
+  // existente (verificado por NIF+email). Nunca se crea con contraseña desde
+  // la ficha de cliente que usa el personal interno.
+  password: {
+    field: 'password',
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+
   createdAt: {
     field: 'created_at',
     allowNull: false,
@@ -133,6 +144,17 @@ class Customer extends Model {
       hooks: {
         beforeValidate: async (customer, options) => {
           await generateNextCode(customer, options);
+        },
+        // Mismo patrón que user.model.js: hashear solo si viene/cambia en claro.
+        beforeCreate: async (customer) => {
+          if (customer.password) {
+            customer.password = await bcrypt.hash(customer.password, 10);
+          }
+        },
+        beforeUpdate: async (customer) => {
+          if (customer.changed('password') && customer.password) {
+            customer.password = await bcrypt.hash(customer.password, 10);
+          }
         }
       }
     }
