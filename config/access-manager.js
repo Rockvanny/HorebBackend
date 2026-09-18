@@ -4,6 +4,11 @@ const ROLES = {
   VENDEDOR: 'vendedor',
   EXTERNO: 'externo',
   VIEWER: 'viewer',
+  // Rol pensado para la app móvil: operarios de campo que solo ven sus
+  // tareas asignadas y actualizan su estado / suben un parte -sin acceso a
+  // ningún módulo de gestión del Electron salvo que se le active a mano con
+  // los flags allowX de siempre, igual que a cualquier otro rol-.
+  OPERARIO: 'operario',
   SYSTEM: 'system'
 };
 
@@ -45,6 +50,10 @@ const ROLE_ACTIONS = {
   },
   [ROLES.VIEWER]: { default: [ACTIONS.VIEW, ACTIONS.PRINT] },
   [ROLES.EXTERNO]: { default: [ACTIONS.VIEW] },
+  // A diferencia de VIEWER (solo lectura), OPERARIO necesita poder crear y
+  // actualizar (subir un parte, cambiar el estado de su tarea) -pero sin
+  // DELETE ni PRINT, que no pintan nada en un flujo de campo desde el móvil-.
+  [ROLES.OPERARIO]: { default: [ACTIONS.VIEW, ACTIONS.CREATE, ACTIONS.UPDATE] },
   [ROLES.SYSTEM]: { default: [ACTIONS.VIEW, ACTIONS.CREATE, ACTIONS.EDIT, ACTIONS.UPDATE, ACTIONS.DELETE] }
 };
 

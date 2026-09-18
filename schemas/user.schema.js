@@ -17,7 +17,7 @@ const password = Joi.string().min(8);
 // de verdad. SYSTEM se deja fuera a propósito: es un rol interno/de
 // servicio, no algo asignable desde la gestión de usuarios.
 const role = Joi.string().valid(
-  ROLES.ADMIN, ROLES.FINANCIERO, ROLES.VENDEDOR, ROLES.EXTERNO, ROLES.VIEWER
+  ROLES.ADMIN, ROLES.FINANCIERO, ROLES.VENDEDOR, ROLES.EXTERNO, ROLES.VIEWER, ROLES.OPERARIO
 );
 const mustChangePassword = Joi.boolean();
 
