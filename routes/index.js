@@ -33,6 +33,7 @@ const mailAccountsRouter = require('./mailAccounts.router');
 const mailRouter = require('./mail.router');
 const geocodingRouter = require('./geocoding.router');
 const incidentReportsRouter = require('./incidentReports.router');
+const tasksRouter = require('./tasks.router');
 
 // Rutas internas que no apuntan a tablas
 const statsRouter = require('./stats.router');
@@ -80,6 +81,7 @@ function routerApi(app) {
   router.use('/mail', mailRouter);
   router.use('/geocoding', geocodingRouter);
   router.use('/incident-reports', incidentReportsRouter);
+  router.use('/tasks', tasksRouter);
 }
 
 module.exports = routerApi;

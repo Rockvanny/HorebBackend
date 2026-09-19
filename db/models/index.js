@@ -24,6 +24,7 @@ const { VerifactuConfig, VerifactuConfigSchema } = require('./verifactuConfig.mo
 const { Notification, NotificationSchema } = require('./notification.model');
 const { MailAccount, MailAccountSchema } = require('./mailAccount.model');
 const { IncidentReport, IncidentReportSchema } = require('./incidentReport.model');
+const { Task, TaskSchema } = require('./task.model');
 
 function setupModels(sequelize) {
   // 1. Inicialización de modelos
@@ -53,6 +54,7 @@ function setupModels(sequelize) {
   Notification.init(NotificationSchema, Notification.config(sequelize));
   MailAccount.init(MailAccountSchema, MailAccount.config(sequelize));
   IncidentReport.init(IncidentReportSchema, IncidentReport.config(sequelize));
+  Task.init(TaskSchema, Task.config(sequelize));
 
   // 2. Definición de asociaciones
   Company.associate(sequelize.models);
@@ -77,6 +79,7 @@ function setupModels(sequelize) {
   Notification.associate(sequelize.models);
   MailAccount.associate(sequelize.models);
   IncidentReport.associate(sequelize.models);
+  Task.associate(sequelize.models);
 }
 
 module.exports = setupModels;
