@@ -98,6 +98,18 @@ const TaskSchema = {
     type: DataTypes.STRING,
   },
 
+  // Edificio concreto al que se refiere la tarea (opcional, solo tiene
+  // sentido para OPERATIVA_CAMPO cuando existe un contrato de mantenimiento
+  // de por medio, ver building.model.js). No sustituye a address/city -una
+  // tarea de campo puede seguir siendo una dirección suelta sin edificio
+  // asociado-, son complementarios: si se rellena, la app puede mostrar
+  // también los datos del contrato/administrador del edificio.
+  buildingId: {
+    field: 'building_id',
+    allowNull: true,
+    type: DataTypes.UUID,
+  },
+
   createdAt: {
     field: 'created_at',
     allowNull: false,
@@ -114,6 +126,7 @@ const TaskSchema = {
 class Task extends Model {
   static associate(models) {
     this.belongsTo(models.User, { as: 'assignee', foreignKey: 'assignedTo', targetKey: 'code' });
+    this.belongsTo(models.Building, { as: 'building', foreignKey: 'buildingId', targetKey: 'id' });
   }
 
   static config(sequelize) {

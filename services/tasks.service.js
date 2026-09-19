@@ -12,10 +12,28 @@ function assertOwnerOrAdmin(task, requester) {
   }
 }
 
+// Adjuntamos el edificio en las lecturas (findAll/findMine/findOne) para que
+// la app pueda mostrar su dirección/administrador sin una segunda llamada -
+// solo los campos que interesan en el móvil, no el contrato completo-.
+const BUILDING_INCLUDE = {
+  model: models.Building,
+  as: 'building',
+  attributes: ['id', 'name', 'address', 'city', 'administratorName', 'administratorPhone']
+};
+
 class TasksService {
 
-  /** Crear tarea: exclusivo de admin (ver checkRole en el router). */
+  /**
+   * Crear tarea: exclusivo de admin (ver checkRole en el router). Si viene
+   * buildingId, comprobamos que exista de verdad -mismo criterio que
+   * CustomerBuildingsService#create-, para no guardar una referencia rota
+   * por un UUID mal copiado.
+   */
   async create(data, createdBy) {
+    if (data.buildingId) {
+      const building = await models.Building.findByPk(data.buildingId);
+      if (!building) throw boom.notFound('Edificio no encontrado');
+    }
     return models.Task.create({ ...data, createdBy });
   }
 
@@ -34,6 +52,7 @@ class TasksService {
     if (type) options.where.type = type;
     if (limit) options.limit = parseInt(limit, 10);
     if (offset) options.offset = parseInt(offset, 10);
+    options.include = [BUILDING_INCLUDE];
 
     return models.Task.findAll(options);
   }
@@ -49,13 +68,14 @@ class TasksService {
         assignedTo: userCode,
         status: { [Op.notIn]: ['COMPLETADA', 'CANCELADA'] }
       },
-      order: [['dueDate', 'ASC'], ['createdAt', 'DESC']]
+      order: [['dueDate', 'ASC'], ['createdAt', 'DESC']],
+      include: [BUILDING_INCLUDE]
     });
   }
 
   /** Detalle completo para el modal del móvil. */
   async findOne(id, requester) {
-    const task = await models.Task.findByPk(id);
+    const task = await models.Task.findByPk(id, { include: [BUILDING_INCLUDE] });
     if (!task) throw boom.notFound('Tarea no encontrada');
     assertOwnerOrAdmin(task, requester);
     return task;
@@ -77,6 +97,10 @@ class TasksService {
   async update(id, changes) {
     const task = await models.Task.findByPk(id);
     if (!task) throw boom.notFound('Tarea no encontrada');
+    if (changes.buildingId) {
+      const building = await models.Building.findByPk(changes.buildingId);
+      if (!building) throw boom.notFound('Edificio no encontrado');
+    }
     return task.update(changes);
   }
 

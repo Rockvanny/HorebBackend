@@ -14,6 +14,10 @@ const assignedTo = Joi.string();
 const address = Joi.string().allow('', null);
 const postCode = Joi.string().allow('', null);
 const city = Joi.string().allow('', null);
+// Edificio concreto de la tarea (opcional, ver task.model.js#buildingId):
+// solo tiene sentido cuando hay contrato de mantenimiento de por medio, no
+// sustituye a address/city que siguen sirviendo para una dirección suelta.
+const buildingId = Joi.string().guid().allow(null);
 
 const createTaskSchema = Joi.object({
   title: title.required(),
@@ -25,6 +29,7 @@ const createTaskSchema = Joi.object({
   address: address.optional(),
   postCode: postCode.optional(),
   city: city.optional(),
+  buildingId: buildingId.optional(),
 });
 
 const updateTaskSchema = Joi.object({
@@ -38,6 +43,7 @@ const updateTaskSchema = Joi.object({
   address: address.optional(),
   postCode: postCode.optional(),
   city: city.optional(),
+  buildingId: buildingId.optional(),
 });
 
 const updateTaskStatusSchema = Joi.object({
