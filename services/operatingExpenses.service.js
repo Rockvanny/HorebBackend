@@ -73,6 +73,31 @@ class OperatingExpensesService {
     }));
   }
 
+  /**
+   * Detalle completo para el modal de la app móvil (se abre al tocar una
+   * fila de "Gastos internos"): mismo gasto que findMobileSummary pero con
+   * el desglose de IVA/IRPF y el proveedor -findMobileSummary se queda corto
+   * a propósito para la tarjeta de lista, aquí sí interesa el detalle-.
+   */
+  async findMobileDetail(id) {
+    const expense = await this.findOne(id);
+    return {
+      id: expense.id,
+      date: expense.date,
+      category: expense.category,
+      vendorName: expense.name,
+      nif: expense.nif,
+      concept: expense.concept,
+      baseAmount: parseFloat(expense.baseAmount || 0),
+      tax: parseFloat(expense.tax || 0),
+      taxAmount: parseFloat(expense.taxAmount || 0),
+      irpf: parseFloat(expense.irpf || 0),
+      amountIrpf: parseFloat(expense.amountIrpf || 0),
+      totalAmount: parseFloat(expense.totalAmount || 0),
+      paymentMethod: expense.paymentMethod
+    };
+  }
+
   async findOne(id) {
     const expense = await models.OperatingExpenses.findByPk(id);
     if (!expense) throw boom.notFound('Gasto no encontrado');

@@ -55,6 +55,24 @@ router.get('/mobile-summary',
 );
 
 /**
+ * DETALLE PARA EL MODAL DE LA APP MÓVIL (se abre al tocar una fila de
+ * "Gastos internos"). Misma protección que /mobile-summary.
+ */
+router.get('/mobile-summary/:id',
+  passport.authenticate('jwt', { session: false }),
+  checkRole('admin'),
+  validatorHandler(getOperatingExpenseSchema, 'params'),
+  async (req, res, next) => {
+    try {
+      const result = await service.findMobileDetail(req.params.id);
+      res.json({ success: true, data: result });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
  * DETALLE DE GASTO
  */
 router.get('/:id',
