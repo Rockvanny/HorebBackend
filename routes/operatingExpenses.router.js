@@ -2,7 +2,7 @@ const express = require('express');
 const passport = require('passport');
 const OperatingExpensesService = require('../services/operatingExpenses.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { checkAction } = require('../middlewares/auth.handler');
+const { checkAction, checkRole } = require('../middlewares/auth.handler');
 const { isExpenseMonthClosed } = require('../libs/monthClose.helper');
 const {
   createOperatingExpenseSchema,
@@ -26,6 +26,28 @@ router.get('/operatingExpenses-paginated',
       const { limit, offset, startDate, endDate, category, searchTerm } = req.query;
       const result = await service.findPaginated({ limit, offset, startDate, endDate, category, searchTerm });
       res.json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * RESUMEN DE SOLO LECTURA PARA LA APP MÓVIL (pestaña "Gestión", exclusiva de
+ * admin -checkRole, no basta con checkAction: financiero/vendedor también
+ * podrían tener el módulo Gestión activo-). Filtrable por rango de fechas.
+ * Va ANTES de '/:id' a propósito, si no Express interpretaría
+ * "mobile-summary" como el :id de la ruta de abajo.
+ */
+router.get('/mobile-summary',
+  passport.authenticate('jwt', { session: false }),
+  checkRole('admin'),
+  validatorHandler(queryOperatingExpenseSchema, 'query'),
+  async (req, res, next) => {
+    try {
+      const { startDate, endDate } = req.query;
+      const result = await service.findMobileSummary({ startDate, endDate });
+      res.json({ success: true, data: result });
     } catch (error) {
       next(error);
     }

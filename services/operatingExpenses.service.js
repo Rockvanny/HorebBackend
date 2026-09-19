@@ -44,6 +44,35 @@ class OperatingExpensesService {
     }
   }
 
+  /**
+   * Resumen de solo lectura para la pantalla "Gestión" de la app móvil
+   * (exclusiva de admin, ver checkRole en el router): igual filtro de fecha
+   * que findPaginated (solo si vienen AMBAS, si no no filtra), pero
+   * simplificado a los campos que interesan en una tarjeta -sin el desglose
+   * de IVA/IRPF que sí necesita el Frontend Electron-.
+   */
+  async findMobileSummary({ startDate, endDate }) {
+    const options = {
+      order: [['date', 'DESC']],
+      where: {},
+      attributes: ['id', 'date', 'category', 'name', 'concept', 'totalAmount']
+    };
+
+    if (startDate && endDate) {
+      options.where.date = { [Op.between]: [startDate, endDate] };
+    }
+
+    const expenses = await models.OperatingExpenses.findAll(options);
+    return expenses.map((expense) => ({
+      id: expense.id,
+      date: expense.date,
+      category: expense.category,
+      vendorName: expense.name,
+      concept: expense.concept,
+      totalAmount: parseFloat(expense.totalAmount || 0)
+    }));
+  }
+
   async findOne(id) {
     const expense = await models.OperatingExpenses.findByPk(id);
     if (!expense) throw boom.notFound('Gasto no encontrado');
