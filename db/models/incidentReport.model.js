@@ -21,6 +21,15 @@ const IncidentReportSchema = {
     type: DataTypes.STRING,
   },
 
+  // Opcional: a qué edificio se refiere -relevante cuando el cliente está
+  // vinculado a varios (ver CustomerBuilding). Null = incidencia genérica,
+  // no ligada a ningún edificio concreto.
+  buildingId: {
+    field: 'building_id',
+    allowNull: true,
+    type: DataTypes.UUID,
+  },
+
   title: {
     field: 'title',
     allowNull: false,
@@ -62,6 +71,12 @@ class IncidentReport extends Model {
       as: 'customer',
       foreignKey: 'entityCode',
       targetKey: 'code'
+    });
+
+    this.belongsTo(models.Building, {
+      as: 'building',
+      foreignKey: 'buildingId',
+      targetKey: 'id'
     });
   }
 

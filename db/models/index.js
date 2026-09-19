@@ -25,6 +25,8 @@ const { Notification, NotificationSchema } = require('./notification.model');
 const { MailAccount, MailAccountSchema } = require('./mailAccount.model');
 const { IncidentReport, IncidentReportSchema } = require('./incidentReport.model');
 const { Task, TaskSchema } = require('./task.model');
+const { Building, BuildingSchema } = require('./building.model');
+const { CustomerBuilding, CustomerBuildingSchema } = require('./customerBuilding.model');
 
 function setupModels(sequelize) {
   // 1. Inicialización de modelos
@@ -55,6 +57,8 @@ function setupModels(sequelize) {
   MailAccount.init(MailAccountSchema, MailAccount.config(sequelize));
   IncidentReport.init(IncidentReportSchema, IncidentReport.config(sequelize));
   Task.init(TaskSchema, Task.config(sequelize));
+  Building.init(BuildingSchema, Building.config(sequelize));
+  CustomerBuilding.init(CustomerBuildingSchema, CustomerBuilding.config(sequelize));
 
   // 2. Definición de asociaciones
   Company.associate(sequelize.models);
@@ -80,6 +84,8 @@ function setupModels(sequelize) {
   MailAccount.associate(sequelize.models);
   IncidentReport.associate(sequelize.models);
   Task.associate(sequelize.models);
+  Building.associate(sequelize.models);
+  CustomerBuilding.associate(sequelize.models);
 }
 
 module.exports = setupModels;

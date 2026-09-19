@@ -15,7 +15,7 @@ const ROLES = {
 const MODULE_HIERARCHY = {
   GESTION: {
     field: 'allowGestion',
-    objects: ['customers', 'vendors', 'products', 'operatingExpenses']
+    objects: ['customers', 'vendors', 'products', 'operatingExpenses', 'buildings']
   },
   SALES: {
     field: 'allowSales',
@@ -58,9 +58,30 @@ const ROLE_ACTIONS = {
 };
 
 // 2. Configuración de Páginas (Visibilidad opcional)
+// 'buildings' (Edificios) es admin-only: solo el admin gestiona altas de
+// edificios/contratos de mantenimiento (ver buildings.router.js,
+// checkRole('admin')). Como admin nunca tiene entrada en ROLE_PAGES, ve el
+// array completo de MODULE_HIERARCHY.GESTION.objects sin restricción; el
+// resto de roles con GESTION necesitan aquí su propio allowlist -sin
+// 'buildings'- para que ni la API ni el menú del Frontend se lo muestren.
+const GESTION_PAGES_WITHOUT_BUILDINGS = ['customers', 'vendors', 'products', 'operatingExpenses'];
+
 const ROLE_PAGES = {
   [ROLES.FINANCIERO]: {
-    SETUP: ['company', 'series']
+    SETUP: ['company', 'series'],
+    GESTION: GESTION_PAGES_WITHOUT_BUILDINGS
+  },
+  [ROLES.VENDEDOR]: {
+    GESTION: GESTION_PAGES_WITHOUT_BUILDINGS
+  },
+  [ROLES.EXTERNO]: {
+    GESTION: GESTION_PAGES_WITHOUT_BUILDINGS
+  },
+  [ROLES.VIEWER]: {
+    GESTION: GESTION_PAGES_WITHOUT_BUILDINGS
+  },
+  [ROLES.OPERARIO]: {
+    GESTION: GESTION_PAGES_WITHOUT_BUILDINGS
   }
 };
 
