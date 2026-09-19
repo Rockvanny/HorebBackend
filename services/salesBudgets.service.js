@@ -148,6 +148,53 @@ class salesBudgetService {
     }
   }
 
+  /**
+   * "Proyectos" de la app móvil: ofertas de venta ya aprobadas -mismo
+   * criterio que findActiveContracts, que ya las trata como centros de
+   * coste/contrato para imputar gastos de compra-. Resumen de solo lectura,
+   * exclusivo de admin (checkRole en el router).
+   */
+  async findMobileProjects() {
+    const budgets = await salesBudget.findAll({
+      where: { status: 'Aprobado' },
+      attributes: ['id', 'code', 'name', 'city', 'amountWithVAT', 'dueDate'],
+      order: [['created_at', 'DESC']]
+    });
+
+    return budgets.map((budget) => ({
+      id: budget.id,
+      code: budget.code,
+      customerName: budget.name,
+      city: budget.city,
+      amountWithVAT: parseFloat(budget.amountWithVAT || 0),
+      dueDate: budget.dueDate
+    }));
+  }
+
+  /** Detalle completo para el modal de "Proyectos" en la app móvil. */
+  async findMobileProjectDetail(id) {
+    const budget = await salesBudget.findByPk(id);
+    if (!budget) throw boom.notFound('Proyecto no encontrado');
+
+    return {
+      id: budget.id,
+      code: budget.code,
+      customerName: budget.name,
+      nif: budget.nif,
+      email: budget.email,
+      phone: budget.phone,
+      address: budget.address,
+      postCode: budget.postCode,
+      city: budget.city,
+      province: budget.province,
+      postingDate: budget.postingDate,
+      dueDate: budget.dueDate,
+      amountWithVAT: parseFloat(budget.amountWithVAT || 0),
+      paymentMethod: budget.paymentMethod,
+      comments: budget.comments
+    };
+  }
+
   async create(data, userId) {
     const { lines: rawLines, ...headerData } = data;
     const transaction = await sequelize.transaction();

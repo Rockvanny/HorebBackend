@@ -2,7 +2,7 @@ const express = require('express');
 const passport = require('passport');
 const salesBudgetService = require('../services/salesBudgets.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { checkAction } = require('../middlewares/auth.handler');
+const { checkAction, checkRole } = require('../middlewares/auth.handler');
 const {
     createSalesBudgetSchema,
     getSalesBudgetSchema,
@@ -76,6 +76,39 @@ router.get('/active-contracts',
             const record = await service.findActiveContracts();
             // Retorna directamente 'record' (el array plano) cumpliendo tu estándar del frontend
             res.json(record);
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+/**
+ * "Proyectos" para la app móvil (pestaña "Gestión"): ofertas de venta ya
+ * aprobadas, mismo criterio que /active-contracts de arriba. Exclusivo de
+ * admin -checkRole, no basta checkAction: financiero/vendedor también
+ * podrían tener el módulo Ventas activo-. Van ANTES de '/:id' a propósito.
+ */
+router.get('/mobile-projects',
+    passport.authenticate('jwt', { session: false }),
+    checkRole('admin'),
+    async (req, res, next) => {
+        try {
+            const result = await service.findMobileProjects();
+            res.json({ success: true, data: result });
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+router.get('/mobile-projects/:id',
+    passport.authenticate('jwt', { session: false }),
+    checkRole('admin'),
+    validatorHandler(getSalesBudgetSchema, 'params'),
+    async (req, res, next) => {
+        try {
+            const result = await service.findMobileProjectDetail(req.params.id);
+            res.json({ success: true, data: result });
         } catch (error) {
             next(error);
         }
