@@ -31,6 +31,24 @@ router.get('/salesInvoices-paginated',
 );
 
 /**
+ * "To-do" simplificado para el dashboard de admin de la app móvil (Android):
+ * facturas BORRADOR vencidas + próximas a vencer, sin paginar -ver
+ * services/salesInvoices.service.js#findDashboardTodo-. Va ANTES de
+ * '/:code' a propósito, si no Express interpretaría "dashboard-todo" como el
+ * parámetro :code de la ruta de abajo.
+ */
+router.get('/dashboard-todo',
+    passport.authenticate('jwt', { session: false }),
+    checkAction('VIEW_SALESOVERDUEINVOICES'),
+    async (req, res, next) => {
+        try {
+            const result = await service.findDashboardTodo();
+            res.json({ success: true, data: result });
+        } catch (error) { next(error); }
+    }
+);
+
+/**
  * Busca facturas (o presupuestos según el servicio) por código de cliente.
  * Útil para selectores de documentos origen.
  */

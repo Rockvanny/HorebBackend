@@ -9,7 +9,46 @@ const SalesPostInvoiceService = require('./salesPostInvoice.service');
 const { calculateDocumentTotals } = require('../libs/taxCalculation');
 const postService = new SalesPostInvoiceService();
 
+// Ventana de "próxima a vencer" para el to-do del dashboard móvil de admin
+// (decidido con el usuario, ver AndroidApp/TODO.md): más allá de estos días
+// no se considera todavía urgente, para no saturar la lista de tarjetas.
+const DASHBOARD_TODO_UPCOMING_DAYS = 7;
+
 class salesInvoiceService {
+
+  /**
+   * "To-do" simplificado para el dashboard de admin de la app móvil:
+   * facturas BORRADOR (`sales_invoices`, no `sales_post_invoices`) que
+   * siguen sin registrarse/cobrarse y ya están vencidas o próximas a vencer
+   * (dentro de DASHBOARD_TODO_UPCOMING_DAYS), con status='Abierto' -una
+   * pagada ya no es un pendiente-. Es justo la alerta de "esto sigue en
+   * borrador y no se ha cobrado": una vez archivada (archiveInvoice) pasa a
+   * sales_post_invoices y deja de salir aquí. Sin paginar a propósito: es
+   * una lista de tarjetas resumidas, no el listado completo (ver
+   * findPaginated#filter, que sigue sin implementar el filtro 'overdue' del
+   * Frontend -no se tocó aquí, es un problema distinto y no pedido-).
+   */
+  async findDashboardTodo() {
+    const now = new Date();
+    const upcomingLimit = new Date(now.getTime() + DASHBOARD_TODO_UPCOMING_DAYS * 24 * 60 * 60 * 1000);
+
+    const rows = await salesInvoice.findAll({
+      where: {
+        status: 'Abierto',
+        dueDate: { [Op.ne]: null, [Op.lte]: upcomingLimit }
+      },
+      order: [['due_date', 'ASC']],
+      attributes: ['code', 'name', 'dueDate', 'amountWithVAT']
+    });
+
+    return rows.map((row) => ({
+      code: row.code,
+      customerName: row.name,
+      dueDate: row.dueDate,
+      amountWithVAT: parseFloat(row.amountWithVAT),
+      overdue: new Date(row.dueDate).getTime() < now.getTime()
+    }));
+  }
 
   async findPaginated({ limit, offset, searchTerm }) {
     const parsedLimit = parseInt(limit, 10) || 100;
