@@ -320,6 +320,9 @@ class CustomerService {
     if (!customer) {
       throw boom.notFound('No se ha encontrado ningún cliente con ese NIF y email. Contacta con la empresa.');
     }
+    if (!customer.appAccessEnabled) {
+      throw boom.forbidden('Tu cuenta no tiene acceso habilitado a la aplicación. Contacta con la empresa.');
+    }
     if (customer.password) {
       throw boom.conflict('Ya existe una cuenta para este cliente. Inicia sesión.');
     }
@@ -343,6 +346,12 @@ class CustomerService {
     const isMatch = await bcrypt.compare(password, customer.password);
     if (!isMatch) throw boom.unauthorized('Email o contraseña incorrectos');
 
+    // Después de validar credenciales a propósito -que no revele, solo con
+    // el email, si una cuenta existe y tiene el acceso desactivado-.
+    if (!customer.appAccessEnabled) {
+      throw boom.forbidden('Tu cuenta no tiene acceso habilitado a la aplicación. Contacta con la empresa.');
+    }
+
     return otpService.createChallenge(customer, CUSTOMER_LOGIN_OTP_PURPOSE);
   }
 
@@ -356,6 +365,12 @@ class CustomerService {
 
     const customer = await models.Customer.findByPk(customerCode);
     if (!customer) throw boom.unauthorized('Cliente no encontrado');
+
+    // Revalidado también aquí (no solo en login): si el acceso se revoca
+    // mientras el OTP ya estaba en curso, no debe emitirse igualmente el token.
+    if (!customer.appAccessEnabled) {
+      throw boom.forbidden('Tu cuenta no tiene acceso habilitado a la aplicación. Contacta con la empresa.');
+    }
 
     const token = jwt.sign({ sub: customer.code, type: 'CUSTOMER' }, config.jwtSecret, { expiresIn: '8h' });
     return { token };

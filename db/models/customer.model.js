@@ -94,6 +94,19 @@ const CustomerSchema = {
     allowNull: true,
   },
 
+  // Interruptor de acceso a la app móvil: es el personal interno quien lo
+  // activa desde la ficha de cliente (Frontend), nunca el propio cliente.
+  // Por defecto false a propósito -alta explícita, no un permiso implícito
+  // por existir en la tabla-, se valida en registerAccount/login/
+  // verifyLoginOtp (ver customers.service.js) para bloquear tanto el alta
+  // de cuenta como el login de un cliente sin acceso concedido.
+  appAccessEnabled: {
+    field: 'app_access_enabled',
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+  },
+
   createdAt: {
     field: 'created_at',
     allowNull: false,

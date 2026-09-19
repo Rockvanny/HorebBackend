@@ -22,6 +22,11 @@ const CustomerJwtStrategy = new Strategy(options, async (payload, done) => {
     if (payload.type !== 'CUSTOMER') return done(null, false);
 
     const customer = await service.findOne(payload.sub);
+    // Revalidado en cada petición (no solo al hacer login): si el personal
+    // interno revoca el acceso mientras el cliente ya tiene un token de 8h
+    // vigente, deja de poder usar la app de inmediato en vez de esperar a
+    // que expire.
+    if (!customer.appAccessEnabled) return done(null, false);
     return done(null, customer);
   } catch (error) {
     // findOne lanza boom.notFound si el cliente ya no existe (ej. borrado

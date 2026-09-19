@@ -15,6 +15,10 @@ const paymentMethod = Joi.string().valid(
   'Tarjeta',
   'Bizum'
 );
+// Acceso a la app móvil (ver customer.model.js#appAccessEnabled): solo lo
+// fija el personal interno desde la ficha, nunca el propio cliente -no
+// aparece en ningún schema de autoservicio (registro/login) de más abajo-.
+const appAccessEnabled = Joi.boolean();
 
 const limit = Joi.number().integer();
 const offset = Joi.number().integer();
@@ -35,6 +39,7 @@ const createCustomerSchema = Joi.object({
   city: city.required(),
   province: province.optional(),
   paymentMethod: paymentMethod.default('Transferencia'),
+  appAccessEnabled: appAccessEnabled.default(false),
 });
 
 const updateCustomerSchema = Joi.object({
@@ -47,6 +52,7 @@ const updateCustomerSchema = Joi.object({
   city: city.required(),
   province: province.optional(),
   paymentMethod: paymentMethod.optional(),
+  appAccessEnabled: appAccessEnabled.optional(),
 });
 
 const queryCustomerSchema = Joi.object({
