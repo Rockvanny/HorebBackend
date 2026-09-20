@@ -90,7 +90,12 @@ class TasksService {
     const task = await models.Task.findByPk(id);
     if (!task) throw boom.notFound('Tarea no encontrada');
     assertOwnerOrAdmin(task, requester);
-    return task.update({ status });
+    await task.update({ status });
+    // Recargamos con el edificio incluido -si no, el modal del móvil pierde
+    // de golpe la fila "Edificio"/"Administrador" en cuanto se avanza el
+    // estado, aunque buildingId siga intacto, porque .update() en la
+    // instancia no reconsulta las asociaciones ya cargadas-.
+    return task.reload({ include: [BUILDING_INCLUDE] });
   }
 
   /** Edición completa: exclusiva de admin (ver checkRole en el router). */
@@ -101,7 +106,8 @@ class TasksService {
       const building = await models.Building.findByPk(changes.buildingId);
       if (!building) throw boom.notFound('Edificio no encontrado');
     }
-    return task.update(changes);
+    await task.update(changes);
+    return task.reload({ include: [BUILDING_INCLUDE] });
   }
 
   /** Borrar: exclusivo de admin (ver checkRole en el router). */
