@@ -160,7 +160,13 @@ class purchInvoiceLine extends Model {
       amountWithVAT: (totals.baseTotal + totals.taxTotal).toFixed(4)
     }, {
       where: { code: codeDocument },
-      transaction
+      transaction,
+      // Ver mismo comentario en salesInvoiceLine.model.js#updateDocumentTotals:
+      // Model.update() valida por defecto construyendo un build() solo con
+      // estos 3 campos (sin code/seriesCode) y reactivaba generateNextCode,
+      // quemando un número de serie de compra por cada línea creada/borrada.
+      // Este recálculo no necesita validar nada.
+      validate: false
     });
   }
 

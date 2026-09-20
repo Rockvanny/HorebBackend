@@ -143,7 +143,16 @@ class salesBudgetLine extends Model {
       amountWithoutVAT: totals.baseTotal.toFixed(4),
       amountVAT: totals.vatTotal.toFixed(4),
       amountWithVAT: (totals.baseTotal + totals.vatTotal).toFixed(4)
-    }, { where: { code: codeDocument }, transaction });
+    }, {
+      where: { code: codeDocument },
+      transaction,
+      // Ver mismo comentario en salesInvoiceLine.model.js#updateDocumentTotals:
+      // Model.update() valida por defecto construyendo un build() solo con
+      // estos 3 campos (sin code/seriesCode) y reactivaba generateNextCode,
+      // quemando un número de serie de presupuesto por cada línea creada/
+      // borrada. Este recálculo no necesita validar nada.
+      validate: false
+    });
   }
 
   static config(sequelize) {

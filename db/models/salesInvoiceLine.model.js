@@ -170,7 +170,20 @@ class salesInvoiceLine extends Model {
       amountWithoutVAT: totals.baseTotal.toFixed(4),
       amountVAT: totals.taxTotal.toFixed(4),
       amountWithVAT: (totals.baseTotal + totals.taxTotal).toFixed(4)
-    }, { where: { code: codeDocument }, transaction });
+    }, {
+      where: { code: codeDocument },
+      transaction,
+      // Model.update() valida por defecto (options.validate=true) construyendo
+      // una instancia "build()" SOLO con estos 3 campos -sin code/seriesCode-
+      // y ejecutando beforeValidate sobre ella. Eso reactivaba
+      // generateNextCode (su guarda `isNewRecord && !instance.code` la
+      // confunde con un alta nueva) y quemaba un número de serie real cada
+      // vez que se creaban/borraban líneas, dejando huecos en la numeración
+      // de facturas -grave, la numeración de venta debe ser correlativa-.
+      // Este recálculo nunca necesitó validar nada: los totales ya vienen
+      // calculados.
+      validate: false
+    });
   }
 
   static config(sequelize) {
