@@ -1,4 +1,5 @@
 const { User, UserSchema } = require('./user.model');
+const { Employee, EmployeeSchema } = require('./employee.model');
 const { Company, CompanySchema } = require('./company.model');
 const { Vendor, VendorSchema } = require('./vendor.model');
 const { Customer, CustomerSchema } = require('./customer.model');
@@ -31,6 +32,7 @@ const { CustomerBuilding, CustomerBuildingSchema } = require('./customerBuilding
 function setupModels(sequelize) {
   // 1. Inicialización de modelos
   User.init(UserSchema, User.config(sequelize));
+  Employee.init(EmployeeSchema, Employee.config(sequelize));
   Company.init(CompanySchema, Company.config(sequelize));
   Vendor.init(VendorSchema, Vendor.config(sequelize));
   Customer.init(CustomerSchema, Customer.config(sequelize));

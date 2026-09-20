@@ -20,6 +20,7 @@ const path = require('path');
 const sequelize = require('./libs/sequelize');
 const JwtStrategy = require('./libs/jwt.strategy');
 const CustomerJwtStrategy = require('./libs/customerJwt.strategy');
+const EmployeeJwtStrategy = require('./libs/employeeJwt.strategy');
 const routerApi = require('./routes');
 const { logErrors, errorHandler, boomErrorHandler, ormErrorHandler } = require('./middlewares/error.handler');
 const LicenseService = require('./services/license.service');
@@ -32,6 +33,7 @@ const port = process.env.PORT || 3000;
 app.use(passport.initialize());
 passport.use(JwtStrategy);
 passport.use('customer-jwt', CustomerJwtStrategy);
+passport.use('employee-jwt', EmployeeJwtStrategy);
 
 // --- 2. MIDDLEWARES GLOBALES ---
 const whitelist = ['http://localhost:8080'];

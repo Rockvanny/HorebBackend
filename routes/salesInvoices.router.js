@@ -2,7 +2,7 @@ const express = require('express');
 const passport = require('passport');
 const SalesInvoiceService = require('../services/salesInvoices.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { checkAction } = require('../middlewares/auth.handler');
+const { checkAction, checkRole } = require('../middlewares/auth.handler');
 const {
     createSalesInvoiceSchema,
     getSalesInvoiceSchema,
@@ -38,8 +38,11 @@ router.get('/salesInvoices-paginated',
  * parámetro :code de la ruta de abajo.
  */
 router.get('/dashboard-todo',
-    passport.authenticate('jwt', { session: false }),
-    checkAction('VIEW_SALESOVERDUEINVOICES'),
+    // Solo la usa la app móvil (Employee): checkRole en vez de checkAction
+    // porque Employee no tiene los flags allowSales/modules del sistema de
+    // permisos de escritorio -toda su autorización es por rol-.
+    passport.authenticate('employee-jwt', { session: false }),
+    checkRole('admin'),
     async (req, res, next) => {
         try {
             const result = await service.findDashboardTodo();

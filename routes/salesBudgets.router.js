@@ -89,7 +89,7 @@ router.get('/active-contracts',
  * podrían tener el módulo Ventas activo-. Van ANTES de '/:id' a propósito.
  */
 router.get('/mobile-projects',
-    passport.authenticate('jwt', { session: false }),
+    passport.authenticate('employee-jwt', { session: false }),
     checkRole('admin'),
     async (req, res, next) => {
         try {
@@ -102,7 +102,7 @@ router.get('/mobile-projects',
 );
 
 router.get('/mobile-projects/:id',
-    passport.authenticate('jwt', { session: false }),
+    passport.authenticate('employee-jwt', { session: false }),
     checkRole('admin'),
     validatorHandler(getSalesBudgetSchema, 'params'),
     async (req, res, next) => {

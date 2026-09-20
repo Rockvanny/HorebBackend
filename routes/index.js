@@ -4,6 +4,7 @@ const licenseGate = require('../middlewares/licenseGate');
 const setupRouter = require('./setup.router');
 const licenseRouter = require('./license.router');
 const usersRouter = require('./users.router');
+const employeesRouter = require('./employees.router');
 const companyRouter = require('./company.router');
 const productsRouter = require('./product.router');
 const customersRouter = require('./customers.router');
@@ -52,6 +53,7 @@ function routerApi(app) {
   router.use('/setup', setupRouter);
   router.use('/license', licenseRouter);
   router.use('/users', usersRouter);
+  router.use('/employees', employeesRouter);
   router.use('/company', companyRouter);
   router.use('/products', productsRouter);
   router.use('/customers', customersRouter);

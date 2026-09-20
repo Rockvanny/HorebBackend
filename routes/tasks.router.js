@@ -14,9 +14,11 @@ const {
 const router = express.Router();
 const service = new TasksService();
 
-// Todas las rutas de tareas son para empleados (estrategia 'jwt', nunca
-// 'customer-jwt' -son mundos separados en todo el resto de la API-).
-router.use(passport.authenticate('jwt', { session: false }));
+// Todas las rutas de tareas son de la app móvil (estrategia 'employee-jwt',
+// tabla 'employees' -flujo separado de 'users'/escritorio y de
+// 'customer-jwt' desde 2026-09-20-). No hay pantalla de Tareas en el
+// Frontend, así que no hace falta aceptar también 'jwt' aquí.
+router.use(passport.authenticate('employee-jwt', { session: false }));
 
 /**
  * Crear tarea: exclusivo de admin -"Crear tarea" en Gestión/Oficina de la

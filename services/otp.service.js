@@ -107,11 +107,14 @@ class OtpService {
       throw boom.tooManyRequests('Has alcanzado el límite de reenvíos. Vuelve a iniciar sesión.');
     }
 
-    // userCode puede ser un código de empleado o de cliente (ver
-    // customers.service.js#login, que reutiliza este mismo servicio) -no hay
-    // forma de saber cuál sin mirar 'purpose', así que se prueba primero en
-    // users y, si no está, en customers-.
-    const user = await models.User.findByPk(challenge.userCode) || await models.Customer.findByPk(challenge.userCode);
+    // userCode puede ser un código de usuario de escritorio, de cliente o de
+    // empleado de la app móvil (ver customers.service.js#login/
+    // employees.service.js#login, que reutilizan este mismo servicio) -no
+    // hay forma de saber cuál sin mirar 'purpose', así que se prueba en
+    // orden hasta encontrarlo-.
+    const user = await models.User.findByPk(challenge.userCode)
+      || await models.Customer.findByPk(challenge.userCode)
+      || await models.Employee.findByPk(challenge.userCode);
     if (!user) throw boom.unauthorized('Código inválido o expirado');
 
     const code = generateCode();

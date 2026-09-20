@@ -60,18 +60,21 @@ const TaskSchema = {
     type: DataTypes.DATE,
   },
 
-  // FK real a users.code: si se intenta borrar un usuario con tareas
-  // asignadas, se bloquea (RESTRICT, ver migración) en vez de perder el
-  // historial de tareas silenciosamente.
+  // Referencia "blanda" a employees.code -antes tenía FK física a users.code,
+  // pero con la separación Users/Employees (2026-09-20) las tareas se
+  // asignan a Employees (flujo móvil), y una FK física solo puede apuntar a
+  // una tabla-. Se valida en tasks.service.js#create que el código exista de
+  // verdad, mismo criterio que buildingId.
   assignedTo: {
     field: 'assigned_to',
     allowNull: false,
     type: DataTypes.STRING,
   },
 
-  // FK "blanda" a users.code (mismo patrón que notification.recipientUser /
-  // operatingExpenses.userName): solo para auditoría de quién la creó, sin
-  // constraint -no debe bloquear nada si ese usuario deja de existir-.
+  // Referencia "blanda" a employees.code (mismo patrón que
+  // notification.recipientUser / operatingExpenses.userName): solo para
+  // auditoría de quién la creó, sin constraint -no debe bloquear nada si ese
+  // empleado deja de existir-.
   createdBy: {
     field: 'created_by',
     allowNull: false,
@@ -125,7 +128,7 @@ const TaskSchema = {
 
 class Task extends Model {
   static associate(models) {
-    this.belongsTo(models.User, { as: 'assignee', foreignKey: 'assignedTo', targetKey: 'code' });
+    this.belongsTo(models.Employee, { as: 'assignee', foreignKey: 'assignedTo', targetKey: 'code' });
     this.belongsTo(models.Building, { as: 'building', foreignKey: 'buildingId', targetKey: 'id' });
   }
 

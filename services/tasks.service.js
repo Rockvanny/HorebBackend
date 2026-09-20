@@ -24,12 +24,16 @@ const BUILDING_INCLUDE = {
 class TasksService {
 
   /**
-   * Crear tarea: exclusivo de admin (ver checkRole en el router). Si viene
-   * buildingId, comprobamos que exista de verdad -mismo criterio que
-   * CustomerBuildingsService#create-, para no guardar una referencia rota
-   * por un UUID mal copiado.
+   * Crear tarea: exclusivo de admin (ver checkRole en el router). assignedTo
+   * ya no tiene FK física (ver migración drop_tasks_assigned_to_fk: ahora
+   * apunta a employees.code, no a users.code, y una FK solo puede apuntar a
+   * una tabla), así que se valida aquí que el empleado exista de verdad -
+   * mismo criterio que buildingId-.
    */
   async create(data, createdBy) {
+    const employee = await models.Employee.findByPk(data.assignedTo);
+    if (!employee) throw boom.notFound('Empleado no encontrado');
+
     if (data.buildingId) {
       const building = await models.Building.findByPk(data.buildingId);
       if (!building) throw boom.notFound('Edificio no encontrado');
@@ -102,6 +106,10 @@ class TasksService {
   async update(id, changes) {
     const task = await models.Task.findByPk(id);
     if (!task) throw boom.notFound('Tarea no encontrada');
+    if (changes.assignedTo) {
+      const employee = await models.Employee.findByPk(changes.assignedTo);
+      if (!employee) throw boom.notFound('Empleado no encontrado');
+    }
     if (changes.buildingId) {
       const building = await models.Building.findByPk(changes.buildingId);
       if (!building) throw boom.notFound('Edificio no encontrado');

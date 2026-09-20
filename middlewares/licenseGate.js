@@ -11,6 +11,10 @@ const EXEMPT_PREFIXES = [
   '/api/v1/license',
   '/api/v1/users/login',
   '/api/v1/users/forgot-password',
+  // App móvil (Employees, flujo separado de Users desde 2026-09-20): mismo
+  // criterio que el login de escritorio de arriba.
+  '/api/v1/employees/login',
+  '/api/v1/employees/forgot-password',
   // Autoservicio de clientes: que la licencia de la empresa haya caducado no
   // es culpa del cliente ni algo que él pueda arreglar -igual razón que el
   // login de empleados de arriba-. El resto de /customers (gestión interna,

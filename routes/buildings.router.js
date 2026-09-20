@@ -13,13 +13,19 @@ const {
 const router = express.Router();
 const service = new BuildingsService();
 
-// CRUD de edificios: exclusivo de admin (checkRole, decidido con el usuario
-// 2026-09-19 -alta/gestión solo desde escritorio/backend, nunca desde el
-// móvil-). No basta checkAction: financiero/vendedor también podrían tener
-// algún módulo activo que no debería darles acceso a esto.
-router.use(passport.authenticate('jwt', { session: false }), checkRole('admin'));
+// Alta/edición/borrado: exclusivo de admin de ESCRITORIO (checkRole,
+// decidido con el usuario 2026-09-19 -nunca desde el móvil, ni siquiera un
+// Employee admin-). No basta checkAction: financiero/vendedor también
+// podrían tener algún módulo activo que no debería darles acceso a esto.
+const desktopAdminOnly = [passport.authenticate('jwt', { session: false }), checkRole('admin')];
+
+// Lectura: la usan tanto el Frontend (ficha/listado de Edificios) como la
+// app móvil (pestaña "Edificios" en Gestión, solo consulta) -acepta admin
+// de cualquiera de las dos identidades, ver employeeJwt.strategy.js-.
+const readAnyAdmin = [passport.authenticate(['jwt', 'employee-jwt'], { session: false }), checkRole('admin')];
 
 router.post('/',
+  ...desktopAdminOnly,
   validatorHandler(createBuildingSchema, 'body'),
   async (req, res, next) => {
     try {
@@ -30,6 +36,7 @@ router.post('/',
 );
 
 router.get('/',
+  ...readAnyAdmin,
   validatorHandler(queryBuildingSchema, 'query'),
   async (req, res, next) => {
     try {
@@ -43,6 +50,7 @@ router.get('/',
 // respuesta que customers-paginated -sin envolver en {success,data}-, porque
 // explorer.js#fetchPaginatedData lee records/hasMore directamente del body.
 router.get('/buildings-paginated',
+  ...readAnyAdmin,
   validatorHandler(queryBuildingSchema, 'query'),
   async (req, res, next) => {
     try {
@@ -53,6 +61,7 @@ router.get('/buildings-paginated',
 );
 
 router.get('/:id',
+  ...readAnyAdmin,
   validatorHandler(getBuildingSchema, 'params'),
   async (req, res, next) => {
     try {
@@ -63,6 +72,7 @@ router.get('/:id',
 );
 
 router.patch('/:id',
+  ...desktopAdminOnly,
   validatorHandler(getBuildingSchema, 'params'),
   validatorHandler(updateBuildingSchema, 'body'),
   async (req, res, next) => {
@@ -74,6 +84,7 @@ router.patch('/:id',
 );
 
 router.delete('/:id',
+  ...desktopAdminOnly,
   validatorHandler(getBuildingSchema, 'params'),
   async (req, res, next) => {
     try {

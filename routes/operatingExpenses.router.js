@@ -40,7 +40,7 @@ router.get('/operatingExpenses-paginated',
  * "mobile-summary" como el :id de la ruta de abajo.
  */
 router.get('/mobile-summary',
-  passport.authenticate('jwt', { session: false }),
+  passport.authenticate('employee-jwt', { session: false }),
   checkRole('admin'),
   validatorHandler(queryOperatingExpenseSchema, 'query'),
   async (req, res, next) => {
@@ -59,7 +59,7 @@ router.get('/mobile-summary',
  * "Gastos internos"). Misma protección que /mobile-summary.
  */
 router.get('/mobile-summary/:id',
-  passport.authenticate('jwt', { session: false }),
+  passport.authenticate('employee-jwt', { session: false }),
   checkRole('admin'),
   validatorHandler(getOperatingExpenseSchema, 'params'),
   async (req, res, next) => {

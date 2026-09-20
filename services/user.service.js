@@ -155,7 +155,11 @@ class UserService {
 
     const payload = {
       sub: userData.code,
-      role: userData.role
+      role: userData.role,
+      // Ver jwt.strategy.js: distingue este token de uno de Employee/Customer
+      // cuando coincide el code (ambos generan códigos de empleados por
+      // iniciales del nombre, igual algoritmo que aquí).
+      type: 'USER'
     };
 
     const token = jwt.sign(payload, config.jwtSecret, { expiresIn: '8h' });
