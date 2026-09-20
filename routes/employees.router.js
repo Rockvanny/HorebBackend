@@ -95,15 +95,16 @@ router.post('/forgot-password/reset',
 );
 
 /**
- * CRUD de empleados: admin exclusivamente, alcanzable tanto desde escritorio
- * (User admin, ej. una futura pantalla de Frontend) como desde la propia
- * app (Employee admin) -mismo criterio de auth dual que buildings.router.js
- * para sus rutas de solo lectura-.
+ * CRUD de empleados: admin y financiero (decidido con el usuario
+ * 2026-09-20, pantalla "Empleados" en Configuración del Frontend),
+ * alcanzable tanto desde escritorio (User) como desde la propia app
+ * (Employee) -mismo criterio de auth dual que buildings.router.js para sus
+ * rutas de solo lectura-.
  */
-const adminAuth = [passport.authenticate(['jwt', 'employee-jwt'], { session: false }), checkRole('admin')];
+const canManageEmployees = [passport.authenticate(['jwt', 'employee-jwt'], { session: false }), checkRole('admin', 'financiero')];
 
 router.post('/',
-  ...adminAuth,
+  ...canManageEmployees,
   validatorHandler(createEmployeeSchema, 'body'),
   async (req, res, next) => {
     try {
@@ -114,7 +115,7 @@ router.post('/',
 );
 
 router.get('/employees-paginated',
-  ...adminAuth,
+  ...canManageEmployees,
   async (req, res, next) => {
     try {
       const { limit, offset, searchTerm } = req.query;
@@ -125,7 +126,7 @@ router.get('/employees-paginated',
 );
 
 router.get('/:id',
-  ...adminAuth,
+  ...canManageEmployees,
   validatorHandler(getEmployeeSchema, 'params'),
   async (req, res, next) => {
     try {
@@ -136,7 +137,7 @@ router.get('/:id',
 );
 
 router.patch('/:id',
-  ...adminAuth,
+  ...canManageEmployees,
   validatorHandler(getEmployeeSchema, 'params'),
   validatorHandler(updateEmployeeSchema, 'body'),
   async (req, res, next) => {
@@ -148,7 +149,7 @@ router.patch('/:id',
 );
 
 router.delete('/:id',
-  ...adminAuth,
+  ...canManageEmployees,
   validatorHandler(getEmployeeSchema, 'params'),
   async (req, res, next) => {
     try {

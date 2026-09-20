@@ -27,7 +27,7 @@ const MODULE_HIERARCHY = {
   },
   SETUP: {
     field: 'allowSettings',
-    objects: ['company', 'series', 'users', 'conexion', 'moduleConfig', 'verifactuConfig']
+    objects: ['company', 'series', 'users', 'employees', 'conexion', 'moduleConfig', 'verifactuConfig']
   },
   REPORTS: {
     field: 'allowReports',
@@ -68,7 +68,9 @@ const GESTION_PAGES_WITHOUT_BUILDINGS = ['customers', 'vendors', 'products', 'op
 
 const ROLE_PAGES = {
   [ROLES.FINANCIERO]: {
-    SETUP: ['company', 'series'],
+    // 'employees' (Empleados) decidido con el usuario 2026-09-20: solo
+    // admin y financiero, igual que el resto de Configuración que ya tenía.
+    SETUP: ['company', 'series', 'employees'],
     GESTION: GESTION_PAGES_WITHOUT_BUILDINGS
   },
   [ROLES.VENDEDOR]: {
