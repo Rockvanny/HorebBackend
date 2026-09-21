@@ -34,6 +34,7 @@ const paymentMethod = Joi.string().valid(
 
 const limit = Joi.number().integer();
 const offset = Joi.number().integer();
+const searchTerm = Joi.string().allow('', null);
 
 const getVendorSchema = Joi.object({
   code: code.required(),
@@ -69,7 +70,8 @@ const updateVendorSchema = Joi.object({
 
 const queryVendorSchema = Joi.object({
   limit,
-  offset
+  offset,
+  searchTerm
 });
 
 module.exports = { getVendorSchema, createVendorSchema, updateVendorSchema, queryVendorSchema };

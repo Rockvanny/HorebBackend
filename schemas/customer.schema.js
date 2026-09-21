@@ -22,6 +22,7 @@ const appAccessEnabled = Joi.boolean();
 
 const limit = Joi.number().integer();
 const offset = Joi.number().integer();
+const searchTerm = Joi.string().allow('', null);
 
 const getCustomerSchema = Joi.object({
   code: code.required(),
@@ -57,7 +58,8 @@ const updateCustomerSchema = Joi.object({
 
 const queryCustomerSchema = Joi.object({
   limit,
-  offset
+  offset,
+  searchTerm
 });
 
 // --- Autoservicio de clientes (app móvil) ---
