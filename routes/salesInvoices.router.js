@@ -18,12 +18,18 @@ router.get('/salesInvoices-paginated',
     checkAction('VIEW_SALESINVOICES'),
     async(req, res, next) => {
         try {
-            const { limit, offset, searchTerm, overdue } = req.query;
+            const { limit, offset, searchTerm, overdue, creditNotes, invoicesOnly } = req.query;
             const result = await service.findPaginated({
                 limit,
                 offset,
                 searchTerm,
-                filter: overdue === 'true' ? 'overdue' : null
+                // 'creditNotes': solo rectificativas (typeInvoice R1-R5) -> página
+                // "Abonos de venta". 'invoicesOnly': lo contrario -> excluye los
+                // abonos de "Facturas de venta" para no duplicarlos entre páginas
+                // (mismo criterio que salesPostInvoice.router.js).
+                filter: creditNotes === 'true' ? 'creditNotes'
+                    : invoicesOnly === 'true' ? 'invoicesOnly'
+                    : (overdue === 'true' ? 'overdue' : null)
             });
             res.json(result);
         } catch (error) { next(error); }

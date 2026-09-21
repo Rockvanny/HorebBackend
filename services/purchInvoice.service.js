@@ -10,9 +10,15 @@ const PurchPostInvoiceService = require('./purchPostInvoice.service');
 const { calculateDocumentTotals } = require('../libs/taxCalculation');
 const postService = new PurchPostInvoiceService();
 
+// Facturas rectificativas (abonos): ClaveTipoFacturaType R1-R5, ver
+// resources/verifactu-xsd/SuministroInformacion.xsd. Mismo criterio que
+// purchPostInvoice.service.js#CREDIT_NOTE_TYPES -aquí en el lado borrador,
+// para la página "Abonos de compra" (ver document-schema.mjs#purchInvoiceCreditNotes).
+const CREDIT_NOTE_TYPES = ['R1', 'R2', 'R3', 'R4', 'R5'];
+
 class purchInvoiceService {
 
-  async findPaginated({ limit, offset, searchTerm }) {
+  async findPaginated({ limit, offset, searchTerm, filter }) {
     const parsedLimit = parseInt(limit, 10) || 100;
     const parsedOffset = parseInt(offset, 10) || 0;
 
@@ -22,6 +28,15 @@ class purchInvoiceService {
       order: [['createdAt', 'DESC']], // Sincronizado a camelCase igual que en ventas
       where: {}
     };
+
+    // 'creditNotes': solo rectificativas -> página "Abonos de compra".
+    // 'invoicesOnly': lo contrario -> excluye los abonos de "Facturas de
+    // compra" para no duplicar la información entre ambas páginas.
+    if (filter === 'creditNotes') {
+      options.where.typeInvoice = { [Op.in]: CREDIT_NOTE_TYPES };
+    } else if (filter === 'invoicesOnly') {
+      options.where.typeInvoice = { [Op.notIn]: CREDIT_NOTE_TYPES };
+    }
 
     if (searchTerm) {
       options.where[Op.or] = [

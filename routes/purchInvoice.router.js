@@ -19,12 +19,18 @@ router.get('/purchInvoices-paginated',
     checkAction('VIEW_PURCHINVOICES'),
     async(req, res, next) => {
         try {
-            const { limit, offset, searchTerm, overdue } = req.query;
+            const { limit, offset, searchTerm, overdue, creditNotes, invoicesOnly } = req.query;
             const result = await service.findPaginated({
                 limit,
                 offset,
                 searchTerm,
-                filter: overdue === 'true' ? 'overdue' : null
+                // 'creditNotes': solo rectificativas (typeInvoice R1-R5) -> página
+                // "Abonos de compra". 'invoicesOnly': lo contrario -> excluye los
+                // abonos de "Facturas de compra" para no duplicarlos entre páginas
+                // (mismo criterio que purchPostInvoice.router.js).
+                filter: creditNotes === 'true' ? 'creditNotes'
+                    : invoicesOnly === 'true' ? 'invoicesOnly'
+                    : (overdue === 'true' ? 'overdue' : null)
             });
             res.json(result);
         } catch (error) { next(error); }

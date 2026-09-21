@@ -9,6 +9,12 @@ const SalesPostInvoiceService = require('./salesPostInvoice.service');
 const { calculateDocumentTotals } = require('../libs/taxCalculation');
 const postService = new SalesPostInvoiceService();
 
+// Facturas rectificativas (abonos): ClaveTipoFacturaType R1-R5, ver
+// resources/verifactu-xsd/SuministroInformacion.xsd. Mismo criterio que
+// salesPostInvoice.service.js#CREDIT_NOTE_TYPES -aquí en el lado borrador,
+// para la página "Abonos de venta" (ver document-schema.mjs#salesInvoiceCreditNotes).
+const CREDIT_NOTE_TYPES = ['R1', 'R2', 'R3', 'R4', 'R5'];
+
 // Ventana de "próxima a vencer" para el to-do del dashboard móvil de admin
 // (decidido con el usuario, ver AndroidApp/TODO.md): más allá de estos días
 // no se considera todavía urgente, para no saturar la lista de tarjetas.
@@ -50,7 +56,7 @@ class salesInvoiceService {
     }));
   }
 
-  async findPaginated({ limit, offset, searchTerm }) {
+  async findPaginated({ limit, offset, searchTerm, filter }) {
     const parsedLimit = parseInt(limit, 10) || 100;
     const parsedOffset = parseInt(offset, 10) || 0;
 
@@ -60,6 +66,16 @@ class salesInvoiceService {
       order: [['createdAt', 'DESC']],
       where: {}
     };
+
+    // 'creditNotes': solo rectificativas -> página "Abonos de venta".
+    // 'invoicesOnly': lo contrario -> excluye los abonos de "Facturas de
+    // venta" para no duplicar la información entre ambas páginas (mismo
+    // criterio que salesPostInvoice.service.js#findPaginated).
+    if (filter === 'creditNotes') {
+      options.where.typeInvoice = { [Op.in]: CREDIT_NOTE_TYPES };
+    } else if (filter === 'invoicesOnly') {
+      options.where.typeInvoice = { [Op.notIn]: CREDIT_NOTE_TYPES };
+    }
 
     if (searchTerm) {
       options.where[Op.or] = [

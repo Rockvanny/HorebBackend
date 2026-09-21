@@ -209,6 +209,23 @@ describe('checkPermission - objetos añadidos para abonos/rectificativas (salesC
   });
 });
 
+describe('checkPermission - objetos añadidos para abonos en borrador (salesInvoiceCreditNotes/purchInvoiceCreditNotes)', () => {
+  test('están registrados en el módulo correcto', () => {
+    expect(MODULE_HIERARCHY.SALES.objects).toContain('salesInvoiceCreditNotes');
+    expect(MODULE_HIERARCHY.PURCHASES.objects).toContain('purchInvoiceCreditNotes');
+  });
+
+  test('se comportan como cualquier otro objeto de su módulo', () => {
+    const vendedor = makeUser(ROLES.VENDEDOR);
+    expect(checkPermission(vendedor, 'VIEW_SALESINVOICECREDITNOTES')).toBe(true);
+    expect(checkPermission(vendedor, 'CREATE_SALESINVOICECREDITNOTES')).toBe(true);
+    expect(checkPermission(vendedor, 'DELETE_SALESINVOICECREDITNOTES')).toBe(false);
+
+    const vendedorSinVenta = makeUser(ROLES.VENDEDOR, { allowSales: false });
+    expect(checkPermission(vendedorSinVenta, 'VIEW_SALESINVOICECREDITNOTES')).toBe(false);
+  });
+});
+
 describe('checkPermission - cada módulo usa su propio flag de activación', () => {
   test.each([
     ['GESTION', 'allowGestion', 'VIEW_CUSTOMERS'],
