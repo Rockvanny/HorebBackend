@@ -81,12 +81,20 @@ class seriesNumberService {
       toDate: { [Op.gte]: today }
     };
 
-    // Normalizamos el tipo a minúsculas para evitar errores de comparación
-    const currentType = typeStr.toLowerCase();
+    // Comparamos por el id numérico ya resuelto (typeId), no por el string
+    // recibido: el schema de validación (querySeriesNumberSchema) usa
+    // Joi.alternatives().try(Joi.string().valid(...), Joi.number(), ...), y
+    // para un tipo numérico como '4'/'5'/'6' Joi.number() coacciona el valor
+    // a un Number antes de que llegue aquí -"4".toLowerCase() no existe en
+    // un Number, así que cualquier llamada con el id numérico (budget,
+    // salesinvoice, purchinvoice desde el Frontend) reventaba con 500-.
+    // 'customer'/'vendor'/'product' no se veían afectados porque esos sí
+    // llegan siempre como el string exacto de la primera alternativa.
+    const isInvoiceType = [SERIES_TYPES.salesinvoice.id, SERIES_TYPES.purchinvoice.id].includes(typeId);
 
     // 2. Aplicamos el filtro de "Solo Borradores" únicamente para Facturas
     // Si es salesinvoice o purchinvoice, ocultamos las que NO tienen postingSerie
-    if (currentType === 'salesinvoice' || currentType === 'purchinvoice') {
+    if (isInvoiceType) {
       whereCondition.postingSerie = {
         [Op.and]: [
           { [Op.ne]: null },
