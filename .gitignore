@@ -221,6 +221,15 @@ mysql_data/
 # Logs de la aplicación (si creas una carpeta de logs)
 /Backend/logs/
 
+# Volcados de base de datos (pg_dump) hechos antes de operaciones
+# destructivas (ver scripts/seed-demo.js) -pueden contener datos reales de
+# clientes/facturas, nunca deben subirse al repo.
+backups/
+
+# Script de siembra de datos de demo: borra y reconstruye casi toda la
+# base de datos, se queda solo como herramienta local, no versionado.
+scripts/seed-demo.js
+
 # Temporales de editores
 .vscode/
 # End of https://www.toptal.com/developers/gitignore/api/node,windows,linux,macos
