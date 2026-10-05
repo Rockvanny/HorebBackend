@@ -11,6 +11,12 @@ const EXEMPT_PREFIXES = [
   '/api/v1/license',
   '/api/v1/users/login',
   '/api/v1/users/forgot-password',
+  // Último paso del login de escritorio (justo tras el OTP): sin él la
+  // ventana principal nunca llega a abrirse con el trial caducado, y es
+  // desde ahí (icono de licencia / ventana auto-abierta en el primer 402)
+  // desde donde el usuario activa la licencia. Solo devuelve el mapa de
+  // permisos del rol, no datos de negocio.
+  '/api/v1/auth/permissions-config',
   // App móvil (Employees, flujo separado de Users desde 2026-09-20): mismo
   // criterio que el login de escritorio de arriba.
   '/api/v1/employees/login',
