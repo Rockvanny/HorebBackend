@@ -25,7 +25,7 @@ const requiredUnlessComment = (schema) =>
 const taxType = Joi.string().valid('IVA', 'IRPF', 'RE', 'EXENTO').default('IVA');
 
 const unitMeasure = Joi.string()
-  .valid('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK')
+  .valid('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK', 'ML')
   .default('UNIDAD');
 
 const vat = Joi.number().min(0).max(100).precision(4).default(21);
@@ -33,7 +33,7 @@ const amountLine = Joi.number().precision(4);
 const username = Joi.string().allow('', null);
 
 // Mismo criterio que salesBudgetLines.schema.js: quantityUnitMeasure solo
-// importa para METRO, width/height solo para METRO2, y ninguno de los tres
+// importa para METRO/ML, width/height solo para METRO2, y ninguno de los tres
 // se exige nunca en una línea COMENTARIO. El resto de unidades los mandan a
 // null (ver transactionLinesHandler.js#getLinesData) y
 // libs/taxCalculation.js los normaliza antes de guardar.
@@ -41,7 +41,7 @@ const quantityUnitMeasure = Joi.number().min(0).precision(4)
   .when('type', {
     is: 'COMENTARIO',
     then: Joi.optional().allow(null),
-    otherwise: Joi.when('unitMeasure', { is: 'METRO', then: Joi.required(), otherwise: Joi.optional().allow(null) })
+    otherwise: Joi.when('unitMeasure', { is: Joi.valid('METRO', 'ML'), then: Joi.required(), otherwise: Joi.optional().allow(null) })
   });
 
 const width = Joi.number().min(0).precision(4)

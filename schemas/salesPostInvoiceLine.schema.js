@@ -12,7 +12,7 @@ const unitPrice = Joi.number().precision(4);
 const taxType = Joi.string().valid('IVA', 'IRPF', 'RE', 'EXENTO').default('IVA');
 
 const unitMeasure = Joi.string()
-  .valid('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK')
+  .valid('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK', 'ML')
   .default('UNIDAD');
 
 const vat = Joi.number().min(0).max(100).precision(4).default(21);

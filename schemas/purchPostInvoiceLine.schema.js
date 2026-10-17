@@ -13,7 +13,7 @@ const description = Joi.string().allow('');
 const quantity = Joi.number().precision(4);
 const unitMeasure = Joi.string().valid(
   'UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO',
-  'METRO2', 'KILOGRAMO', 'LITRO', 'PACK'
+  'METRO2', 'KILOGRAMO', 'LITRO', 'PACK', 'ML'
 );
 const quantityUnitMeasure = Joi.number().precision(4);
 const unitPrice = Joi.number().precision(4);

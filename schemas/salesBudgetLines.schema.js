@@ -25,7 +25,7 @@ const taxType = Joi.string()
   .default('IVA');
 
 const unitMeasure = Joi.string()
-  .valid('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK')
+  .valid('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK', 'ML')
   .default('UNIDAD');
 
 const vat = Joi.number().min(0).max(100).precision(4).default(21);
@@ -33,7 +33,7 @@ const amountLine = Joi.number().min(0).precision(4);
 const username = Joi.string().allow('', null);
 
 // Cada campo dimensional solo importa (y solo es obligatorio) según la
-// unidad de medida elegida: quantityUnitMeasure para METRO (factor lineal),
+// unidad de medida elegida: quantityUnitMeasure para METRO y ML (factor lineal),
 // width/height para METRO2 (superficie). Para el resto de unidades
 // (UNIDAD, HORA, DIA, SERVICIO, KILOGRAMO, LITRO, PACK) se aceptan vacíos
 // (el front los manda a null, ver transactionLinesHandler.js#getLinesData)
@@ -44,7 +44,7 @@ const quantityUnitMeasure = Joi.number().min(0).precision(4)
   .when('type', {
     is: 'COMENTARIO',
     then: Joi.optional().allow(null),
-    otherwise: Joi.when('unitMeasure', { is: 'METRO', then: Joi.required(), otherwise: Joi.optional().allow(null) })
+    otherwise: Joi.when('unitMeasure', { is: Joi.valid('METRO', 'ML'), then: Joi.required(), otherwise: Joi.optional().allow(null) })
   });
 
 const width = Joi.number().min(0).precision(4)

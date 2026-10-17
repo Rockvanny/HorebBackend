@@ -7,7 +7,6 @@ const codeItem = Joi.string().allow('', null);
 const description = Joi.string().allow('', null);
 const quantity = Joi.number().precision(4); // Quitamos min(0) por si hay devoluciones
 const unitMeasure = Joi.string().allow('', null).default('UNIDAD');
-const quantityUnitMeasure = Joi.number().min(0).precision(4).default(1);
 const unitPrice = Joi.number().precision(4);
 // Nuevo: Soporte para tipo de impuesto (IVA, IRPF, etc)
 const taxType = Joi.string().valid('IVA', 'IRPF', 'RE', 'EXENTO').default('IVA');
@@ -23,6 +22,34 @@ const type = Joi.string().valid('PRODUCTO', 'COMENTARIO').default('PRODUCTO');
 
 const requiredUnlessComment = (schema) =>
   schema.when('type', { is: 'COMENTARIO', then: Joi.optional().allow(null), otherwise: Joi.required() });
+
+// Mismo criterio que salesInvoiceLine.schema.js: quantityUnitMeasure solo
+// importa para METRO/ML, width/height solo para METRO2, y ninguno se exige en
+// una línea COMENTARIO. El front manda las tres columnas siempre (null si
+// no aplican, ver transactionLinesHandler.js#getLinesData) y
+// libs/taxCalculation.js las normaliza antes de guardar. Antes este schema
+// no conocía width/height y no aceptaba null en quantityUnitMeasure, así
+// que todo guardado de factura/abono de compra desde el front daba 400.
+const quantityUnitMeasure = Joi.number().min(0).precision(4)
+  .when('type', {
+    is: 'COMENTARIO',
+    then: Joi.optional().allow(null),
+    otherwise: Joi.when('unitMeasure', { is: Joi.valid('METRO', 'ML'), then: Joi.required(), otherwise: Joi.optional().allow(null) })
+  });
+
+const width = Joi.number().min(0).precision(4)
+  .when('type', {
+    is: 'COMENTARIO',
+    then: Joi.optional().allow(null),
+    otherwise: Joi.when('unitMeasure', { is: 'METRO2', then: Joi.required(), otherwise: Joi.optional().allow(null) })
+  });
+
+const height = Joi.number().min(0).precision(4)
+  .when('type', {
+    is: 'COMENTARIO',
+    then: Joi.optional().allow(null),
+    otherwise: Joi.when('unitMeasure', { is: 'METRO2', then: Joi.required(), otherwise: Joi.optional().allow(null) })
+  });
 
 // --- ESQUEMAS DE ACCIÓN ---
 
@@ -45,7 +72,9 @@ const createPurchInvoiceLineSchema = Joi.object({
   description: description.required(),
   quantity: requiredUnlessComment(quantity),
   unitMeasure: unitMeasure.optional(),
-  quantityUnitMeasure: quantityUnitMeasure.optional(),
+  quantityUnitMeasure,
+  width,
+  height,
   unitPrice: requiredUnlessComment(unitPrice),
   taxType: taxType.optional(), // Añadido
   vat: vat.optional(),
@@ -64,7 +93,9 @@ const updatePurchInvoiceLineSchema = Joi.object({
   description: description.optional(),
   quantity: quantity.optional(),
   unitMeasure: unitMeasure.optional(),
-  quantityUnitMeasure: quantityUnitMeasure.optional(),
+  quantityUnitMeasure,
+  width,
+  height,
   unitPrice: unitPrice.optional(),
   taxType: taxType.optional(), // Añadido
   vat: vat.optional(),

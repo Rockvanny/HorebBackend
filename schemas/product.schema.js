@@ -3,7 +3,7 @@ const Joi = require('joi');
 const code = Joi.string();
 const name = Joi.string().min(3).max(200);
 const unitMeasure = Joi.string()
-  .valid('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK')
+  .valid('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK', 'ML')
   .default('UNIDAD');
 const qtyByUnitMeasure = Joi.number().precision(2);
 const price = Joi.number().precision(2);
