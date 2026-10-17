@@ -114,9 +114,12 @@ class PurchPostInvoiceService {
       // 3. Inserción de Líneas usando processedLines
       if (totals.processedLines && totals.processedLines.length > 0) {
         const rows = totals.processedLines.map((line) => {
-          const base = parseFloat(line.amountLine) || 0;
           const porcentajeIVA = parseFloat(line.vat) || 0;
-          const importeConIVA = base + (base * (porcentajeIVA / 100));
+          // calculateDocumentTotals ya devuelve en amountLine el importe final
+          // de la línea (base +IVA / -IRPF). Antes se trataba como base y se
+          // le volvía a sumar el IVA, así que la línea registrada (y la
+          // impresa) salía inflada y no cuadraba con el total de cabecera.
+          const importeConIVA = parseFloat(line.amountLine) || 0;
 
           return {
             code_document: newPostInvoice.code,
