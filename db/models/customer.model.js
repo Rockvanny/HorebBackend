@@ -154,6 +154,17 @@ class Customer extends Model {
       underscored: true,
       paranoid: true,
       deletedAt: 'deleteAt',
+      // El hash de la contraseña de la app de clientes no debe salir nunca
+      // en una respuesta: antes viajaba en el listado de clientes y en todo
+      // documento que incluyera al cliente (p.ej. la lista de presupuestos).
+      // El defaultScope también se aplica a los include. Solo login y alta de
+      // cuenta la necesitan para comparar: usan scope('withPassword').
+      defaultScope: {
+        attributes: { exclude: ['password'] }
+      },
+      scopes: {
+        withPassword: { attributes: { include: ['password'] } }
+      },
       hooks: {
         beforeValidate: async (customer, options) => {
           await generateNextCode(customer, options);

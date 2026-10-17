@@ -315,7 +315,7 @@ class CustomerService {
    * un cliente real solo por adivinar/conocer su código.
    */
   async registerAccount(nif, email, password) {
-    const customer = await models.Customer.findOne({ where: { nif, email } });
+    const customer = await models.Customer.scope('withPassword').findOne({ where: { nif, email } });
 
     if (!customer) {
       throw boom.notFound('No se ha encontrado ningún cliente con ese NIF y email. Contacta con la empresa.');
@@ -337,7 +337,7 @@ class CustomerService {
    * (mismo mecanismo de 2FA que los empleados, ver otp.service.js).
    */
   async login(email, password) {
-    const customer = await models.Customer.findOne({ where: { email } });
+    const customer = await models.Customer.scope('withPassword').findOne({ where: { email } });
 
     if (!customer || !customer.password) {
       throw boom.unauthorized('Email o contraseña incorrectos');
