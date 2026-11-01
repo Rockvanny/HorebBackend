@@ -29,6 +29,13 @@ const UserSchema = {
     validate: { isEmail: true }
   },
 
+  // Opcional; lo edita el propio usuario desde "Mi perfil" (PATCH /users/me)
+  phone: {
+    field: 'phone',
+    allowNull: true,
+    type: DataTypes.STRING(20)
+  },
+
   password: {
     field: 'password',
     allowNull: false,

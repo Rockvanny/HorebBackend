@@ -6,6 +6,9 @@ const code = Joi.string(); // Cambiado a camelCase para consistencia
 const fullName = Joi.string().min(3).max(100); // Nuevo campo
 const email = Joi.string().email();
 const password = Joi.string().min(8);
+// Dígitos, espacios, guiones y un + inicial (ej. +34 600 123 456). Vacío = sin teléfono.
+const phone = Joi.string().trim().max(20).pattern(/^\+?[\d\s-]{6,}$/).allow('', null)
+  .messages({ 'string.pattern.base': 'El teléfono solo puede tener números, espacios, guiones y un + inicial.' });
 // Antes solo exigía "cadena de 5+ caracteres" (Joi.string().min(5)): aceptaba
 // cualquier valor, incluido un rol mal escrito o inexistente en
 // access-manager.js (ej. 'master', que llegó a estar en una lista de roles
@@ -66,6 +69,7 @@ const createUserSchema = Joi.object({
   code: code.allow('', null),
   fullName: fullName.required(), // Ahora es obligatorio al crear
   email: email.required(),
+  phone,
   password: password.required(),
   role: role.required(),
   mustChangePassword,
@@ -80,6 +84,7 @@ const createUserSchema = Joi.object({
 const updateUserSchema = Joi.object({
   fullName: fullName, // Permitimos actualizar el nombre
   email: email,
+  phone,
   role: role,
   password: password,
   mustChangePassword,
@@ -89,6 +94,16 @@ const updateUserSchema = Joi.object({
   allowReports,
   allowSettings
 });
+
+// --- "Mi perfil": lo que el propio usuario puede cambiar de sí mismo ---
+// currentPassword solo hace falta si cambia el correo (ver
+// user.service.js#updateMe). Rol y permisos NO están aquí a propósito.
+const updateMyProfileSchema = Joi.object({
+  fullName,
+  email: Joi.string().trim().email(),
+  phone,
+  currentPassword: Joi.string()
+}).min(1);
 
 // --- Esquema para Obtener (Query params / Params) ---
 const getUserSchema = Joi.object({
@@ -103,6 +118,7 @@ module.exports = {
   verifyLoginOtpSchema,
   resendLoginOtpSchema,
   updateOwnPasswordSchema,
+  updateMyProfileSchema,
   requestPasswordResetSchema,
   resetPasswordSchema
 };

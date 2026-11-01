@@ -246,6 +246,43 @@ class UserService {
     };
   }
 
+  /**
+   * "Mi perfil": el propio usuario solo puede cambiar nombre, correo y
+   * teléfono (rol y permisos los cambia un administrador). El correo es con
+   * lo que inicia sesión y donde recibe el código de acceso: cambiarlo exige
+   * la contraseña actual, para que una sesión abierta en manos de otro no
+   * baste para apropiarse de la cuenta, y no puede repetir el de otro
+   * usuario (sin distinguir mayúsculas).
+   */
+  async updateMe(id, { fullName, email, phone, currentPassword }) {
+    const user = await models.User.findByPk(id);
+    if (!user) throw boom.notFound('Usuario no encontrado');
+
+    const changes = {};
+    if (fullName !== undefined) changes.fullName = fullName.trim();
+    if (phone !== undefined) changes.phone = phone ? phone.trim() : null;
+
+    if (email !== undefined && email.trim().toLowerCase() !== String(user.email).toLowerCase()) {
+      if (!currentPassword) {
+        throw boom.badRequest('Para cambiar el correo, escribe tu contraseña actual.');
+      }
+      const isMatch = await bcrypt.compare(currentPassword, user.password);
+      if (!isMatch) throw boom.unauthorized('La contraseña actual no es correcta');
+
+      const taken = await models.User.findOne({
+        where: { email: { [Op.iLike]: email.trim() }, code: { [Op.ne]: id } }
+      });
+      if (taken) throw boom.conflict('Ese correo ya lo usa otro usuario.');
+
+      changes.email = email.trim();
+    }
+
+    await user.update(changes, { userExecutor: id });
+    const userJson = user.toJSON();
+    delete userJson.password;
+    return userJson;
+  }
+
   async delete(id) {
     const user = await this.findOne(id);
     await user.destroy();

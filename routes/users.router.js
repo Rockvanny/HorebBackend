@@ -16,6 +16,7 @@ const {
   verifyLoginOtpSchema,
   resendLoginOtpSchema,
   updateOwnPasswordSchema,
+  updateMyProfileSchema,
   requestPasswordResetSchema,
   resetPasswordSchema
 } = require('./../schemas/user.schema');
@@ -167,6 +168,34 @@ router.patch('/update-password-initial/:id',
             const { currentPassword, password } = req.body;
             const result = await service.updatePassword(id, currentPassword, password);
             res.json({ success: true, ...result });
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+// "MI PERFIL": cada usuario ve sus datos y cambia nombre, correo y teléfono.
+// Sin checkAction: es sobre sí mismo (req.user), no sobre otros usuarios.
+// Van ANTES de '/:id' para que Express no tome "me" como un código.
+router.get('/me',
+    passport.authenticate('jwt', { session: false }),
+    async (req, res, next) => {
+        try {
+            const user = await service.findOne(req.user.code);
+            res.json({ success: true, data: user });
+        } catch (error) {
+            next(error);
+        }
+    }
+);
+
+router.patch('/me',
+    passport.authenticate('jwt', { session: false }),
+    validatorHandler(updateMyProfileSchema, 'body'),
+    async (req, res, next) => {
+        try {
+            const user = await service.updateMe(req.user.code, req.body);
+            res.json({ success: true, data: user });
         } catch (error) {
             next(error);
         }
