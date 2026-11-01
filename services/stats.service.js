@@ -4,28 +4,33 @@ const sequelize = require('../libs/sequelize');
 class StatsService {
   /**
    * 1. BÚSQUEDA POR DEFECTO (Global)
-   * Trae todos los movimientos del año actual sin filtrar por presupuesto.
+   * Trae todos los movimientos del año (por defecto el actual) sin filtrar
+   * por presupuesto.
    */
-  async getBarChartStats() {
-    return this._getGeneralStats(null);
+  async getBarChartStats(year) {
+    return this._getGeneralStats(null, year);
   }
 
   /**
    * 2. BÚSQUEDA CON FILTRO (Presupuesto específico)
    * Trae todos los movimientos del año para un código de presupuesto concreto.
    */
-  async getStatsByBudget(budgetCode) {
-    if (!budgetCode) return this.getBarChartStats();
-    return this._getGeneralStats(budgetCode);
+  async getStatsByBudget(budgetCode, year) {
+    if (!budgetCode) return this.getBarChartStats(year);
+    return this._getGeneralStats(budgetCode, year);
   }
 
   /**
    * Función maestra que centraliza la lógica de consulta.
    * Maneja la ejecución en paralelo de todas las métricas necesarias.
    */
-  async _getGeneralStats(budgetCode = null) {
+  async _getGeneralStats(budgetCode = null, requestedYear = null) {
     const { salesBudget, salesPostInvoice, purchPostInvoice } = sequelize.models;
-    const year = new Date().getFullYear();
+    // Se interpola en SQL más abajo: solo enteros (el router ya lo valida
+    // con Joi, ver schemas/stats.schema.js; esto es la segunda barrera).
+    const year = Number.isInteger(Number(requestedYear)) && requestedYear
+      ? Number(requestedYear)
+      : new Date().getFullYear();
 
     try {
       const [budgets, sales, purchases, doughnutChart] = await Promise.all([
@@ -36,12 +41,14 @@ class StatsService {
       ]);
 
       return {
+        year,
         barChart: { budget: budgets, sales, purchases },
         doughnutChart: doughnutChart
       };
     } catch (error) {
       console.error(`Error crítico en StatsService (Filtro: ${budgetCode}):`, error);
       return {
+        year,
         barChart: {
           budget: Array(12).fill(0),
           sales: Array(12).fill(0),
