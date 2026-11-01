@@ -33,6 +33,7 @@ const notificationsRouter = require('./notifications.router');
 const mailAccountsRouter = require('./mailAccounts.router');
 const mailRouter = require('./mail.router');
 const geocodingRouter = require('./geocoding.router');
+const weatherRouter = require('./weather.router');
 const incidentReportsRouter = require('./incidentReports.router');
 const tasksRouter = require('./tasks.router');
 const buildingsRouter = require('./buildings.router');
@@ -84,6 +85,7 @@ function routerApi(app) {
   router.use('/mail-accounts', mailAccountsRouter);
   router.use('/mail', mailRouter);
   router.use('/geocoding', geocodingRouter);
+  router.use('/weather', weatherRouter);
   router.use('/incident-reports', incidentReportsRouter);
   router.use('/tasks', tasksRouter);
   router.use('/buildings', buildingsRouter);
