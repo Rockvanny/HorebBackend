@@ -31,8 +31,8 @@ class salesInvoiceService {
    * borrador y no se ha cobrado": una vez archivada (archiveInvoice) pasa a
    * sales_post_invoices y deja de salir aquí. Sin paginar a propósito: es
    * una lista de tarjetas resumidas, no el listado completo (ver
-   * findPaginated#filter, que sigue sin implementar el filtro 'overdue' del
-   * Frontend -no se tocó aquí, es un problema distinto y no pedido-).
+   * findPaginated#filter 'overdue', que es el listado completo de vencidas
+   * sin la ventana de próximos días).
    */
   async findDashboardTodo() {
     const now = new Date();
@@ -56,6 +56,47 @@ class salesInvoiceService {
     }));
   }
 
+  /**
+   * Totales de cobro para el panel de inicio del escritorio: facturas
+   * BORRADOR (`sales_invoices`) con status distinto de 'Pagado' = lo que
+   * queda por cobrar (al archivarse pasan a sales_post_invoices y dejan de
+   * contar, mismo criterio que findDashboardTodo). Sin abonos
+   * (rectificativas R1-R5): son facturas de venta, no devoluciones.
+   * "Vencidas" = las de ese conjunto con dueDate ya pasado. No depende del
+   * año del panel: es lo que se debe hoy.
+   */
+  async getPendingCollectionSummary() {
+    const now = new Date();
+    const pendingWhere = {
+      status: { [Op.ne]: 'Pagado' },
+      typeInvoice: { [Op.notIn]: CREDIT_NOTE_TYPES }
+    };
+
+    const [pending, overdue] = await Promise.all([
+      salesInvoice.findOne({
+        attributes: [
+          [sequelize.fn('COUNT', sequelize.col('code')), 'count'],
+          [sequelize.fn('COALESCE', sequelize.fn('SUM', sequelize.col('amount_with_vat')), 0), 'total']
+        ],
+        where: pendingWhere,
+        raw: true
+      }),
+      salesInvoice.findOne({
+        attributes: [
+          [sequelize.fn('COUNT', sequelize.col('code')), 'count'],
+          [sequelize.fn('COALESCE', sequelize.fn('SUM', sequelize.col('amount_with_vat')), 0), 'total']
+        ],
+        where: { ...pendingWhere, dueDate: { [Op.ne]: null, [Op.lt]: now } },
+        raw: true
+      })
+    ]);
+
+    return {
+      pending: { count: parseInt(pending.count, 10) || 0, total: parseFloat(pending.total) || 0 },
+      overdue: { count: parseInt(overdue.count, 10) || 0, total: parseFloat(overdue.total) || 0 }
+    };
+  }
+
   async findPaginated({ limit, offset, searchTerm, filter }) {
     const parsedLimit = parseInt(limit, 10) || 100;
     const parsedOffset = parseInt(offset, 10) || 0;
@@ -75,6 +116,15 @@ class salesInvoiceService {
       options.where.typeInvoice = { [Op.in]: CREDIT_NOTE_TYPES };
     } else if (filter === 'invoicesOnly') {
       options.where.typeInvoice = { [Op.notIn]: CREDIT_NOTE_TYPES };
+    } else if (filter === 'overdue') {
+      // Página "Facturas de venta vencidas": facturas (sin abonos) sin pagar cuyo
+      // vencimiento ya pasó, la más atrasada primero. Antes este filtro no
+      // existía y la página mostraba el listado completo mezclado (pagadas,
+      // sin vencer y abonos incluidos).
+      options.where.typeInvoice = { [Op.notIn]: CREDIT_NOTE_TYPES };
+      options.where.status = { [Op.ne]: 'Pagado' };
+      options.where.dueDate = { [Op.ne]: null, [Op.lt]: new Date() };
+      options.order = [['dueDate', 'ASC']];
     }
 
     if (searchTerm) {

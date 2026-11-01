@@ -36,6 +36,15 @@ class purchInvoiceService {
       options.where.typeInvoice = { [Op.in]: CREDIT_NOTE_TYPES };
     } else if (filter === 'invoicesOnly') {
       options.where.typeInvoice = { [Op.notIn]: CREDIT_NOTE_TYPES };
+    } else if (filter === 'overdue') {
+      // Página "Facturas de compra vencidas": facturas (sin abonos) sin pagar cuyo
+      // vencimiento ya pasó, la más atrasada primero. Antes este filtro no
+      // existía y la página mostraba el listado completo mezclado (pagadas,
+      // sin vencer y abonos incluidos).
+      options.where.typeInvoice = { [Op.notIn]: CREDIT_NOTE_TYPES };
+      options.where.status = { [Op.ne]: 'Pagado' };
+      options.where.dueDate = { [Op.ne]: null, [Op.lt]: new Date() };
+      options.order = [['dueDate', 'ASC']];
     }
 
     if (searchTerm) {

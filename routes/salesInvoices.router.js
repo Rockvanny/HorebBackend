@@ -37,6 +37,23 @@ router.get('/salesInvoices-paginated',
 );
 
 /**
+ * Totales de cobro del panel de inicio del escritorio: pendientes de cobro y
+ * vencidas (ver service#getPendingCollectionSummary). Mismo permiso que el
+ * listado de facturas de venta. Va ANTES de '/:code' por el mismo motivo
+ * que '/dashboard-todo'.
+ */
+router.get('/pending-summary',
+    passport.authenticate('jwt', { session: false }),
+    checkAction('VIEW_SALESINVOICES'),
+    async (req, res, next) => {
+        try {
+            const result = await service.getPendingCollectionSummary();
+            res.json({ success: true, data: result });
+        } catch (error) { next(error); }
+    }
+);
+
+/**
  * "To-do" simplificado para el dashboard de admin de la app móvil (Android):
  * facturas BORRADOR vencidas + próximas a vencer, sin paginar -ver
  * services/salesInvoices.service.js#findDashboardTodo-. Va ANTES de
