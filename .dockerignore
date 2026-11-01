@@ -1,0 +1,34 @@
+# Nada de esto debe acabar dentro de la imagen del backend: `COPY . .` en el
+# Dockerfile copiaría secretos (.env), datos reales de clientes (backups/,
+# postgres_data/) y el historial completo del repo (.git) a cualquiera que
+# tenga la imagen. Las variables de entorno llegan por docker-compose.yml.
+
+# Secretos
+.env
+.env.*
+*.pem
+!config/license-public-key.pem
+
+# Datos de la BD y copias de seguridad
+backups/
+postgres_data/
+mysql_data/
+*.dump
+
+# Dependencias (se instalan dentro de la imagen con `npm ci`)
+node_modules/
+
+# Repo, editores, logs y tooling de desarrollo
+.git/
+.gitignore
+.gitattributes
+.vscode/
+logs/
+*.log
+coverage/
+test/
+docs/
+scripts/
+Dockerfile
+docker-compose*.yml
+.dockerignore

@@ -49,6 +49,10 @@ services:
       - RESEND_API_KEY=${RESEND_API_KEY}
       - MAIL_FROM=${MAIL_FROM}
       - TRIAL_DURATION_DAYS=${TRIAL_DURATION_DAYS:-15}
+      - OTP_EXPIRATION_MINUTES=${OTP_EXPIRATION_MINUTES:-5}
+      - OTP_MAX_ATTEMPTS=${OTP_MAX_ATTEMPTS:-5}
+      - OTP_RESEND_COOLDOWN_SECONDS=${OTP_RESEND_COOLDOWN_SECONDS:-45}
+      - OTP_MAX_RESENDS=${OTP_MAX_RESENDS:-3}
     volumes:
       - /usr/src/app/node_modules
       # Huella de máquina estable para licencias node-locked: sin este mount,
@@ -56,6 +60,35 @@ services:
       # nuevo y una licencia ya activada dejaría de coincidir. Se monta la del
       # host en modo lectura.
       - /etc/machine-id:/etc/machine-id:ro
+    depends_on:
+      - postgres
+    networks:
+      - app-network
+
+  # Copias de seguridad automáticas (ver scripts/backup/pg-backup.sh). Los
+  # dumps van a una carpeta del HOST (BACKUP_DIR), fuera de Docker, para que
+  # sobrevivan aunque se borren contenedores, volúmenes o el propio Docker.
+  # Esa carpeta debe copiarse además a otro disco/NAS/nube.
+  backup:
+    image: postgres:13
+    container_name: backup-1
+    restart: always
+    entrypoint: ["bash", "/usr/local/bin/pg-backup.sh"]
+    environment:
+      - TZ=Europe/Madrid
+      - PGHOST=postgres
+      - PGPORT=5432
+      - PGDATABASE=${DB_NAME}
+      - PGUSER=${DB_USER}
+      - PGPASSWORD=${DB_PASSWORD}
+      - BACKUP_TIMES=${BACKUP_TIMES:-00:00 16:00}
+      - BACKUP_KEEP_DAILY=${BACKUP_KEEP_DAILY:-7}
+      - BACKUP_KEEP_WEEKLY=${BACKUP_KEEP_WEEKLY:-4}
+      - BACKUP_KEEP_MONTHLY=${BACKUP_KEEP_MONTHLY:-12}
+    volumes:
+      - ${BACKUP_DIR:-./backups}:/backups
+      - ./scripts/backup/pg-backup.sh:/usr/local/bin/pg-backup.sh:ro
+      - ./scripts/backup/pg-restore.sh:/usr/local/bin/pg-restore.sh:ro
     depends_on:
       - postgres
     networks:
