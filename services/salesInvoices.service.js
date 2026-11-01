@@ -125,6 +125,13 @@ class salesInvoiceService {
       options.where.status = { [Op.ne]: 'Pagado' };
       options.where.dueDate = { [Op.ne]: null, [Op.lt]: new Date() };
       options.order = [['dueDate', 'ASC']];
+    } else if (filter === 'pending') {
+      // Lo que cuenta la tarjeta "Por cobrar" del panel de inicio (mismo
+      // criterio que getPendingCollectionSummary): facturas sin abonos con
+      // status distinto de 'Pagado'. Antes esa tarjeta abría el listado de
+      // todas las facturas, pagadas incluidas.
+      options.where.typeInvoice = { [Op.notIn]: CREDIT_NOTE_TYPES };
+      options.where.status = { [Op.ne]: 'Pagado' };
     }
 
     if (searchTerm) {
