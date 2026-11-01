@@ -8,8 +8,8 @@ const SERIES_TYPES = {
   vendor:       { id: 2, label: 'Proveedor' },
   product:      { id: 3, label: 'Producto' },
   budget:       { id: 4, label: 'Presupuesto' },
-  salesinvoice: { id: 5, label: 'Documento de Venta' },
-  purchinvoice: { id: 6, label: 'Documento de Compra' }
+  salesinvoice: { id: 5, label: 'Documento de venta' },
+  purchinvoice: { id: 6, label: 'Documento de compra' }
 };
 
 const seriesNumberSchema = {
@@ -92,6 +92,18 @@ class seriesNumber extends Model {
         typeLabel() {
           const typeData = Object.values(SERIES_TYPES).find(t => t.id === this.type);
           return typeData ? typeData.label : 'Desconocido';
+        },
+        // Columna "Vigencia" del listado de series. Las series de clientes,
+        // proveedores y productos se crean sin caducidad (hasta 9999-12-31,
+        // ver fields-series-handlel.js): se muestran como "Sin caducidad"
+        // en vez de con una fecha absurda.
+        validity() {
+          const from = this.getDataValue('fromDate');
+          const to = this.getDataValue('toDate');
+          if (!from || !to) return '';
+          if (String(to) >= '9999-01-01') return 'Sin caducidad';
+          const fmt = (d) => String(d).slice(0, 10).split('-').reverse().join('/');
+          return `${fmt(from)} – ${fmt(to)}`;
         }
       }
     };

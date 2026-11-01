@@ -1,5 +1,6 @@
 const boom = require('@hapi/boom');
-const { models } = require('../libs/sequelize');
+const sequelize = require('../libs/sequelize');
+const { models } = sequelize;
 const { Op } = require('sequelize');
 const { SERIES_TYPES } = require('../db/models/SeriesNumber.model');
 const { incrementAlphanumeric } = require('../libs/sequence.handler');
@@ -52,8 +53,13 @@ class seriesNumberService {
     // podrías saltarte el #getTypeId y buscar por la key directamente si tu modelo lo permite.
     try {
       const typeId = this.#getTypeId(targetType);
+      // Solo numeraciones DEFINITIVAS (sin serie vinculada): antes salían
+      // también las provisionales, y se podía vincular una provisional a otra.
       return await models.seriesNumber.findAll({
-        where: { type: typeId },
+        where: {
+          type: typeId,
+          [Op.or]: [{ postingSerie: null }, { postingSerie: '' }]
+        },
         attributes: ['code', 'description'],
         order: [['code', 'ASC']]
       });
@@ -137,9 +143,49 @@ class seriesNumberService {
     };
   }
 
+  /**
+   * Crea una serie. Con `newPostingSerie` (solo documentos de venta/compra)
+   * crea además su numeración DEFINITIVA y deja la nueva serie como
+   * PROVISIONAL vinculada a ella, todo en una transacción: o se crean las
+   * dos o ninguna. Así el usuario ya no tiene que crear antes la definitiva
+   * (ver fields-series-handlel.js).
+   */
   async create(data, userExecutor) {
     const typeId = this.#getTypeId(data.type);
-    return await models.seriesNumber.create({ ...data, type: typeId }, { userExecutor });
+    const { newPostingSerie, ...serieData } = data;
+
+    if (!newPostingSerie) {
+      return await models.seriesNumber.create({ ...serieData, type: typeId }, { userExecutor });
+    }
+
+    const voucherTypes = [SERIES_TYPES.salesinvoice.id, SERIES_TYPES.purchinvoice.id];
+    if (!voucherTypes.includes(typeId)) {
+      throw boom.badRequest('La numeración definitiva solo se usa en documentos de venta y de compra.');
+    }
+    if (newPostingSerie === serieData.code) {
+      throw boom.badRequest('La numeración definitiva necesita un código distinto del de la provisional.');
+    }
+    const existing = await models.seriesNumber.findOne({ where: { type: typeId, code: newPostingSerie } });
+    if (existing) {
+      throw boom.conflict(`Ya existe la serie ${newPostingSerie}: marca "Usar una numeración definitiva que ya existe" y elígela.`);
+    }
+
+    return await sequelize.transaction(async (transaction) => {
+      await models.seriesNumber.create({
+        type: typeId,
+        code: newPostingSerie,
+        description: `${serieData.description} (definitiva)`.slice(0, 100),
+        fromDate: serieData.fromDate,
+        toDate: serieData.toDate,
+        postingSerie: null,
+        username: serieData.username
+      }, { transaction, userExecutor });
+
+      return await models.seriesNumber.create(
+        { ...serieData, type: typeId, postingSerie: newPostingSerie },
+        { transaction, userExecutor }
+      );
+    });
   }
 
   async getNextAndIncrement(typeStr, code, transaction) {

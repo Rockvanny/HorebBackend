@@ -22,6 +22,8 @@ const type = Joi.alternatives().try(
 const code = Joi.string().min(1).max(20).uppercase(); // Quitamos alphanum por si usan guiones como 'FV-26'
 const lastValue = Joi.string().min(1).max(30);
 const postingSerie = Joi.string().allow(null, '');
+// Código de la numeración definitiva que se crea junto a la provisional
+const newPostingSerie = Joi.string().min(1).max(20).uppercase();
 const description = Joi.string().min(3).max(100);
 const fromDate = Joi.date().iso();
 const toDate = Joi.date().iso().greater(Joi.ref('fromDate'));
@@ -41,6 +43,7 @@ const createSeriesNumberSchema = Joi.object({
   type: type.required(),
   code: code.required(),
   postingSerie: postingSerie.optional(),
+  newPostingSerie: newPostingSerie.optional(),
   description: description.required(),
   fromDate: fromDate.required(),
   toDate: toDate.required(),
