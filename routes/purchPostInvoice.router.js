@@ -92,7 +92,6 @@ router.get('/report/excel',
       const data = await service.findForReport(startDate, endDate);
       return res.status(200).json(data);
     } catch (error) {
-      console.error("Error en router.get /report/excel:", error);
       next(error);
     }
   }

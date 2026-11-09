@@ -8,8 +8,6 @@ router.get('/permissions-config',
   passport.authenticate('jwt', { session: false }),
   async (req, res, next) => {
     try {
-      // req.user es el usuario que ya validó passport
-      console.log('Info usuario: ', req.user);
       const config = await buildUserPermissionsConfig(req.user);
       res.json(config);
     } catch (error) {

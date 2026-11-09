@@ -12,7 +12,6 @@ const moduleConfigService = new ModuleConfigService();
 const VERIFACTU_GATED_OBJECTS = ['verifactuConfig', 'verifactuLogs'];
 
 const buildUserPermissionsConfig = async (userData) => {
-  console.log('[PERMISSIONS SERVICE] Construyendo configuración para:', userData?.code);
 
   // 1. Normalización de rol
   const userRole = (userData?.role || 'viewer').toLowerCase();
@@ -71,7 +70,6 @@ const buildUserPermissionsConfig = async (userData) => {
     }
   });
 
-  console.log('DEBUG - mapResponse recibido:', JSON.stringify(permissionsConfig, null, 2));
   return permissionsConfig;
 };
 

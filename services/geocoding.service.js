@@ -1,4 +1,5 @@
 const boom = require('@hapi/boom');
+const logger = require('../libs/logger');
 
 /**
  * Sugerencia de ciudad/provincia a partir de un código postal, usando
@@ -71,7 +72,7 @@ class GeocodingService {
     } catch (error) {
       // Servicio externo caído/inaccesible: se trata como "sin sugerencia",
       // el formulario sigue funcionando con relleno manual.
-      console.error(`[Geocoding] Error consultando CartoCiudad para CP ${cp}:`, error.message);
+      logger.warn(`Geocoding: CartoCiudad no responde (CP ${cp}): ${error.message}`);
       return null;
     }
   }

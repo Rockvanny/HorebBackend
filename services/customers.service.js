@@ -171,7 +171,7 @@ class CustomerService {
         total: count,
       };
     } catch (error) {
-      console.error('Error en CustomerService.findPaginated: ', error);
+      logger.error(`CustomerService.findPaginated: ${error.message}`, { stack: error.stack });
       throw boom.badImplementation('Error al consultar clientes paginados');
     }
   }
@@ -234,7 +234,7 @@ class CustomerService {
     try {
       return await models.Customer.findAll(options);
     } catch (error) {
-      console.error("Error en el servicio de búsqueda:", error);
+      logger.error(`CustomerService.search: ${error.message}`, { stack: error.stack });
       return [];
     }
   }

@@ -80,7 +80,6 @@ async function generateNextCode(instance, options) {
         });
 
     } catch (error) {
-        console.error(`[Sequence Error] ${instance.constructor.name}:`, error.message);
         throw error;
     }
 }

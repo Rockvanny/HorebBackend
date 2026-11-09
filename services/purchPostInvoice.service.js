@@ -219,7 +219,6 @@ class PurchPostInvoiceService {
       });
 
     } catch (error) {
-      console.error("[PurchPostInvoiceService] Error en findForReport:", error);
       throw error;
     }
   }

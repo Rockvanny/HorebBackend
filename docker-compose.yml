@@ -60,6 +60,9 @@ services:
       # nuevo y una licencia ya activada dejaría de coincidir. Se monta la del
       # host en modo lectura.
       - /etc/machine-id:/etc/machine-id:ro
+      # logs/error.log (avisos y errores, ver libs/logger.js) en el host:
+      # sobrevive a los rebuild y se consulta sin entrar al contenedor.
+      - ./logs:/usr/src/app/logs
     depends_on:
       - postgres
     networks:

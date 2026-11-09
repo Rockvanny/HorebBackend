@@ -1,10 +1,10 @@
 process.on('uncaughtException', (err) => {
-    console.error('CRASH FATAL EN BACKEND:', err);
+    console.error('CRASH FATAL EN BACKEND:', err?.stack || err);
     process.exit(1);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('RECHAZO NO MANEJADO:', reason);
+    console.error('RECHAZO NO MANEJADO:', reason?.stack || reason);
 });
 
 // --- 0. CONFIGURACIÓN DE ZONA HORARIA ---
@@ -91,16 +91,10 @@ const licenseService = new LicenseService();
 
     server = app.listen(port, () => {
 
-      // --- LOGS DE INICIO SEGUROS Y LIMPIOS ---
-        console.log("=== ESTADO DEL BACKEND ===");
-        console.log(`Base de datos: ${process.env.DB_NAME || 'No definida'}`);
-        console.log(`Puerto DB: ${process.env.DB_PORT || '5432'}`);
-        console.log("==========================");
-
-      console.log("SERVER_READY");
+      console.log(`Servidor escuchando en el puerto ${port}`);
     });
   } catch (error) {
-    console.error("ERROR CRÍTICO AL ARRANCAR O MIGRAR:", error);
+    console.error("ERROR CRÍTICO AL ARRANCAR O MIGRAR:", error?.stack || error);
     process.exit(1);
   }
 })();

@@ -125,7 +125,6 @@ router.get('/report/excel',
       // Serialización para asegurar limpieza de datos
       return res.status(200).json(JSON.parse(JSON.stringify(data)));
     } catch (error) {
-      console.error("Error en router.get /operating-expenses/report/excel:", error);
       next(error);
     }
   }

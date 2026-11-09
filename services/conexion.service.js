@@ -1,5 +1,6 @@
 const boom = require('@hapi/boom');
 const configService = require('../config/config.js');
+const logger = require('../libs/logger');
 
 class ConnectionService {
   constructor() { }
@@ -44,7 +45,7 @@ class ConnectionService {
         total: total,
       };
     } catch (error) {
-      console.error('Error en ConnectionService.findPaginated: ', error);
+      logger.error(`ConnectionService.findPaginated: ${error.message}`, { stack: error.stack });
       throw boom.badImplementation('Error al consultar configuración de conexión');
     }
   }
@@ -85,7 +86,7 @@ class ConnectionService {
       configService.updateConfig(changes);
       return { success: true, message: "Configuración actualizada" };
     } catch (error) {
-      console.error("Error en ConnectionService.update:", error);
+      logger.error(`ConnectionService.update: ${error.message}`, { stack: error.stack });
       throw boom.badImplementation('Error al actualizar la configuración');
     }
   }

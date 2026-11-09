@@ -6,6 +6,7 @@ const ModuleConfigService = require('./moduleConfig.service');
 const VerifactuConfigService = require('./verifactuConfig.service');
 const VerifactuProviderClient = require('./verifactuProvider.client');
 const { calculateDocumentTotals } = require('../libs/taxCalculation');
+const logger = require('../libs/logger');
 
 const {
   salesPostInvoice,
@@ -214,7 +215,7 @@ class SalesPostInvoiceService {
         verifactuProviderClient.submit(providerSubmission.config, providerSubmission.payload)
           .catch((error) => ({ accepted: false, error: error.message }))
           .then((response) => verifactuService.applyProviderResponse(providerSubmission.invoiceCode, response))
-          .catch((error) => console.error('[SalesPostInvoice] Error aplicando la respuesta del proveedor Veri*factu:', error.message));
+          .catch((error) => logger.error(`SalesPostInvoice: no se pudo guardar la respuesta del proveedor Veri*factu: ${error.message}`, { stack: error.stack }));
       }
 
       return await this.findOne(newPostInvoice.code, { includeLines: true });

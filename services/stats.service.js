@@ -1,5 +1,6 @@
 const { Op, fn, col, literal } = require('sequelize');
 const sequelize = require('../libs/sequelize');
+const logger = require('../libs/logger');
 
 class StatsService {
   /**
@@ -46,7 +47,7 @@ class StatsService {
         doughnutChart: doughnutChart
       };
     } catch (error) {
-      console.error(`Error crítico en StatsService (Filtro: ${budgetCode}):`, error);
+      logger.error(`StatsService (presupuesto ${budgetCode || 'todos'}): ${error.message}`, { stack: error.stack });
       return {
         year,
         barChart: {

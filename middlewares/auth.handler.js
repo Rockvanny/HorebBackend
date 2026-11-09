@@ -1,5 +1,6 @@
 const boom = require('@hapi/boom');
 const { checkPermission } = require('../config/access-manager');
+const logger = require('../libs/logger');
 
 /**
  * Middleware para validar acciones específicas
@@ -22,13 +23,12 @@ function checkAction(actionString) {
         return next();
       }
 
-      // Registro de seguridad: útil para detectar intentos de acceso indebido
-      console.warn(`[SECURITY ALERT] Usuario ${user.id} intentó acceder a ${actionString}`);
+      // El 403 lo registra logErrors (error.handler.js) con usuario y ruta
 
       next(boom.forbidden(`Acceso denegado a la acción: ${actionString}`));
 
     } catch (error) {
-      console.error(`[MIDDLEWARE ERROR] Falló checkAction para ${actionString}:`, error);
+      logger.error(`checkAction ${actionString}: ${error.message}`, { stack: error.stack });
       next(boom.internal('Error interno al verificar permisos'));
     }
   };

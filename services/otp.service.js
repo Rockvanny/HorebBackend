@@ -160,7 +160,7 @@ class OtpService {
       // El cliente solo ve el mensaje genérico de abajo; la causa real (ej.
       // dominio no verificado en Resend, API key inválida) queda en el log
       // interno, si no, es imposible de diagnosticar en remoto.
-      logger.error(`Fallo al enviar OTP a ${user.email}: ${error.message}`, { stack: error.stack });
+      logger.error(`Fallo al enviar OTP al usuario ${user.code}: ${error.message}`, { stack: error.stack });
       throw boom.badGateway('No se pudo enviar el código por correo. Inténtalo de nuevo en unos minutos.');
     }
   }

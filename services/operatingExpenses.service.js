@@ -236,7 +236,6 @@ class OperatingExpensesService {
         };
       });
     } catch (error) {
-      console.error("[OperatingExpensesService] Error en findForReport:", error);
       throw error;
     }
   }

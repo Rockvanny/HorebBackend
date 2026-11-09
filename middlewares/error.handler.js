@@ -1,38 +1,25 @@
 const { ValidationError } = require('sequelize');
-const logger = require('../libs/logger'); // Importamos el logger que creamos
+const logger = require('../libs/logger');
 
-// Campos que nunca deben acabar en un log, aunque el request falle.
-const SENSITIVE_BODY_FIELDS = ['password', 'otp', 'securityKey', 'token'];
-
-function redactBody(body) {
-  if (!body || typeof body !== 'object') return body;
-  const clone = { ...body };
-  SENSITIVE_BODY_FIELDS.forEach((field) => {
-    if (field in clone) clone[field] = '[REDACTED]';
-  });
-  return clone;
-}
-
+// Un registro por petición fallida. Sin cuerpo ni query string: pueden
+// llevar contraseñas, códigos OTP o datos de clientes (?searchTerm=...).
 function logErrors(err, req, res, next) {
-  // 1. Log en consola (solo para desarrollo, gestionado por winston)
-  // 2. Log en archivo (persistente en AppData para producción)
+  const path = (req.originalUrl || req.url || '').split('?')[0];
+  const statusCode = err.isBoom ? err.output.statusCode : (err.statusCode || 500);
+  const userCode = req.user?.code ? ` [usuario ${req.user.code}]` : '';
+  // Errores de Joi (validator.handler.js): el mensaje puede incluir el
+  // valor recibido ('"phone" with value "..." fails...'); solo los campos.
+  const message = Array.isArray(err.details)
+    ? `validación fallida en ${[...new Set(err.details.map(d => d.path.join('.')))].join(', ')}`
+    : err.message;
+  const line = `${statusCode} ${req.method} ${path}${userCode}: ${message}`;
 
-  const errorInfo = {
-    method: req.method,
-    url: req.url,
-    body: redactBody(req.body),
-    stack: err.stack || 'No stack trace available'
-  };
-
-  // Usamos el logger profesional en lugar de console.error
-  logger.error(`Error en ${req.method} ${req.url}: ${err.message}`, {
-    stack: err.stack,
-    metadata: errorInfo
-  });
-
-  // Si no hay stack (error plano), inspeccionamos manualmente para el log de consola
-  if (!err.stack && process.env.NODE_ENV === 'development') {
-    console.dir(err, { depth: null, colors: true });
+  // 4xx = petición rechazada (credenciales, permisos, validación): basta
+  // una línea. 5xx = fallo nuestro: con stack para poder depurarlo.
+  if (statusCode < 500) {
+    logger.warn(line);
+  } else {
+    logger.error(line, { stack: err.stack || String(err) });
   }
 
   next(err);

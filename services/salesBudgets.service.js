@@ -2,6 +2,7 @@ const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
 const sequelize = require('../libs/sequelize');
 const { calculateDocumentTotals } = require('../libs/taxCalculation');
+const logger = require('../libs/logger');
 
 // Extraemos los modelos correctamente del objeto sequelize
 const {
@@ -99,7 +100,7 @@ class salesBudgetService {
       }
       return ['Borrador', 'Enviado', 'Aprobado', 'Rechazado'];
     } catch (error) {
-      console.error("Error en findStatuses:", error);
+      logger.error(`SalesBudgetsService.findStatuses: ${error.message}`, { stack: error.stack });
       throw boom.badImplementation('No se pudieron obtener los estados');
     }
   }

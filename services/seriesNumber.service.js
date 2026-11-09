@@ -4,6 +4,7 @@ const { models } = sequelize;
 const { Op } = require('sequelize');
 const { SERIES_TYPES } = require('../db/models/SeriesNumber.model');
 const { incrementAlphanumeric } = require('../libs/sequence.handler');
+const logger = require('../libs/logger');
 
 class seriesNumberService {
   constructor() { }
@@ -64,7 +65,7 @@ class seriesNumberService {
         order: [['code', 'ASC']]
       });
     } catch (e) {
-      console.error("Error en getPostSeries:", e.message);
+      logger.warn(`SeriesNumberService.getPostSeries: ${e.message}`);
       return []; // Retorna vacío si el tipo no existe para evitar el crash
     }
   }

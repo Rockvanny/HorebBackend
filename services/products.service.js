@@ -1,6 +1,7 @@
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
 const { models } = require('../libs/sequelize');
+const logger = require('../libs/logger');
 
 class ProductsService {
 
@@ -44,7 +45,7 @@ class ProductsService {
         total: count,
       };
     } catch (error) {
-      console.error('Error en Product.findPaginated: ', error);
+      logger.error(`ProductService.findPaginated: ${error.message}`, { stack: error.stack });
       throw boom.badImplementation('Error al consultar productos paginados', error);
     }
   }
