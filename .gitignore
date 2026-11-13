@@ -233,3 +233,22 @@ scripts/seed-demo.js
 # Temporales de editores
 .vscode/
 # End of https://www.toptal.com/developers/gitignore/api/node,windows,linux,macos
+
+# --- Secretos y archivos que nunca deben subirse (revisado 2026-11-13) ---
+# Cualquier variante de .env (.env.dev, .env.backup...): solo el ejemplo.
+.env.*
+!.env.example
+# Claves y certificados. La clave PÚBLICA de licencias sí va en el repo.
+*.pem
+!config/license-public-key.pem
+*.key
+*.pfx
+*.p12
+# Licencias emitidas (llevan la huella de un equipo concreto)
+*.lic
+# Volcados de base de datos y paquetes comprimidos para llevar a producción
+*.dump
+*.sql.gz
+*.rar
+*.zip
+*.7z
