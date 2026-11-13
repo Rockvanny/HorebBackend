@@ -9,7 +9,10 @@ const SERIES_TYPES = {
   product:      { id: 3, label: 'Producto' },
   budget:       { id: 4, label: 'Presupuesto' },
   salesinvoice: { id: 5, label: 'Documento de venta' },
-  purchinvoice: { id: 6, label: 'Documento de compra' }
+  purchinvoice: { id: 6, label: 'Documento de compra' },
+  // Nº de empleado (employee.model.js#employeeNo), sin caducidad como las
+  // de clientes/proveedores/productos.
+  employee:     { id: 7, label: 'Empleado' }
 };
 
 const seriesNumberSchema = {

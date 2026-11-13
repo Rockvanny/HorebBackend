@@ -1,12 +1,40 @@
-const { Op } = require('sequelize');
+const { Op, where, cast, col } = require('sequelize');
 const boom = require('@hapi/boom');
 const { models } = require('../libs/sequelize');
 const { isExpenseMonthClosed } = require('../libs/monthClose.helper');
 
+/**
+ * Gastos de empleados (entityType 'employee', nóminas): muestran el sueldo
+ * de una persona, así que solo los ven y gestionan los administradores
+ * (decidido con el usuario 2026-11-14). Para el resto es como si no
+ * existieran, salvo en el Excel, donde van sumados por mes para que los
+ * totales cuadren (ver findForReport).
+ */
+const isAdmin = (user) => (user?.role || '').toLowerCase() === 'admin';
+const EMPLOYEE = 'employee';
+
 class OperatingExpensesService {
   constructor() { }
 
-  async findPaginated({ limit, offset, startDate, endDate, category, searchTerm }) {
+  /** 404 (no 403) para no revelar que existe un gasto de empleado. */
+  assertCanSee(expense, user) {
+    if (expense.entityType === EMPLOYEE && !isAdmin(user)) throw boom.notFound('Gasto no encontrado');
+  }
+
+  assertCanUseEmployee(data, user) {
+    if (data.entityType === EMPLOYEE && !isAdmin(user)) {
+      throw boom.forbidden('Solo un administrador puede registrar gastos de empleados (nóminas).');
+    }
+  }
+
+  /** El nº de empleado debe existir (referencia "blanda", sin FK). */
+  async assertEmployeeExists(data) {
+    if (data.entityType !== EMPLOYEE) return;
+    const employee = await models.Employee.findOne({ where: { employeeNo: data.entityCode } });
+    if (!employee) throw boom.badRequest(`No existe ningún empleado con el número '${data.entityCode}'.`);
+  }
+
+  async findPaginated({ limit, offset, startDate, endDate, category, searchTerm, user }) {
     const parsedLimit = parseInt(limit, 10) || 100;
     const parsedOffset = parseInt(offset, 10) || 0;
 
@@ -17,6 +45,7 @@ class OperatingExpensesService {
       where: {},
     };
 
+    if (!isAdmin(user)) options.where.entityType = { [Op.ne]: EMPLOYEE };
     if (startDate && endDate) {
       options.where.date = { [Op.between]: [startDate, endDate] };
     }
@@ -28,7 +57,10 @@ class OperatingExpensesService {
       const searchPattern = term.includes('%') ? term : `%${term}%`;
       options.where[Op.or] = [
         { concept: { [Op.iLike]: searchPattern } },
-        { category: { [Op.iLike]: searchPattern } }
+        // category es un ENUM de Postgres: ILIKE solo funciona sobre texto
+        // (sin el cast, cualquier búsqueda daba error 500)
+        where(cast(col('category'), 'text'), { [Op.iLike]: searchPattern }),
+        { name: { [Op.iLike]: searchPattern } }
       ];
     }
 
@@ -98,13 +130,18 @@ class OperatingExpensesService {
     };
   }
 
-  async findOne(id) {
+  async findOne(id, user = null) {
     const expense = await models.OperatingExpenses.findByPk(id);
     if (!expense) throw boom.notFound('Gasto no encontrado');
+    // user null: llamadas internas o de la app móvil (ya solo admin)
+    if (user) this.assertCanSee(expense, user);
     return expense;
   }
 
-  async create(data, userExecutor) {
+  async create(data, userExecutor, user = null) {
+    this.assertCanUseEmployee(data, user);
+    await this.assertEmployeeExists(data);
+
     // Aplicamos la validación financiera
     const validatedData = this.prepareAndValidateFinancials(data);
 
@@ -122,9 +159,14 @@ class OperatingExpensesService {
     }
   }
 
-  async update(id, changes, userExecutor) {
-    const expense = await this.findOne(id);
+  async update(id, changes, userExecutor, user = null) {
+    const expense = await this.findOne(id, user);
     this.assertEditable(expense);
+    const merged = { ...expense.dataValues, ...changes };
+    this.assertCanUseEmployee(merged, user);
+    if (changes.entityType !== undefined || changes.entityCode !== undefined) {
+      await this.assertEmployeeExists(merged);
+    }
 
     // Si los cambios incluyen importes, los recalculamos/validamos
     const validatedChanges = this.prepareAndValidateFinancials({
@@ -135,8 +177,8 @@ class OperatingExpensesService {
     return await expense.update(validatedChanges, { userExecutor });
   }
 
-  async delete(id, userExecutor) {
-    const expense = await this.findOne(id);
+  async delete(id, userExecutor, user = null) {
+    const expense = await this.findOne(id, user);
     this.assertEditable(expense);
 
     await expense.destroy({ userExecutor });
@@ -204,7 +246,7 @@ class OperatingExpensesService {
     * Obtiene los gastos operativos dentro de un rango de fechas.
     * Calcula el IVA implícito basado en los importes base y total.
     */
-  async findForReport(startDate, endDate) {
+  async findForReport(startDate, endDate, user = null) {
     try {
       const expenses = await models.OperatingExpenses.findAll({
         where: {
@@ -216,7 +258,7 @@ class OperatingExpensesService {
         order: [['date', 'ASC']]
       });
 
-      return expenses.map(gasto => {
+      const toRow = (gasto) => {
         return {
           fecha: gasto.date ? new Date(gasto.date).toLocaleDateString('es-ES') : '',
           numeroFactura: gasto.invoiceNumber || 'N/A',
@@ -234,7 +276,40 @@ class OperatingExpensesService {
           total: parseFloat(gasto.totalAmount || 0),
           categoria: gasto.category || 'Sin categoría'
         };
-      });
+      };
+
+      if (isAdmin(user)) return expenses.map(toRow);
+
+      // Sin ser admin: las nóminas de empleados se suman en una línea por
+      // mes ("Nóminas"), sin nombres ni importes individuales.
+      const rows = [];
+      const payrollByMonth = new Map();
+      for (const gasto of expenses) {
+        if (gasto.entityType !== EMPLOYEE) { rows.push(toRow(gasto)); continue; }
+        const d = new Date(gasto.date);
+        const key = `${d.getFullYear()}-${d.getMonth()}`;
+        if (!payrollByMonth.has(key)) {
+          const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+          const row = {
+            fecha: lastDay.toLocaleDateString('es-ES'), numeroFactura: 'N/A',
+            proveedor: 'Nóminas (detalle solo para administradores)', cif: '',
+            concepto: `Nóminas ${d.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}`,
+            importe: 0, ivaPorcentaje: 0, irpfPorcentaje: 0, importeIva: 0, importeIrpf: 0, total: 0,
+            categoria: 'Personal y Nóminas', _date: lastDay
+          };
+          payrollByMonth.set(key, row);
+          rows.push(row);
+        }
+        const row = payrollByMonth.get(key);
+        row.importe += parseFloat(gasto.baseAmount || 0);
+        row.importeIva += parseFloat(gasto.taxAmount || 0);
+        row.importeIrpf += parseFloat(gasto.amountIrpf || 0);
+        row.total += parseFloat(gasto.totalAmount || 0);
+      }
+      const round = (n) => Math.round(n * 100) / 100;
+      return rows.map(({ _date, ...row }) => _date
+        ? { ...row, importe: round(row.importe), importeIva: round(row.importeIva), importeIrpf: round(row.importeIrpf), total: round(row.total) }
+        : row);
     } catch (error) {
       throw error;
     }

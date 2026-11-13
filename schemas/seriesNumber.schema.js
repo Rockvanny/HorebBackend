@@ -13,7 +13,8 @@ const type = Joi.alternatives().try(
     'product',
     'budget',
     'salesinvoice',
-    'purchinvoice'
+    'purchinvoice',
+    'employee'
   ), // Para aceptar 'customer'
   Joi.number(), // Para aceptar 2
   Joi.string().pattern(/^\d+$/) // Para aceptar "2" (string numérico)

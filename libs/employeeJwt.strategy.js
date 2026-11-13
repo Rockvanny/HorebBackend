@@ -26,6 +26,9 @@ const EmployeeJwtStrategy = new Strategy(options, async (payload, done) => {
     if (payload.type !== 'EMPLOYEE') return done(null, false);
 
     const employee = await service.findOne(payload.sub);
+    // Si le quitan el acceso a la app, su sesión deja de valer en el acto
+    // (no espera a que caduque el token).
+    if (!employee.appAccess) return done(null, false);
     return done(null, employee);
   } catch (error) {
     // findOne lanza boom.notFound si el empleado ya no existe (ej. borrado

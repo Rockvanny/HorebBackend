@@ -35,8 +35,10 @@ class EmployeesService {
       const searchPattern = `%${term}%`;
       options.where[Op.or] = [
         { code: { [Op.iLike]: searchPattern } },
+        { employeeNo: { [Op.iLike]: searchPattern } },
         { fullName: { [Op.iLike]: searchPattern } },
-        { email: { [Op.iLike]: searchPattern } }
+        { email: { [Op.iLike]: searchPattern } },
+        { documentNumber: { [Op.iLike]: searchPattern } }
       ];
     }
 
@@ -56,8 +58,43 @@ class EmployeesService {
     return employee;
   }
 
+  /**
+   * Búsqueda para las nóminas de gastos operativos (ver
+   * operatingExpenses: entityType 'employee'). Solo lo imprescindible para
+   * rellenar el gasto: nada de email, rol ni datos de la app.
+   */
+  async lookup(searchTerm) {
+    const term = (searchTerm || '').trim();
+    if (!term) return [];
+    const pattern = `%${term}%`;
+    const rows = await models.Employee.findAll({
+      where: {
+        employeeNo: { [Op.ne]: null },
+        [Op.or]: [
+          { employeeNo: { [Op.iLike]: pattern } },
+          { fullName: { [Op.iLike]: pattern } },
+          { documentNumber: { [Op.iLike]: pattern } }
+        ]
+      },
+      attributes: ['employeeNo', 'fullName', 'documentType', 'documentNumber', 'terminationDate'],
+      order: [['fullName', 'ASC']],
+      limit: 10
+    });
+    return rows.map(r => r.toJSON());
+  }
+
+  /** Un empleado por su nº de empleado (botón Buscar de gastos operativos). */
+  async findByEmployeeNo(employeeNo) {
+    const employee = await models.Employee.findOne({
+      where: { employeeNo },
+      attributes: ['employeeNo', 'fullName', 'documentType', 'documentNumber', 'terminationDate']
+    });
+    if (!employee) throw boom.notFound('Empleado no encontrado');
+    return employee.toJSON();
+  }
+
   async create(data) {
-    const newEmployee = await models.Employee.create(data);
+    const newEmployee = await models.Employee.create(this.#normalize(data));
     const { password, ...employeeWithoutPassword } = newEmployee.toJSON();
     return employeeWithoutPassword;
   }
@@ -65,9 +102,39 @@ class EmployeesService {
   async update(code, changes) {
     const employee = await models.Employee.findByPk(code);
     if (!employee) throw boom.notFound('Empleado no encontrado');
-    const updated = await employee.update(changes);
+
+    const data = this.#normalize(changes, employee);
+    // Dar acceso a la app a un empleado que no lo tenía: hacen falta email y
+    // contraseña (la guardada, si ya tenía, o una nueva).
+    const hasAccess = data.appAccess ?? employee.appAccess;
+    if (hasAccess) {
+      const email = 'email' in data ? data.email : employee.email;
+      if (!email) throw boom.badRequest('Para dar acceso a la app móvil hace falta el correo electrónico.');
+      if (!(data.password || employee.password)) throw boom.badRequest('Para dar acceso a la app móvil hace falta una contraseña.');
+    }
+
+    const updated = await employee.update(data);
     const { password, ...employeeWithoutPassword } = updated.toJSON();
     return employeeWithoutPassword;
+  }
+
+  /**
+   * Vacíos a null (para poder borrar un dato opcional al editar), fecha de
+   * baja >= alta y, sin acceso a la app, sin contraseña: un empleado solo
+   * para nóminas no puede iniciar sesión (ver login y employeeJwt.strategy).
+   */
+  #normalize(data, current = null) {
+    const result = { ...data };
+    for (const [key, value] of Object.entries(result)) {
+      if (value === '') result[key] = null;
+    }
+    const hire = result.hireDate !== undefined ? result.hireDate : current?.hireDate;
+    const leave = result.terminationDate !== undefined ? result.terminationDate : current?.terminationDate;
+    if (hire && leave && new Date(leave) < new Date(hire)) {
+      throw boom.badRequest('La fecha de baja no puede ser anterior a la de alta.');
+    }
+    if (result.appAccess === false) result.password = null;
+    return result;
   }
 
   async delete(code) {
@@ -85,7 +152,9 @@ class EmployeesService {
   async login(email, password) {
     const employee = await models.Employee.findOne({ where: { email } });
 
-    if (!employee) throw boom.unauthorized('Usuario o contraseña incorrectos');
+    // Sin acceso a la app (empleado solo para nóminas): mismo mensaje que
+    // un usuario inexistente, para no revelar qué emails hay registrados.
+    if (!employee || !employee.appAccess || !employee.password) throw boom.unauthorized('Usuario o contraseña incorrectos');
 
     const isMatch = await bcrypt.compare(password, employee.password);
     if (!isMatch) throw boom.unauthorized('Usuario o contraseña incorrectos');
@@ -102,7 +171,7 @@ class EmployeesService {
     const employeeCode = await otpService.verifyChallenge(challengeId, code, LOGIN_OTP_PURPOSE);
 
     const employee = await models.Employee.findByPk(employeeCode);
-    if (!employee) throw boom.unauthorized('Usuario o contraseña incorrectos');
+    if (!employee || !employee.appAccess) throw boom.unauthorized('Usuario o contraseña incorrectos');
 
     const token = jwt.sign({ sub: employee.code, role: employee.role, type: 'EMPLOYEE' }, config.jwtSecret, { expiresIn: '8h' });
 
@@ -123,7 +192,7 @@ class EmployeesService {
   async requestPasswordReset(email) {
     const employee = await models.Employee.findOne({ where: { email } });
 
-    if (!employee) {
+    if (!employee || !employee.appAccess) {
       return {
         challengeId: crypto.randomUUID(),
         expiresInSeconds: config.otpExpirationMinutes * 60,
@@ -138,7 +207,7 @@ class EmployeesService {
     const employeeCode = await otpService.verifyChallenge(challengeId, code, PASSWORD_RESET_PURPOSE);
 
     const employee = await models.Employee.findByPk(employeeCode);
-    if (!employee) throw boom.unauthorized('Código inválido o expirado');
+    if (!employee || !employee.appAccess) throw boom.unauthorized('Código inválido o expirado');
 
     await employee.update({ password: newPassword, mustChangePassword: false });
 

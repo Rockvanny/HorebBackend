@@ -17,6 +17,7 @@ const category = Joi.string().valid(
   'Equipamiento / Maquinaria',
   'Servicios Externos de Obra'
 );
+const entityType = Joi.string().valid('vendor', 'employee');
 const entityCode = Joi.string().min(2).max(100);
 const name = Joi.string().min(3).max(100);
 const nif = Joi.string().min(5).max(20);
@@ -46,6 +47,7 @@ const getOperatingExpenseSchema = Joi.object({
 const createOperatingExpenseSchema = Joi.object({
   date: date.required(),
   category: category.required(),
+  entityType: entityType.default('vendor'),
   entityCode: entityCode.required(),
   name: name.required(),
   nif: nif.required(),
@@ -62,6 +64,7 @@ const createOperatingExpenseSchema = Joi.object({
 const updateOperatingExpenseSchema = Joi.object({
   date: date.optional(),
   category: category.optional(),
+  entityType: entityType.optional(),
   entityCode: entityCode.optional(),
   name: name.optional(),
   nif: nif.optional().allow(''),

@@ -13,6 +13,7 @@ const {
   resendEmployeeOtpSchema,
   requestEmployeePasswordResetSchema,
   resetEmployeePasswordSchema,
+  lookupEmployeeSchema,
 } = require('../schemas/employee.schema');
 
 const router = express.Router();
@@ -110,6 +111,33 @@ router.post('/',
     try {
       const employee = await service.create(req.body);
       res.status(201).json({ success: true, data: employee });
+    } catch (error) { next(error); }
+  }
+);
+
+/**
+ * Búsqueda de empleados para las nóminas de gastos operativos (escritorio).
+ * Solo administradores: un gasto ligado a un empleado muestra su sueldo
+ * (decidido con el usuario 2026-11-14, ver operatingExpenses.router.js).
+ * Van antes de '/:id'.
+ */
+const payrollAccess = [passport.authenticate('jwt', { session: false }), checkRole('admin')];
+
+router.get('/lookup',
+  ...payrollAccess,
+  validatorHandler(lookupEmployeeSchema, 'query'),
+  async (req, res, next) => {
+    try {
+      res.json({ success: true, data: await service.lookup(req.query.searchTerm) });
+    } catch (error) { next(error); }
+  }
+);
+
+router.get('/by-number/:employeeNo',
+  ...payrollAccess,
+  async (req, res, next) => {
+    try {
+      res.json({ success: true, data: await service.findByEmployeeNo(req.params.employeeNo) });
     } catch (error) { next(error); }
   }
 );

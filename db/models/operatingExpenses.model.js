@@ -41,6 +41,17 @@ const OperatingExpensesSchema = {
     defaultValue: 'Gastos de Oficina y Administración'
   },
 
+  // A quién apunta entityCode: un proveedor (vendors.code) o un empleado
+  // (employees.employee_no, nóminas). Los gastos de empleados solo los ven
+  // los administradores (ver operatingExpenses.service.js).
+  entityType: {
+    field: 'entity_type',
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    defaultValue: 'vendor',
+    validate: { isIn: [['vendor', 'employee']] }
+  },
+
   entityCode: {
     field: 'entity_code',
     type: DataTypes.STRING,

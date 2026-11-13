@@ -24,7 +24,7 @@ router.get('/operatingExpenses-paginated',
   async (req, res, next) => {
     try {
       const { limit, offset, startDate, endDate, category, searchTerm } = req.query;
-      const result = await service.findPaginated({ limit, offset, startDate, endDate, category, searchTerm });
+      const result = await service.findPaginated({ limit, offset, startDate, endDate, category, searchTerm, user: req.user });
       res.json(result);
     } catch (error) {
       next(error);
@@ -82,7 +82,7 @@ router.get('/:id',
   async (req, res, next) => {
     try {
       const { id } = req.params;
-      const expense = await service.findOne(id);
+      const expense = await service.findOne(id, req.user);
       const data = expense.toJSON();
       data.locked = expense.isValidated || isExpenseMonthClosed(expense.date);
       res.json(data);
@@ -102,7 +102,7 @@ router.post('/',
   async (req, res, next) => {
     try {
       const userId = req.user.code;
-      const newExpense = await service.create(req.body, userId);
+      const newExpense = await service.create(req.body, userId, req.user);
       res.status(201).json(newExpense);
     } catch (error) {
       next(error);
@@ -120,7 +120,7 @@ router.get('/report/excel',
       const { startDate, endDate } = req.query;
 
       // Llamada al método que acabamos de crear en el servicio
-      const data = await service.findForReport(startDate, endDate);
+      const data = await service.findForReport(startDate, endDate, req.user);
 
       // Serialización para asegurar limpieza de datos
       return res.status(200).json(JSON.parse(JSON.stringify(data)));
@@ -142,7 +142,7 @@ router.patch('/:id',
     try {
       const { id } = req.params;
       const userId = req.user.code;
-      const expense = await service.update(id, req.body, userId);
+      const expense = await service.update(id, req.body, userId, req.user);
       res.json(expense);
     } catch (error) {
       next(error);
@@ -161,7 +161,7 @@ router.delete('/:id',
     try {
       const { id } = req.params;
       const userId = req.user.code;
-      await service.delete(id, userId);
+      await service.delete(id, userId, req.user);
       res.status(200).json({ id });
     } catch (error) {
       next(error);

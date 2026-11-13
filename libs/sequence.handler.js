@@ -25,9 +25,15 @@ const MODEL_SERIES_MAP = {
     'salesPostInvoice': 'salesinvoice', // Mapeamos el histórico al tipo de factura de venta
     'purchInvoice': 'purchinvoice',
     'purchPostInvoice': 'purchinvoice', // Mapeamos el histórico al tipo de factura de compra
+    'Employee': 'employee',
 };
 
-async function generateNextCode(instance, options) {
+/**
+ * @param {string} [targetField='code'] - Campo que recibe el número. Los
+ *   empleados lo guardan en 'employeeNo': su 'code' (jperez) es la identidad
+ *   de la app móvil y no sale de una serie (ver employee.model.js).
+ */
+async function generateNextCode(instance, options, targetField = 'code') {
     try {
         const modelName = instance.constructor.options?.name?.singular || instance.constructor.name;
 
@@ -72,7 +78,7 @@ async function generateNextCode(instance, options) {
         // 3. Generación del nuevo código
         const nextValue = incrementAlphanumeric(serie.lastValue || serie.code);
 
-        instance.code = nextValue;
+        instance[targetField] = nextValue;
 
         // 4. Actualización del contador de la serie
         await serie.update({ lastValue: nextValue }, {
