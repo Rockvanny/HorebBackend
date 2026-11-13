@@ -147,9 +147,17 @@ class SalesPostInvoiceService {
     }
   }
 
-  async create(data) {
+  /**
+   * Crea la factura registrada. Con `options.transaction` (registro de un
+   * borrador, ver *Invoice(s).service.js#archiveInvoice) trabaja dentro de
+   * esa transacción y NO la confirma: quien llama borra el borrador en la
+   * misma transacción, así todo el registro es atómico. Sin ella, abre y
+   * confirma la suya como antes.
+   */
+  async create(data, { transaction: outerTransaction } = {}) {
     const { lines, ...headerData } = data;
-    const transaction = await sequelize.transaction();
+    const ownsTransaction = !outerTransaction;
+    const transaction = outerTransaction || await sequelize.transaction();
 
     try {
       // 1. RE-CALCULAR TODO antes de insertar
@@ -245,26 +253,30 @@ class SalesPostInvoiceService {
           providerSubmission = { config: verifactuConfig, invoiceCode: newPostInvoice.code, payload: log.payload };
         }
       }
-      await transaction.commit();
 
-      // Envío al proveedor externo, si está activo: a propósito FUERA de la
-      // transacción y sin esperar a que termine (fire-and-forget) -es una
-      // llamada de red que puede tardar o fallar, y no debe bloquear la
-      // respuesta ni deshacer el alta de la factura, que ya quedó registrada
-      // localmente-. El resultado (aceptado/rechazado/error de conexión)
-      // queda reflejado en el propio registro vía applyProviderResponse,
-      // consultable en Registro Veri*factu.
+      // Envío al proveedor externo, si está activo: SOLO cuando la
+      // transacción se confirma (afterCommit; con transacción externa, la
+      // del registro completo) y sin esperar a que termine (fire-and-forget)
+      // -es una llamada de red que puede tardar o fallar, y no debe bloquear
+      // la respuesta ni deshacer el alta de la factura-. Si la transacción
+      // se deshace, no se envía nada. El resultado queda en el propio
+      // registro vía applyProviderResponse, consultable en Registro Veri*factu.
       if (providerSubmission) {
-        verifactuProviderClient.submit(providerSubmission.config, providerSubmission.payload)
-          .catch((error) => ({ accepted: false, error: error.message }))
-          .then((response) => verifactuService.applyProviderResponse(providerSubmission.invoiceCode, response))
-          .catch((error) => logger.error(`SalesPostInvoice: no se pudo guardar la respuesta del proveedor Veri*factu: ${error.message}`, { stack: error.stack }));
+        transaction.afterCommit(() => {
+          verifactuProviderClient.submit(providerSubmission.config, providerSubmission.payload)
+            .catch((error) => ({ accepted: false, error: error.message }))
+            .then((response) => verifactuService.applyProviderResponse(providerSubmission.invoiceCode, response))
+            .catch((error) => logger.error(`SalesPostInvoice: no se pudo guardar la respuesta del proveedor Veri*factu: ${error.message}`, { stack: error.stack }));
+        });
       }
 
+      if (!ownsTransaction) return newPostInvoice;
+
+      await transaction.commit();
       return await this.findOne(newPostInvoice.code, { includeLines: true });
 
     } catch (error) {
-      if (transaction) await transaction.rollback();
+      if (ownsTransaction) await transaction.rollback();
       throw error;
     }
   }

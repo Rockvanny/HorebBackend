@@ -116,9 +116,17 @@ class PurchPostInvoiceService {
     }
   }
 
-  async create(data) {
+  /**
+   * Crea la factura registrada. Con `options.transaction` (registro de un
+   * borrador, ver *Invoice(s).service.js#archiveInvoice) trabaja dentro de
+   * esa transacción y NO la confirma: quien llama borra el borrador en la
+   * misma transacción, así todo el registro es atómico. Sin ella, abre y
+   * confirma la suya como antes.
+   */
+  async create(data, { transaction: outerTransaction } = {}) {
     const { lines, ...headerData } = data;
-    const transaction = await sequelize.transaction();
+    const ownsTransaction = !outerTransaction;
+    const transaction = outerTransaction || await sequelize.transaction();
 
     try {
       // 1. RE-CALCULAR TODO antes de insertar
@@ -190,13 +198,15 @@ class PurchPostInvoiceService {
         await DocumentTax.bulkCreate(totals.taxesToInsert, { transaction });
       }
 
+      if (!ownsTransaction) return newPostInvoice;
+
       await transaction.commit();
 
       // Sincronizado para retornar la búsqueda usando el '.code' de forma idéntica a ventas
       return await this.findOne(newPostInvoice.code, { includeLines: true });
 
     } catch (error) {
-      if (transaction) await transaction.rollback();
+      if (ownsTransaction) await transaction.rollback();
       throw error;
     }
   }

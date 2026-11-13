@@ -289,6 +289,16 @@ class salesInvoiceService {
     }
   }
 
+  /**
+   * Registra un borrador: crea la factura registrada (numeración definitiva
+   * y, en ventas, el registro Veri*factu) y borra el borrador, TODO en una
+   * transacción: o se hace entero o no se hace nada. Antes eran dos pasos
+   * sueltos y, si fallaba el borrado, la factura quedaba registrada y en
+   * borrador a la vez (y se podía volver a registrar).
+   * El borrador se bloquea (SELECT ... FOR UPDATE) al empezar: un segundo
+   * intento a la vez (doble clic, dos usuarios) espera y después ya no lo
+   * encuentra.
+   */
   async archiveInvoice(idOrCode, userId) {
     // 1. Detectar si el valor recibido es numérico (ID) o string (Code)
     const isNumeric = !isNaN(idOrCode) && !isNaN(parseFloat(idOrCode));
@@ -298,51 +308,56 @@ class salesInvoiceService {
       ? { id: idOrCode }
       : { code: idOrCode };
 
-    // 3. Buscar la factura
-    const invoice = await salesInvoice.findOne({
-      where: whereCondition,
-      include: [
-        { model: salesInvoiceLine, as: 'lines' },
-        { model: DocumentTax, as: 'taxes' }
-      ]
+    const registered = await sequelize.transaction(async (transaction) => {
+      // 3. Bloquear el borrador (sin includes: FOR UPDATE no admite el lado
+      // opcional de un LEFT JOIN) y después leerlo entero.
+      const locked = await salesInvoice.findOne({ where: whereCondition, transaction, lock: transaction.LOCK.UPDATE });
+      if (!locked) throw boom.notFound('La factura ya no está en borrador: puede que ya se haya registrado.');
+
+      const invoice = await salesInvoice.findOne({
+        where: { id: locked.id },
+        include: [
+          { model: salesInvoiceLine, as: 'lines' },
+          { model: DocumentTax, as: 'taxes' }
+        ],
+        transaction
+      });
+
+      const invoiceData = invoice.get({ plain: true });
+
+      // 4. Preparar datos para el histórico
+      invoiceData.preInvoice = invoiceData.code; // Guardamos el código original
+      invoiceData.username = userId;
+
+      // Serie de registro a usar: por defecto el valor congelado al crear el
+      // borrador (compatibilidad con borradores antiguos sin seriesCode).
+      let postingSerieCode = invoiceData.codePosting;
+
+      // Si conocemos la serie borrador real usada (seriesCode persistido),
+      // consultamos en vivo cuál es su postingSerie VIGENTE, por si un admin
+      // la cambió después de crear el borrador.
+      if (invoiceData.seriesCode) {
+        const draftSeries = await seriesNumber.findOne({
+          where: { code: invoiceData.seriesCode, type: SERIES_TYPES.salesinvoice.id },
+          transaction
+        });
+        if (draftSeries?.postingSerie) {
+          postingSerieCode = draftSeries.postingSerie;
+        }
+      }
+
+      invoiceData.seriesCode = postingSerieCode;
+      invoiceData.code = null; // Se anula para que la nueva tabla genere su propio código si es necesario
+      delete invoiceData.id;   // Eliminamos el ID antiguo para evitar conflictos de Primary Key en la tabla destino
+
+      // 5. Crear en la tabla de facturas registradas y borrar el borrador,
+      // en la misma transacción
+      const created = await postService.create(invoiceData, { transaction });
+      await invoice.destroy({ transaction });
+      return created;
     });
 
-    if (!invoice) throw boom.notFound('Factura no encontrada');
-
-    const invoiceData = invoice.get({ plain: true });
-
-    // 4. Preparar datos para el histórico
-    invoiceData.preInvoice = invoiceData.code; // Guardamos el código original
-    invoiceData.username = userId;
-
-    // Serie de registro a usar: por defecto el valor congelado al crear el
-    // borrador (compatibilidad con borradores antiguos sin seriesCode).
-    let postingSerieCode = invoiceData.codePosting;
-
-    // Si conocemos la serie borrador real usada (seriesCode persistido),
-    // consultamos en vivo cuál es su postingSerie VIGENTE, por si un admin
-    // la cambió después de crear el borrador.
-    if (invoiceData.seriesCode) {
-      const draftSeries = await seriesNumber.findOne({
-        where: { code: invoiceData.seriesCode, type: SERIES_TYPES.salesinvoice.id }
-      });
-      if (draftSeries?.postingSerie) {
-        postingSerieCode = draftSeries.postingSerie;
-      }
-    }
-
-    invoiceData.seriesCode = postingSerieCode;
-    invoiceData.code = null; // Se anula para que la nueva tabla genere su propio código si es necesario
-    delete invoiceData.id;   // Eliminamos el ID antiguo para evitar conflictos de Primary Key en la tabla destino
-
-    // 5. Crear en la tabla de facturas registradas y borrar de la temporal
-    const result = await postService.create(invoiceData);
-
-    if (result) {
-      await invoice.destroy();
-    }
-
-    return result;
+    return postService.findOne(registered.code, { includeLines: true });
   }
 }
 
