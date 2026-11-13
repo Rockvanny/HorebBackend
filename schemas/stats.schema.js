@@ -6,4 +6,15 @@ const queryStatsSchema = Joi.object({
   year: Joi.number().integer().min(2000).max(2100),
 });
 
-module.exports = { queryStatsSchema };
+// Inicio por módulos (ver stats.router.js /area/:area): el área y, como en
+// el inicio completo, el año y un presupuesto opcional.
+const areaParamsSchema = Joi.object({
+  area: Joi.string().valid('sales', 'purchases', 'expenses').required(),
+});
+
+const queryAreaStatsSchema = Joi.object({
+  year: Joi.number().integer().min(2000).max(2100),
+  budget: Joi.string().trim().max(30),
+});
+
+module.exports = { queryStatsSchema, areaParamsSchema, queryAreaStatsSchema };

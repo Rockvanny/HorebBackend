@@ -3,7 +3,7 @@ const passport = require('passport'); // 1. Importar Passport
 const StatsService = require('../services/stats.service');
 const { checkAction } = require('../middlewares/auth.handler'); // 2. Importar checkAction
 const validatorHandler = require('../middlewares/validator.handler');
-const { queryStatsSchema } = require('../schemas/stats.schema');
+const { queryStatsSchema, areaParamsSchema, queryAreaStatsSchema } = require('../schemas/stats.schema');
 
 const router = express.Router();
 const service = new StatsService();
@@ -45,6 +45,33 @@ router.get('/budget/:code',
       });
     } catch (error) {
       // Usamos next(error) para mantener la consistencia con el resto de la App
+      next(error);
+    }
+  }
+);
+
+/**
+ * 3. Inicio por módulos, para quien no tiene el módulo Reportes (ver
+ * service#getAreaStats): cada área exige el permiso de ver su listado, no
+ * VIEW_STATS. Ruta: /stats/area/sales?year=2026&budget=PRE-001
+ */
+const AREA_ACTIONS = {
+  sales: 'VIEW_SALESINVOICES',
+  purchases: 'VIEW_PURCHINVOICES',
+  expenses: 'VIEW_OPERATINGEXPENSES'
+};
+
+router.get('/area/:area',
+  passport.authenticate('jwt', { session: false }),
+  validatorHandler(areaParamsSchema, 'params'),
+  (req, res, next) => checkAction(AREA_ACTIONS[req.params.area])(req, res, next),
+  validatorHandler(queryAreaStatsSchema, 'query'),
+  async (req, res, next) => {
+    try {
+      const { area } = req.params;
+      const data = await service.getAreaStats(area, req.query.year, req.query.budget);
+      res.json({ success: true, data });
+    } catch (error) {
       next(error);
     }
   }

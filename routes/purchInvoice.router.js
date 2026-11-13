@@ -19,7 +19,7 @@ router.get('/purchInvoices-paginated',
     checkAction('VIEW_PURCHINVOICES'),
     async(req, res, next) => {
         try {
-            const { limit, offset, searchTerm, overdue, creditNotes, invoicesOnly } = req.query;
+            const { limit, offset, searchTerm, overdue, creditNotes, invoicesOnly, pending } = req.query;
             const result = await service.findPaginated({
                 limit,
                 offset,
@@ -30,9 +30,26 @@ router.get('/purchInvoices-paginated',
                 // (mismo criterio que purchPostInvoice.router.js).
                 filter: creditNotes === 'true' ? 'creditNotes'
                     : invoicesOnly === 'true' ? 'invoicesOnly'
-                    : (overdue === 'true' ? 'overdue' : null)
+                    : overdue === 'true' ? 'overdue'
+                    : (pending === 'true' ? 'pending' : null)
             });
             res.json(result);
+        } catch (error) { next(error); }
+    }
+);
+
+/**
+ * Totales de pago del inicio de compras: pendientes y vencidas (ver
+ * service#getPendingPaymentSummary). Va ANTES de '/:code' para que
+ * 'pending-summary' no se tome como un código de factura.
+ */
+router.get('/pending-summary',
+    passport.authenticate('jwt', { session: false }),
+    checkAction('VIEW_PURCHINVOICES'),
+    async (req, res, next) => {
+        try {
+            const result = await service.getPendingPaymentSummary();
+            res.json({ success: true, data: result });
         } catch (error) { next(error); }
     }
 );

@@ -25,13 +25,142 @@ class StatsService {
    * Función maestra que centraliza la lógica de consulta.
    * Maneja la ejecución en paralelo de todas las métricas necesarias.
    */
-  async _getGeneralStats(budgetCode = null, requestedYear = null) {
-    const { salesBudget, salesPostInvoice, purchPostInvoice } = sequelize.models;
-    // Se interpola en SQL más abajo: solo enteros (el router ya lo valida
-    // con Joi, ver schemas/stats.schema.js; esto es la segunda barrera).
-    const year = Number.isInteger(Number(requestedYear)) && requestedYear
+  _resolveYear(requestedYear) {
+    // Se interpola en SQL (EXTRACT(YEAR ...) = year): solo enteros (el router
+    // ya lo valida con Joi, ver schemas/stats.schema.js; esto es la segunda
+    // barrera).
+    return Number.isInteger(Number(requestedYear)) && requestedYear
       ? Number(requestedYear)
       : new Date().getFullYear();
+  }
+
+  /**
+   * Inicio por módulos: usuarios SIN el módulo Reportes, que no pueden ver
+   * el inicio completo (ver stats.router.js /area/:area). Cada área devuelve
+   * solo sus datos, con la misma forma que _getGeneralStats para que el
+   * frontend pinte igual (y combine varias áreas si el usuario las tiene):
+   *  - sales:     barras de presupuestos y facturado; dona de facturado por
+   *               cliente.
+   *  - purchases: barras de compras; dona de compras por categoría.
+   *  - expenses:  barras y dona de gastos operativos (base imponible, sin
+   *               IVA, igual que en el inicio completo). No se ligan a un
+   *               presupuesto: con uno filtrado no hay datos.
+   */
+  async getAreaStats(area, requestedYear = null, budgetCode = null) {
+    const { salesBudget, salesPostInvoice, purchPostInvoice } = sequelize.models;
+    const year = this._resolveYear(requestedYear);
+
+    try {
+      if (area === 'sales') {
+        const [budget, sales, doughnutChart] = await Promise.all([
+          this._getStatsFiltered(salesBudget, year, budgetCode),
+          this._getStatsFiltered(salesPostInvoice, year, budgetCode),
+          this._getSalesByCustomer(year, budgetCode)
+        ]);
+        return { year, area, barChart: { budget, sales }, doughnutChart };
+      }
+
+      if (area === 'purchases') {
+        const [purchases, doughnutChart] = await Promise.all([
+          this._getStatsFiltered(purchPostInvoice, year, budgetCode),
+          this._getPurchasesByCategory(year, budgetCode)
+        ]);
+        return { year, area, barChart: { purchases }, doughnutChart };
+      }
+
+      // expenses
+      if (budgetCode) {
+        return { year, area, barChart: { operating: Array(12).fill(0) }, doughnutChart: { labels: [], values: [] } };
+      }
+      const [operating, doughnutChart] = await Promise.all([
+        this._getOperatingByMonth(year),
+        this._getOperatingByCategory(year)
+      ]);
+      return { year, area, barChart: { operating }, doughnutChart };
+    } catch (error) {
+      logger.error(`StatsService.getAreaStats (${area}, presupuesto ${budgetCode || 'todos'}): ${error.message}`, { stack: error.stack });
+      return { year, area, barChart: {}, doughnutChart: { labels: [], values: [] } };
+    }
+  }
+
+  /** Facturado por cliente: los 6 primeros y el resto sumado en "Otros clientes". */
+  async _getSalesByCustomer(year, budgetCode) {
+    const { salesPostInvoice } = sequelize.models;
+    const where = { [Op.and]: [literal(`EXTRACT(YEAR FROM "posting_date") = ${year}`)] };
+    if (budgetCode) where.budget_code = budgetCode;
+
+    const rows = await salesPostInvoice.findAll({
+      attributes: ['name', [fn('SUM', col('amount_with_vat')), 'total']],
+      where,
+      group: ['name'],
+      raw: true
+    });
+
+    const sorted = rows
+      .map(r => ({ label: r.name || 'Sin nombre', value: parseFloat(r.total) || 0 }))
+      .filter(r => r.value > 0)
+      .sort((a, b) => b.value - a.value);
+    const top = sorted.slice(0, 6);
+    const rest = sorted.slice(6).reduce((acc, r) => acc + r.value, 0);
+    if (rest > 0) top.push({ label: 'Otros clientes', value: rest });
+
+    return { labels: top.map(r => r.label), values: top.map(r => r.value) };
+  }
+
+  /** Compras registradas por categoría (sin gastos operativos: son del módulo Gestión). */
+  async _getPurchasesByCategory(year, budgetCode) {
+    const { purchPostInvoice } = sequelize.models;
+    const where = { [Op.and]: [literal(`EXTRACT(YEAR FROM "posting_date") = ${year}`)] };
+    if (budgetCode) where.budget_code = budgetCode;
+
+    const rows = await purchPostInvoice.findAll({
+      attributes: ['category', [fn('SUM', col('amount_with_vat')), 'total']],
+      where,
+      group: ['category'],
+      raw: true
+    });
+    return {
+      labels: rows.map(r => r.category || 'Sin categoría'),
+      values: rows.map(r => parseFloat(r.total) || 0)
+    };
+  }
+
+  async _getOperatingByMonth(year) {
+    const { OperatingExpenses } = sequelize.models;
+    const rows = await OperatingExpenses.findAll({
+      attributes: [
+        [fn('EXTRACT', literal('MONTH FROM "date"')), 'month'],
+        [fn('SUM', col('base_amount')), 'total']
+      ],
+      where: { [Op.and]: [literal(`EXTRACT(YEAR FROM "date") = ${year}`)] },
+      group: [literal('month')],
+      raw: true
+    });
+    const data = Array(12).fill(0);
+    rows.forEach(row => {
+      const m = parseInt(row.month, 10) - 1;
+      if (m >= 0 && m < 12) data[m] = parseFloat(row.total) || 0;
+    });
+    return data;
+  }
+
+  async _getOperatingByCategory(year) {
+    const { OperatingExpenses } = sequelize.models;
+    const rows = await OperatingExpenses.findAll({
+      attributes: ['category', [fn('SUM', col('base_amount')), 'total']],
+      where: { [Op.and]: [literal(`EXTRACT(YEAR FROM "date") = ${year}`)] },
+      group: ['category'],
+      raw: true
+    });
+    return {
+      labels: rows.map(r => r.category || 'Sin categoría'),
+      values: rows.map(r => parseFloat(r.total) || 0)
+    };
+  }
+
+  async _getGeneralStats(budgetCode = null, requestedYear = null) {
+    const { salesBudget, salesPostInvoice, purchPostInvoice } = sequelize.models;
+    const year = this._resolveYear(requestedYear);
 
     try {
       const [budgets, sales, purchases, doughnutChart] = await Promise.all([

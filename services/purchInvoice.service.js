@@ -18,6 +18,36 @@ const CREDIT_NOTE_TYPES = ['R1', 'R2', 'R3', 'R4', 'R5'];
 
 class purchInvoiceService {
 
+  /**
+   * Pagos del inicio de compras (ver stats.js#receivables): facturas de
+   * compra en borrador sin pagar y, de ellas, las ya vencidas. Mismo
+   * criterio que salesInvoices.service.js#getPendingCollectionSummary.
+   */
+  async getPendingPaymentSummary() {
+    const pendingWhere = {
+      status: { [Op.ne]: 'Pagado' },
+      typeInvoice: { [Op.notIn]: CREDIT_NOTE_TYPES }
+    };
+    const totals = [
+      [sequelize.fn('COUNT', sequelize.col('code')), 'count'],
+      [sequelize.fn('COALESCE', sequelize.fn('SUM', sequelize.col('amount_with_vat')), 0), 'total']
+    ];
+
+    const [pending, overdue] = await Promise.all([
+      purchInvoice.findOne({ attributes: totals, where: pendingWhere, raw: true }),
+      purchInvoice.findOne({
+        attributes: totals,
+        where: { ...pendingWhere, dueDate: { [Op.ne]: null, [Op.lt]: new Date() } },
+        raw: true
+      })
+    ]);
+
+    return {
+      pending: { count: parseInt(pending.count, 10) || 0, total: parseFloat(pending.total) || 0 },
+      overdue: { count: parseInt(overdue.count, 10) || 0, total: parseFloat(overdue.total) || 0 }
+    };
+  }
+
   async findPaginated({ limit, offset, searchTerm, filter }) {
     const parsedLimit = parseInt(limit, 10) || 100;
     const parsedOffset = parseInt(offset, 10) || 0;
@@ -45,6 +75,11 @@ class purchInvoiceService {
       options.where.status = { [Op.ne]: 'Pagado' };
       options.where.dueDate = { [Op.ne]: null, [Op.lt]: new Date() };
       options.order = [['dueDate', 'ASC']];
+    } else if (filter === 'pending') {
+      // Tarjeta "Por pagar" del inicio de compras: mismo criterio que
+      // getPendingPaymentSummary (sin abonos, sin pagar).
+      options.where.typeInvoice = { [Op.notIn]: CREDIT_NOTE_TYPES };
+      options.where.status = { [Op.ne]: 'Pagado' };
     }
 
     if (searchTerm) {
