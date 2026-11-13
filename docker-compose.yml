@@ -54,7 +54,9 @@ services:
       - OTP_RESEND_COOLDOWN_SECONDS=${OTP_RESEND_COOLDOWN_SECONDS:-45}
       - OTP_MAX_RESENDS=${OTP_MAX_RESENDS:-3}
     volumes:
-      - /usr/src/app/node_modules
+      # Sin volumen para node_modules: había uno anónimo que tapaba el de la
+      # imagen y dejaba las dependencias de la primera construcción para
+      # siempre (las actualizaciones nunca llegaban al contenedor).
       # Huella de máquina estable para licencias node-locked: sin este mount,
       # cada `docker compose up` recrea el contenedor con un /etc/machine-id
       # nuevo y una licencia ya activada dejaría de coincidir. Se monta la del

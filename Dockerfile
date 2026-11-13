@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:24-alpine
 
 # xmllint (libxml2-utils): valida el XML Veri*factu contra los XSD oficiales
 # de la AEAT sin depender de ningún servicio externo (ver
@@ -14,7 +14,7 @@ WORKDIR /usr/src/app
 COPY package*.json ./
 
 # Instalamos únicamente las dependencias de producción (omitiendo devDependencies si las hubiera)
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 COPY . .
 
