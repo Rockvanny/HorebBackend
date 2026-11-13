@@ -1,6 +1,61 @@
+# Nombre fijo del proyecto: Docker antepone este nombre a los volúmenes
+# (backend_pgdata_vol...). Sin él usaría el nombre de la carpeta, y al
+# descomprimir el backend en una carpeta con otro nombre no encontraría los
+# datos.
+name: backend
+
 services:
-  postgres:
+  # Actualización automática PostgreSQL 13 -> 17 (ver
+  # docs/actualizar-postgres.md). Dos pasos que corren en cada `docker
+  # compose up` y terminan en segundos si no hay nada que hacer:
+  #  1. pg-upgrade-export: copia los datos de la 13 (volumen pgdata_vol, que
+  #     nunca se modifica).
+  #  2. pg-upgrade-import: los restaura en la 17 y comprueba tabla a tabla
+  #     que no falta nada. Si algo no cuadra, el backend no arranca.
+  pg-upgrade-export:
     image: postgres:13
+    container_name: pg-upgrade-export
+    restart: "no"
+    entrypoint: ["bash", "/upgrade/pg-upgrade-export.sh"]
+    environment:
+      - TZ=Europe/Madrid
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - pgdata_vol:/var/lib/postgresql/data:ro
+      - ${BACKUP_DIR:-./backups}:/backups
+      - ./scripts/upgrade:/upgrade:ro
+    networks:
+      - app-network
+
+  pg-upgrade-import:
+    image: postgres:17
+    container_name: pg-upgrade-import
+    restart: "no"
+    entrypoint: ["bash", "/upgrade/pg-upgrade-import.sh"]
+    environment:
+      - TZ=Europe/Madrid
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - ${BACKUP_DIR:-./backups}:/backups
+      - ./scripts/upgrade:/upgrade:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      pg-upgrade-export:
+        condition: service_completed_successfully
+    networks:
+      - app-network
+
+  postgres:
+    # PostgreSQL 17 (soporte hasta noviembre de 2029). La 13 quedó sin
+    # soporte en noviembre de 2025. Los datos de la 17 van en un volumen
+    # nuevo (pgdata17_vol): el de la 13 (pgdata_vol) se conserva para poder
+    # volver atrás.
+    image: postgres:17
     container_name: postgres-1
     restart: always
     environment:
@@ -10,7 +65,19 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata_vol:/var/lib/postgresql/data
+      - pgdata17_vol:/var/lib/postgresql/data
+    # Por TCP y no por socket: mientras la imagen crea la base de datos en
+    # un volumen nuevo hay un servidor temporal que solo escucha en socket.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+    # Primero se copian los datos de la 13 (que puede seguir en marcha con
+    # este mismo nombre): el servidor 17 lo sustituye después.
+    depends_on:
+      pg-upgrade-export:
+        condition: service_completed_successfully
     networks:
       - app-network
 
@@ -65,8 +132,10 @@ services:
       # logs/error.log (avisos y errores, ver libs/logger.js) en el host:
       # sobrevive a los rebuild y se consulta sin entrar al contenedor.
       - ./logs:/usr/src/app/logs
+    # Solo cuando los datos ya están en PostgreSQL 17 (ver pg-upgrade-import)
     depends_on:
-      - postgres
+      pg-upgrade-import:
+        condition: service_completed_successfully
     networks:
       - app-network
 
@@ -75,7 +144,9 @@ services:
   # sobrevivan aunque se borren contenedores, volúmenes o el propio Docker.
   # Esa carpeta debe copiarse además a otro disco/NAS/nube.
   backup:
-    image: postgres:13
+    # Misma versión que el servidor: pg_dump no puede copiar un servidor
+    # más nuevo que él.
+    image: postgres:17
     container_name: backup-1
     restart: always
     entrypoint: ["bash", "/usr/local/bin/pg-backup.sh"]
@@ -95,12 +166,16 @@ services:
       - ./scripts/backup/pg-backup.sh:/usr/local/bin/pg-backup.sh:ro
       - ./scripts/backup/pg-restore.sh:/usr/local/bin/pg-restore.sh:ro
     depends_on:
-      - postgres
+      pg-upgrade-import:
+        condition: service_completed_successfully
     networks:
       - app-network
 
 volumes:
+  # Datos de PostgreSQL 13, ya sin usar: se conservan para volver atrás
+  # tras la actualización (ver docs/actualizar-postgres.md).
   pgdata_vol:
+  pgdata17_vol:
 
 networks:
   app-network:
