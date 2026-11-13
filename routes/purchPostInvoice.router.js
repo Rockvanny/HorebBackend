@@ -4,10 +4,11 @@ const passport = require('passport');
 const boom = require('@hapi/boom');
 const PurchPostInvoiceService = require('../services/purchPostInvoice.service');
 const validatorHandler = require('../middlewares/validator.handler');
-const { checkAction } = require('../middlewares/auth.handler');
+const { checkAction, checkRole } = require('../middlewares/auth.handler');
 const {
   getPurchPostInvoiceSchema,
-  queryPurchPostInvoiceSchema
+  queryPurchPostInvoiceSchema,
+  voidPurchPostInvoiceSchema
 } = require('../schemas/purchPostInvoice.schema');
 
 const router = express.Router();
@@ -107,6 +108,22 @@ router.get('/:code',
       const { code } = req.params;
       const invoice = await service.findOne(code, { includeLines: true });
       res.json(invoice);
+    } catch (error) { next(error); }
+  }
+);
+
+/**
+ * Anular una factura o abono de compra registrado (ver service#void).
+ * Solo administradores; el motivo es obligatorio.
+ */
+router.post('/:code/void',
+  passport.authenticate('jwt', { session: false }),
+  checkRole('admin'),
+  validatorHandler(voidPurchPostInvoiceSchema, 'body'),
+  async (req, res, next) => {
+    try {
+      const invoice = await service.void(req.params.code, req.body.reason, req.user.code);
+      res.json({ success: true, data: invoice });
     } catch (error) { next(error); }
   }
 );

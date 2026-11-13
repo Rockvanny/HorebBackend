@@ -38,7 +38,8 @@ class VendorService {
           'status',
           [fn('SUM', col('amount_with_vat')), 'total']
         ],
-        where: { entityCode: { [Op.in]: vendorCodes } },
+        // Las anuladas internamente (purchPostInvoice.service.js#void) no cuentan
+        where: { entityCode: { [Op.in]: vendorCodes }, voidedAt: null },
         group: ['entityCode', 'typeInvoice', 'status'],
         raw: true
       });

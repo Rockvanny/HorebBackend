@@ -129,6 +129,19 @@ const purchPostInvoiceSchema = {
   },
   comments: { field: 'comments', type: DataTypes.TEXT },
   userName: { field: 'user_name', type: DataTypes.STRING },
+  // Anulación interna (ver service#void): fecha, usuario y motivo. Una
+  // factura anulada sigue existiendo pero no cuenta en estadísticas,
+  // saldos del proveedor ni el Excel de gastos.
+  voidedAt: { field: 'voided_at', type: DataTypes.DATE, allowNull: true },
+  voidedBy: { field: 'voided_by', type: DataTypes.STRING, allowNull: true },
+  voidReason: { field: 'void_reason', type: DataTypes.STRING(300), allowNull: true },
+  // Estado para listas y fichas: "Anulada" manda sobre Abierto/Pagado
+  displayStatus: {
+    type: DataTypes.VIRTUAL,
+    get() {
+      return this.getDataValue('voidedAt') ? 'Anulada' : this.getDataValue('status');
+    }
+  },
   createdAt: {
     field: 'created_at',
     allowNull: false,

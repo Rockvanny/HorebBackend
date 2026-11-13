@@ -109,7 +109,14 @@ const queryPurchPostInvoiceSchema = Joi.object({
   searchTerm: Joi.string().allow('').optional(),
 });
 
+// Anulación interna (POST /purchPostInvoices/:code/void): motivo obligatorio
+const voidPurchPostInvoiceSchema = Joi.object({
+  reason: Joi.string().trim().min(5).max(300).required()
+    .messages({ 'string.min': 'Explica el motivo de la anulación (mínimo 5 caracteres).' }),
+});
+
 module.exports = {
+  voidPurchPostInvoiceSchema,
   getPurchPostInvoiceSchema,
   createPurchPostInvoiceSchema,
   updatePurchPostInvoiceSchema,

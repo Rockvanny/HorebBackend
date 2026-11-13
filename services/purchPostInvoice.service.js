@@ -75,6 +75,23 @@ class PurchPostInvoiceService {
    * Busca facturas registradas de un proveedor específico.
    * Útil para rellenar el selector de "Factura a rectificar" (Espejo de findByCustomer).
    */
+  /**
+   * Anulación interna de una factura (o abono) de compra registrada. Las
+   * compras no van a Veri*factu: si una se registró por error (p. ej. un
+   * gasto operativo metido como compra) no se inventa un abono del
+   * proveedor, se anula. Solo administradores (ver router). No se borra:
+   * queda con fecha, usuario y motivo, y deja de contar en estadísticas,
+   * saldos del proveedor, el Excel y el selector de factura origen.
+   */
+  async void(code, reason, userCode) {
+    const invoice = await purchPostInvoice.findOne({ where: { code } });
+    if (!invoice) throw boom.notFound('Factura no encontrada');
+    if (invoice.voidedAt) throw boom.conflict('La factura ya está anulada.');
+
+    await invoice.update({ voidedAt: new Date(), voidedBy: userCode, voidReason: reason });
+    return invoice;
+  }
+
   async findByVendor(entityCode) {
     if (!entityCode) {
       throw boom.badRequest('Se requiere el código del proveedor');
@@ -82,8 +99,10 @@ class PurchPostInvoiceService {
 
     try {
       const invoices = await purchPostInvoice.findAll({
+        // Una anulada no se puede elegir como factura origen de un abono
         where: {
-          entityCode: entityCode
+          entityCode: entityCode,
+          voidedAt: null
         },
         attributes: ['id', 'code', 'name', 'postingDate', 'amountWithVAT'],
         order: [['postingDate', 'DESC']]
@@ -189,10 +208,12 @@ class PurchPostInvoiceService {
       // 1. Obtener facturas con sus impuestos asociados
       // Usamos el alias 'taxes' definido en el modelo
       const invoices = await purchPostInvoice.findAll({
+        // Las anuladas no van al Excel de la asesoría
         where: {
           posting_date: {
             [Op.between]: [startDate, endDate]
-          }
+          },
+          voidedAt: null
         },
         include: [{
           model: DocumentTax,

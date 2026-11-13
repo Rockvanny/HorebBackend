@@ -110,7 +110,7 @@ class StatsService {
   /** Compras registradas por categoría (sin gastos operativos: son del módulo Gestión). */
   async _getPurchasesByCategory(year, budgetCode) {
     const { purchPostInvoice } = sequelize.models;
-    const where = { [Op.and]: [literal(`EXTRACT(YEAR FROM "posting_date") = ${year}`)] };
+    const where = { voidedAt: null, [Op.and]: [literal(`EXTRACT(YEAR FROM "posting_date") = ${year}`)] };
     if (budgetCode) where.budget_code = budgetCode;
 
     const rows = await purchPostInvoice.findAll({
@@ -214,6 +214,11 @@ class StatsService {
       ]
     };
 
+    // Compras anuladas internamente (purchPostInvoice.service.js#void): no cuentan
+    if (model.rawAttributes.voidedAt) {
+      whereClause[Op.and].push({ voidedAt: null });
+    }
+
     // Si se recibe un código de presupuesto, se inyecta en el AND
     if (budgetCode) {
       whereClause[Op.and].push({ [codeColumn]: budgetCode });
@@ -252,6 +257,7 @@ class StatsService {
         attributes: ['category', [fn('SUM', col('amount_with_vat')), 'total']],
         where: {
           budget_code: budgetCode,
+          voidedAt: null,
           [Op.and]: [literal(`EXTRACT(YEAR FROM "posting_date") = ${year}`)]
         },
         group: ['category'],
@@ -267,7 +273,7 @@ class StatsService {
     const [purchases, totalOperating] = await Promise.all([
       purchPostInvoice.findAll({
         attributes: ['category', [fn('SUM', col('amount_with_vat')), 'total']],
-        where: { [Op.and]: [literal(`EXTRACT(YEAR FROM "posting_date") = ${year}`)] },
+        where: { voidedAt: null, [Op.and]: [literal(`EXTRACT(YEAR FROM "posting_date") = ${year}`)] },
         group: ['category'],
         raw: true
       }),
