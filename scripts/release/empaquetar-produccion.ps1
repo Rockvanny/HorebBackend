@@ -88,7 +88,15 @@ Ver docs\actualizar-postgres.md y docs\copias-de-seguridad.md.
 $distDir = Join-Path $backendDir 'dist'
 New-Item -ItemType Directory -Force $distDir | Out-Null
 $output = Join-Path $distDir 'backend.rar'
-if (Test-Path $output) { Remove-Item $output }
+# El antivirus puede tener el .rar anterior abierto unos segundos tras crearlo
+for ($i = 0; (Test-Path $output) -and $i -lt 10; $i++) {
+    try { Remove-Item $output -ErrorAction Stop }
+    catch { Start-Sleep -Seconds 1 }
+}
+if (Test-Path $output) {
+    Remove-Item -Recurse -Force $work
+    Fail "No se puede reemplazar $output : ciérralo si está abierto (WinRAR, explorador) y vuelve a ejecutarlo."
+}
 
 & $rar a -r -ep1 -m5 -idq $output (Join-Path $work '*') | Out-Null
 if ($LASTEXITCODE -ne 0) { Fail "WinRAR ha fallado (código $LASTEXITCODE)." }
