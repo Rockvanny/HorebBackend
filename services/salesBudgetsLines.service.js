@@ -92,7 +92,7 @@ class salesBudgetLineService {
    * routes/salesInvoices.router.js / fields-salesinvoice-handler.js).
    */
   async getPendingLines(codeDocument) {
-    const { salesPostInvoiceLine, salesPostInvoice } = sequelize.models;
+    const { salesPostInvoiceLine, salesPostInvoice, salesInvoiceLine, salesInvoice } = sequelize.models;
 
     const lines = await salesBudgetLine.findAll({
       where: { codeDocument },
@@ -116,7 +116,27 @@ class salesBudgetLineService {
       }]
     });
 
+    // También las facturas en BORRADOR: una línea ya traída a otra factura
+    // sin registrar no debe volver a ofrecerse (se facturaría dos veces).
+    const draftLines = await salesInvoiceLine.findAll({
+      attributes: ['budgetLineNo', 'quantity'],
+      where: { budgetLineNo: { [Op.ne]: null } },
+      include: [{
+        model: salesInvoice,
+        as: 'parentDocument',
+        attributes: ['typeInvoice'],
+        where: { budgetCode: codeDocument },
+        required: true
+      }]
+    });
+
     const invoicedByLine = {};
+    const inDraftsByLine = {};
+    draftLines.forEach(row => {
+      const qty = parseFloat(row.quantity) || 0;
+      if (!INVOICED_TYPES.includes(row.parentDocument?.typeInvoice)) return;
+      inDraftsByLine[row.budgetLineNo] = (inDraftsByLine[row.budgetLineNo] || 0) + qty;
+    });
     invoicedLines.forEach(row => {
       const lineNo = row.budgetLineNo;
       const type = row.parentDocument?.typeInvoice;
@@ -129,12 +149,15 @@ class salesBudgetLineService {
 
     return lines.map(line => {
       const plain = line.get({ plain: true });
-      const invoicedQty = invoicedByLine[plain.lineNo] || 0;
+      const inDraftsQty = inDraftsByLine[plain.lineNo] || 0;
+      // invoicedQty: registradas + borradores (lo que ya no se puede ofrecer)
+      const invoicedQty = (invoicedByLine[plain.lineNo] || 0) + inDraftsQty;
       const pendingQty = Math.max(0, parseFloat(plain.quantity) - invoicedQty);
 
       return {
         ...plain,
         invoicedQty,
+        inDraftsQty,
         pendingQty,
         isFullyInvoiced: pendingQty <= 0
       };

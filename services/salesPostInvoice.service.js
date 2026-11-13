@@ -82,6 +82,45 @@ class SalesPostInvoiceService {
   }
 
   /**
+   * Líneas de una factura registrada que aún se pueden abonar (selector de
+   * líneas al crear un abono, ver fields-salesinvoice-handler.js
+   * #invoiceLinesPicker). Por IMPORTE de la línea (con IVA), no por
+   * cantidad: muchos abonos son descuentos sobre la misma cantidad.
+   * Abonado = suma de las líneas de abonos (registrados y en borrador) que
+   * apuntan a esa línea (parentCode + parentLineNo). Los abonos anteriores a
+   * parent_line_no no se pueden atribuir a una línea y no cuentan.
+   */
+  async getCreditableLines(code) {
+    const { salesInvoice, salesInvoiceLine } = sequelize.models;
+    const invoice = await this.findOne(code, { includeLines: true });
+
+    const credited = {};
+    const add = (rows) => rows.forEach(r => {
+      credited[r.parentLineNo] = (credited[r.parentLineNo] || 0) + Math.abs(parseFloat(r.amountLine) || 0);
+    });
+    const byParent = (model, as) => ({
+      attributes: ['parentLineNo', 'amountLine'],
+      where: { parentLineNo: { [Op.ne]: null } },
+      include: [{
+        model, as, attributes: [], required: true,
+        where: { parentCode: invoice.code, typeInvoice: { [Op.in]: CREDIT_NOTE_TYPES } }
+      }]
+    });
+    add(await salesPostInvoiceLine.findAll(byParent(salesPostInvoice, 'parentDocument')));
+    add(await salesInvoiceLine.findAll(byParent(salesInvoice, 'parentDocument')));
+
+    const round = (n) => Math.round(n * 100) / 100;
+    return (invoice.lines || [])
+      .map(line => {
+        const plain = line.get({ plain: true });
+        const total = Math.abs(parseFloat(plain.amountLine) || 0);
+        const creditedAmount = round(credited[plain.lineNo] || 0);
+        return { ...plain, creditedAmount, pendingAmount: round(Math.max(0, total - creditedAmount)) };
+      })
+      .sort((a, b) => a.lineNo - b.lineNo);
+  }
+
+  /**
    * Busca facturas registradas de un cliente específico.
    * Útil para rellenar el selector de "Factura a rectificar" (baseRectified).
    */
@@ -142,6 +181,8 @@ class SalesPostInvoiceService {
             // se hereda tal cual para poder calcular cuánto queda pendiente de
             // facturar contra el histórico definitivo.
             budget_line_no: line.budgetLineNo ?? null,
+            // En abonos: línea de la factura origen que corrige
+            parent_line_no: line.parentLineNo ?? null,
             item_code: line.codeItem || null,
             description: line.description || '',
             quantity: parseFloat(line.quantity) || 0,

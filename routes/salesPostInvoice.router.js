@@ -87,6 +87,21 @@ router.get('/by-customer/:entityCode',
   }
 );
 
+/**
+ * Líneas que aún se pueden abonar de una factura registrada, con lo ya
+ * abonado por línea (ver service#getCreditableLines).
+ */
+router.get('/:code/creditable-lines',
+  passport.authenticate('jwt', { session: false }),
+  checkAction('VIEW_SALESPOSTINVOICES'),
+  validatorHandler(getSalesPostInvoiceSchema, 'params'),
+  async (req, res, next) => {
+    try {
+      res.json({ success: true, data: await service.getCreditableLines(req.params.code) });
+    } catch (error) { next(error); }
+  }
+);
+
 // Obtener una factura específica por su CÓDIGO (Ej: FAC-2026-0001)
 router.get('/:code',
   passport.authenticate('jwt', { session: false }),

@@ -42,6 +42,14 @@ const salesPostInvoiceLineSchema = {
     allowNull: true,
   },
 
+  // Heredado de sales_invoice_lines.parent_line_no: línea de la factura
+  // origen que corrige este abono.
+  parentLineNo: {
+    field: 'parent_line_no',
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
+
   codeItem: {
     field: 'item_code',
     type: DataTypes.STRING,

@@ -45,6 +45,14 @@ const salesInvoiceLineSchema = {
     allowNull: true,
   },
 
+  // En un abono: línea de la factura origen (parentCode de la cabecera) que
+  // corrige. Ver salesPostInvoice.service.js#getCreditableLines.
+  parentLineNo: {
+    field: 'parent_line_no',
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
+
   codeItem: {
     field: 'item_code',
     type: DataTypes.STRING,
