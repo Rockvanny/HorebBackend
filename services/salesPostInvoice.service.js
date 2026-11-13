@@ -92,9 +92,11 @@ class SalesPostInvoiceService {
 
     try {
       const invoices = await salesPostInvoice.findAll({
+        // Solo facturas (F1/F2): un abono corrige una factura, no otro abono
+        // (mismo criterio que la lista, ver findPaginated 'invoicesOnly').
         where: {
-          entityCode: entityCode
-          // Aquí podrías añadir filtros adicionales, ej: que no sean ya rectificativas
+          entityCode: entityCode,
+          typeInvoice: { [Op.notIn]: CREDIT_NOTE_TYPES }
         },
         attributes: ['id', 'code', 'name', 'postingDate', 'amountWithVAT'],
         order: [['postingDate', 'DESC']]

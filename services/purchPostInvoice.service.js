@@ -99,9 +99,11 @@ class PurchPostInvoiceService {
 
     try {
       const invoices = await purchPostInvoice.findAll({
-        // Una anulada no se puede elegir como factura origen de un abono
+        // Solo facturas (F1/F2) no anuladas: un abono corrige una factura, no
+        // otro abono, y una anulada no se puede elegir como factura origen.
         where: {
           entityCode: entityCode,
+          typeInvoice: { [Op.notIn]: CREDIT_NOTE_TYPES },
           voidedAt: null
         },
         attributes: ['id', 'code', 'name', 'postingDate', 'amountWithVAT'],
