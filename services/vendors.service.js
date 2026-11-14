@@ -1,12 +1,12 @@
 const { Op, fn, col } = require('sequelize');
 const boom = require('@hapi/boom');
+const { parsePagination } = require('../libs/pagination');
+const { INVOICED_TYPES, CREDIT_NOTE_TYPES } = require('../libs/invoiceTypes');
 const { models } = require('../libs/sequelize');
 const logger = require('../libs/logger');
 
 // Mismo criterio que CustomerService: F1/F2 suman al saldo, las
 // rectificativas (R1-R5) restan.
-const INVOICED_TYPES = ['F1', 'F2'];
-const RECTIFICATION_TYPES = ['R1', 'R2', 'R3', 'R4', 'R5'];
 
 // SQLSTATE de Postgres para "la tabla no existe" — mientras purch_post_invoices
 // no esté activa (migración en .bak durante el desarrollo por módulos),
@@ -53,7 +53,7 @@ class VendorService {
 
     rows.forEach(row => {
       const isInvoiced = INVOICED_TYPES.includes(row.typeInvoice);
-      const isRectification = RECTIFICATION_TYPES.includes(row.typeInvoice);
+      const isRectification = CREDIT_NOTE_TYPES.includes(row.typeInvoice);
       if (!isInvoiced && !isRectification) return;
 
       const total = parseFloat(row.total) || 0;
@@ -94,8 +94,7 @@ class VendorService {
   }
 
   async findPaginated({ limit, offset, searchTerm }) {
-    const parsedLimit = parseInt(limit, 10) || 100;
-    const parsedOffset = parseInt(offset, 10) || 0;
+    const { limit: parsedLimit, offset: parsedOffset } = parsePagination(limit, offset);
 
     const options = {
       limit: parsedLimit,

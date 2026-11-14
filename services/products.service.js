@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
+const { parsePagination, pageResult } = require('../libs/pagination');
 const { models } = require('../libs/sequelize');
 const logger = require('../libs/logger');
 
@@ -10,17 +11,14 @@ class ProductsService {
   async find(query) {
     const options = { where: {} };
     const { limit, offset } = query;
-    if (limit && offset) {
-      options.limit = parseInt(limit, 10);
-      options.offset = parseInt(offset, 10);
-    }
+    // Opcional: sin limit se devuelve todo (listas cortas de configuración)
+    if (limit) Object.assign(options, parsePagination(limit, offset));
     return await models.Products.findAll(options);
   }
 
   async findPaginated({ limit, offset, searchTerm }) {
     // Corregido el radix de limit (tenías 15, debe ser 10)
-    const parsedLimit = parseInt(limit, 10) || 100;
-    const parsedOffset = parseInt(offset, 10) || 0;
+    const { limit: parsedLimit, offset: parsedOffset } = parsePagination(limit, offset);
 
     const options = {
       limit: parsedLimit,
@@ -39,11 +37,7 @@ class ProductsService {
 
     try {
       const { count, rows } = await models.Products.findAndCountAll(options);
-      return {
-        records: rows,
-        hasMore: (parsedOffset + rows.length) < count,
-        total: count,
-      };
+      return pageResult(rows, count, parsedOffset);
     } catch (error) {
       logger.error(`ProductService.findPaginated: ${error.message}`, { stack: error.stack });
       throw boom.badImplementation('Error al consultar productos paginados', error);

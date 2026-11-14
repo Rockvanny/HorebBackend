@@ -1,6 +1,8 @@
 // services/purchPostInvoice.service.js
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
+const { parsePagination } = require('../libs/pagination');
+const { CREDIT_NOTE_TYPES } = require('../libs/invoiceTypes');
 const sequelize = require('../libs/sequelize');
 const { calculateDocumentTotals } = require('../libs/taxCalculation');
 const UtilsService = require('../services/util.service');
@@ -13,13 +15,11 @@ const {
 
 // Facturas rectificativas (abonos): ClaveTipoFacturaType R1-R5, ver
 // resources/verifactu-xsd/SuministroInformacion.xsd. Mismo criterio que
-// salesPostInvoice.service.js#CREDIT_NOTE_TYPES.
-const CREDIT_NOTE_TYPES = ['R1', 'R2', 'R3', 'R4', 'R5'];
+// libs/invoiceTypes.js.
 
 class PurchPostInvoiceService {
   async findPaginated({ limit, offset, searchTerm, filter }) {
-    const parsedLimit = parseInt(limit, 10) || 100;
-    const parsedOffset = parseInt(offset, 10) || 0;
+    const { limit: parsedLimit, offset: parsedOffset } = parsePagination(limit, offset);
 
     const options = {
       limit: parsedLimit,

@@ -1,4 +1,5 @@
 const boom = require('@hapi/boom');
+const { parsePagination } = require('../libs/pagination');
 const { Op } = require('sequelize');
 const { models } = require('../libs/sequelize');
 
@@ -54,8 +55,7 @@ class TasksService {
 
     if (status) options.where.status = status;
     if (type) options.where.type = type;
-    if (limit) options.limit = parseInt(limit, 10);
-    if (offset) options.offset = parseInt(offset, 10);
+    if (limit) Object.assign(options, parsePagination(limit, offset));
     options.include = [BUILDING_INCLUDE];
 
     return models.Task.findAll(options);

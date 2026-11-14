@@ -1,4 +1,5 @@
 const boom = require('@hapi/boom');
+const { parsePagination } = require('../libs/pagination');
 const configService = require('../config/config.js');
 const logger = require('../libs/logger');
 
@@ -18,8 +19,7 @@ class ConnectionService {
    * Búsqueda avanzada paginada (sobre el fichero local).
    */
   async findPaginated({ limit, offset, searchTerm }) {
-    const parsedLimit = parseInt(limit, 10) || 100;
-    const parsedOffset = parseInt(offset, 10) || 0;
+    const { limit: parsedLimit, offset: parsedOffset } = parsePagination(limit, offset);
 
     try {
       const config = configService.getConfig();
@@ -28,11 +28,11 @@ class ConnectionService {
       let filteredData = data;
       if (searchTerm) {
         const term = searchTerm.toLowerCase().trim();
+        // String(): id es numérico (antes .toLowerCase() fallaba con 500
+        // en cuanto se escribía algo en el buscador)
         filteredData = data.filter(item =>
-          item.id?.toLowerCase().includes(term) ||
-          item.dbHost?.toLowerCase().includes(term) ||
-          item.dbName?.toLowerCase().includes(term) ||
-          item.dbUser?.toLowerCase().includes(term)
+          [item.id, item.dbHost, item.dbName, item.dbUser]
+            .some(value => String(value ?? '').toLowerCase().includes(term))
         );
       }
 

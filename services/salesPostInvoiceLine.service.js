@@ -1,12 +1,12 @@
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
+const { parsePagination, pageResult } = require('../libs/pagination');
 const sequelize = require('../libs/sequelize');
 const { salesPostInvoiceLine, salesPostInvoice } = sequelize.models;
 
 class salesPostInvoiceLineService {
   async findPaginated({ limit, offset, searchTerm }) {
-    const parsedLimit = parseInt(limit, 10) || 100;
-    const parsedOffset = parseInt(offset, 10) || 0;
+    const { limit: parsedLimit, offset: parsedOffset } = parsePagination(limit, offset);
 
     const options = {
       limit: parsedLimit,
@@ -25,11 +25,7 @@ class salesPostInvoiceLineService {
 
     try {
       const { count, rows } = await salesPostInvoiceLine.findAndCountAll(options);
-      return {
-        records: rows,
-        hasMore: (parsedOffset + rows.length) < count,
-        total: count,
-      };
+      return pageResult(rows, count, parsedOffset);
     } catch (error) {
       throw boom.badImplementation('Error al consultar líneas del histórico', error);
     }

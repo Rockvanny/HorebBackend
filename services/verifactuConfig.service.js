@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
+const { parsePagination } = require('../libs/pagination');
 const { models } = require('../libs/sequelize');
 const cryptoHelper = require('../libs/crypto');
 
@@ -20,18 +21,15 @@ class VerifactuConfigService {
   async find(query = {}) {
     const options = { where: {} };
     const { limit, offset } = query;
-    if (limit && offset) {
-      options.limit = parseInt(limit, 10);
-      options.offset = parseInt(offset, 10);
-    }
+    // Opcional: sin limit se devuelve todo (listas cortas de configuración)
+    if (limit) Object.assign(options, parsePagination(limit, offset));
 
     const rows = await models.VerifactuConfig.findAll(options);
     return rows.map(r => this.#toSafeJSON(r));
   }
 
   async findPaginated({ limit, offset, searchTerm }) {
-    const parsedLimit = parseInt(limit, 10) || 100;
-    const parsedOffset = parseInt(offset, 10) || 0;
+    const { limit: parsedLimit, offset: parsedOffset } = parsePagination(limit, offset);
 
     const options = {
       limit: parsedLimit,

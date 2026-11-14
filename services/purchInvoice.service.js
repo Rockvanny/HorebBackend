@@ -1,6 +1,8 @@
 // services/purchInvoice.service
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
+const { parsePagination, pageResult } = require('../libs/pagination');
+const { CREDIT_NOTE_TYPES } = require('../libs/invoiceTypes');
 const sequelize = require('../libs/sequelize');
 const { purchInvoice, purchInvoiceLine, DocumentTax, seriesNumber } = sequelize.models;
 const { SERIES_TYPES } = require('../db/models/SeriesNumber.model');
@@ -12,9 +14,8 @@ const postService = new PurchPostInvoiceService();
 
 // Facturas rectificativas (abonos): ClaveTipoFacturaType R1-R5, ver
 // resources/verifactu-xsd/SuministroInformacion.xsd. Mismo criterio que
-// purchPostInvoice.service.js#CREDIT_NOTE_TYPES -aquí en el lado borrador,
+// libs/invoiceTypes.js -aquí en el lado borrador,
 // para la página "Abonos de compra" (ver document-schema.mjs#purchInvoiceCreditNotes).
-const CREDIT_NOTE_TYPES = ['R1', 'R2', 'R3', 'R4', 'R5'];
 
 class purchInvoiceService {
 
@@ -49,8 +50,7 @@ class purchInvoiceService {
   }
 
   async findPaginated({ limit, offset, searchTerm, filter }) {
-    const parsedLimit = parseInt(limit, 10) || 100;
-    const parsedOffset = parseInt(offset, 10) || 0;
+    const { limit: parsedLimit, offset: parsedOffset } = parsePagination(limit, offset);
 
     const options = {
       limit: parsedLimit,
@@ -92,11 +92,7 @@ class purchInvoiceService {
 
     try {
       const { count, rows } = await purchInvoice.findAndCountAll(options);
-      return {
-        records: rows,
-        hasMore: (parsedOffset + rows.length) < count,
-        total: count,
-      };
+      return pageResult(rows, count, parsedOffset);
     } catch (error) {
       throw boom.badImplementation('Error al consultar facturas de compra paginadas', error);
     }

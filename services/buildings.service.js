@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
+const { parsePagination, pageResult } = require('../libs/pagination');
 const { models } = require('../libs/sequelize');
 
 class BuildingsService {
@@ -29,8 +30,7 @@ class BuildingsService {
 
   /** Igual que CustomerService#findPaginated, para el listPage del Frontend. */
   async findPaginated({ limit, offset, searchTerm }) {
-    const parsedLimit = parseInt(limit, 10) || 100;
-    const parsedOffset = parseInt(offset, 10) || 0;
+    const { limit: parsedLimit, offset: parsedOffset } = parsePagination(limit, offset);
 
     const options = {
       limit: parsedLimit,
@@ -51,11 +51,7 @@ class BuildingsService {
 
     const { count, rows } = await models.Building.findAndCountAll(options);
 
-    return {
-      records: rows,
-      hasMore: (parsedOffset + rows.length) < count,
-      total: count
-    };
+    return pageResult(rows, count, parsedOffset);
   }
 
   async findOne(id) {

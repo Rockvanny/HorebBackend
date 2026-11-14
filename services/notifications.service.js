@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
+const { parsePagination } = require('../libs/pagination');
 const { models } = require('../libs/sequelize');
 const { getMonthEndReviewStatus } = require('../libs/monthClose.helper');
 
@@ -11,8 +12,7 @@ const { getMonthEndReviewStatus } = require('../libs/monthClose.helper');
  */
 class NotificationsService {
   async findForUser(userCode, { limit = 20, offset = 0, onlyUnread = false, excludeTypes = [] } = {}) {
-    const parsedLimit = parseInt(limit, 10) || 20;
-    const parsedOffset = parseInt(offset, 10) || 0;
+    const { limit: parsedLimit, offset: parsedOffset } = parsePagination(limit, offset, 20);
 
     const where = { recipientUser: userCode };
     if (onlyUnread) where.isRead = false;

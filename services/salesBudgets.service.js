@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
+const { parsePagination, pageResult } = require('../libs/pagination');
 const sequelize = require('../libs/sequelize');
 const { calculateDocumentTotals } = require('../libs/taxCalculation');
 const logger = require('../libs/logger');
@@ -24,8 +25,7 @@ class salesBudgetService {
   }
 
   async findPaginated({ limit, offset, searchTerm }) {
-    const parsedLimit = parseInt(limit, 10) || 100;
-    const parsedOffset = parseInt(offset, 10) || 0;
+    const { limit: parsedLimit, offset: parsedOffset } = parsePagination(limit, offset);
 
     const options = {
       limit: parsedLimit,
@@ -45,11 +45,7 @@ class salesBudgetService {
 
     try {
       const { count, rows } = await salesBudget.findAndCountAll(options);
-      return {
-        records: rows,
-        hasMore: (parsedOffset + rows.length) < count,
-        total: count,
-      };
+      return pageResult(rows, count, parsedOffset);
     } catch (error) {
       throw boom.badImplementation('Error al consultar registros paginados', error);
     }

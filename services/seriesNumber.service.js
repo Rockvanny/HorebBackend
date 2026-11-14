@@ -1,4 +1,5 @@
 const boom = require('@hapi/boom');
+const { parsePagination } = require('../libs/pagination');
 const sequelize = require('../libs/sequelize');
 const { models } = sequelize;
 const { Op } = require('sequelize');
@@ -119,8 +120,7 @@ class seriesNumberService {
 
   async findPaginated({ limit, offset, type, searchTerm }) {
     const options = {
-      limit: parseInt(limit, 10) || 10,
-      offset: parseInt(offset, 10) || 0,
+      ...parsePagination(limit, offset, 10),
       where: {},
       order: [['createdAt', 'DESC']]
     };

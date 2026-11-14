@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
+const { parsePagination, pageResult } = require('../libs/pagination');
 const { models } = require('../libs/sequelize');
 const logger = require('../libs/logger');
 
@@ -13,10 +14,8 @@ class CompanyService {
     }
 
     const { limit, offset } = query;
-    if (limit && offset) {
-      options.limit = parseInt(limit, 10);
-      options.offset = parseInt(offset, 10);
-    }
+    // Opcional: sin limit se devuelve todo (listas cortas de configuración)
+    if (limit) Object.assign(options, parsePagination(limit, offset));
 
     const company = await models.Company.findAll(options);
     return company;
@@ -26,8 +25,7 @@ class CompanyService {
    * Búsqueda avanzada con paginación y filtrado por término.
    */
   async findPaginated({ limit, offset, searchTerm }) {
-    const parsedLimit = parseInt(limit, 10) || 100;
-    const parsedOffset = parseInt(offset, 10) || 0;
+    const { limit: parsedLimit, offset: parsedOffset } = parsePagination(limit, offset);
 
     const options = {
       limit: parsedLimit,
@@ -50,11 +48,7 @@ class CompanyService {
     try {
       const { count, rows } = await models.Company.findAndCountAll(options);
 
-      return {
-        records: rows,
-        hasMore: (parsedOffset + rows.length) < count,
-        total: count,
-      };
+      return pageResult(rows, count, parsedOffset);
     } catch (error) {
       logger.error(`CompanyService.findPaginated: ${error.message}`, { stack: error.stack });
       throw boom.badImplementation('Error al consultar empresa paginados');

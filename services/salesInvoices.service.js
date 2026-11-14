@@ -1,5 +1,7 @@
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
+const { parsePagination, pageResult } = require('../libs/pagination');
+const { CREDIT_NOTE_TYPES } = require('../libs/invoiceTypes');
 const sequelize = require('../libs/sequelize');
 const { salesInvoice, salesInvoiceLine, DocumentTax, seriesNumber } = sequelize.models;
 const { SERIES_TYPES } = require('../db/models/SeriesNumber.model');
@@ -11,9 +13,8 @@ const postService = new SalesPostInvoiceService();
 
 // Facturas rectificativas (abonos): ClaveTipoFacturaType R1-R5, ver
 // resources/verifactu-xsd/SuministroInformacion.xsd. Mismo criterio que
-// salesPostInvoice.service.js#CREDIT_NOTE_TYPES -aquí en el lado borrador,
+// libs/invoiceTypes.js -aquí en el lado borrador,
 // para la página "Abonos de venta" (ver document-schema.mjs#salesInvoiceCreditNotes).
-const CREDIT_NOTE_TYPES = ['R1', 'R2', 'R3', 'R4', 'R5'];
 
 // Ventana de "próxima a vencer" para el to-do del dashboard móvil de admin
 // (decidido con el usuario, ver AndroidApp/TODO.md): más allá de estos días
@@ -98,8 +99,7 @@ class salesInvoiceService {
   }
 
   async findPaginated({ limit, offset, searchTerm, filter }) {
-    const parsedLimit = parseInt(limit, 10) || 100;
-    const parsedOffset = parseInt(offset, 10) || 0;
+    const { limit: parsedLimit, offset: parsedOffset } = parsePagination(limit, offset);
 
     const options = {
       limit: parsedLimit,
@@ -144,11 +144,7 @@ class salesInvoiceService {
 
     try {
       const { count, rows } = await salesInvoice.findAndCountAll(options);
-      return {
-        records: rows,
-        hasMore: (parsedOffset + rows.length) < count,
-        total: count,
-      };
+      return pageResult(rows, count, parsedOffset);
     } catch (error) {
       throw boom.badImplementation('Error al consultar facturas paginadas', error);
     }

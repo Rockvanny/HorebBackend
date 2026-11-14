@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
+const { parsePagination, pageResult } = require('../libs/pagination');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { models } = require('../libs/sequelize');
@@ -19,8 +20,7 @@ const PASSWORD_RESET_PURPOSE = 'EMPLOYEE_PASSWORD_RESET';
 class EmployeesService {
 
   async findPaginated({ limit, offset, searchTerm }) {
-    const parsedLimit = parseInt(limit, 10) || 100;
-    const parsedOffset = parseInt(offset, 10) || 0;
+    const { limit: parsedLimit, offset: parsedOffset } = parsePagination(limit, offset);
 
     const options = {
       limit: parsedLimit,
@@ -43,11 +43,7 @@ class EmployeesService {
     }
 
     const { count, rows } = await models.Employee.findAndCountAll(options);
-    return {
-      records: rows,
-      hasMore: (parsedOffset + rows.length) < count,
-      total: count,
-    };
+    return pageResult(rows, count, parsedOffset);
   }
 
   async findOne(code) {

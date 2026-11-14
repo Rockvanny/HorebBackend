@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
+const { parsePagination } = require('../libs/pagination');
 const { models } = require('../libs/sequelize');
 const logger = require('../libs/logger');
 
@@ -7,8 +8,7 @@ class ModuleConfigService {
   constructor() { }
 
   async findPaginated({ limit, offset, searchTerm }) {
-    const parsedLimit = parseInt(limit, 10) || 100;
-    const parsedOffset = parseInt(offset, 10) || 0;
+    const { limit: parsedLimit, offset: parsedOffset } = parsePagination(limit, offset);
 
     const options = {
       limit: parsedLimit,

@@ -1,5 +1,7 @@
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
+const { parsePagination } = require('../libs/pagination');
+const { CREDIT_NOTE_TYPES } = require('../libs/invoiceTypes');
 const sequelize = require('../libs/sequelize');
 const VerifactuService = require('./verifactulogs.service');
 const ModuleConfigService = require('./moduleConfig.service');
@@ -24,12 +26,10 @@ const verifactuProviderClient = new VerifactuProviderClient();
 // resources/verifactu-xsd/SuministroInformacion.xsd. Se centraliza aquí
 // porque tanto el filtro de listado (findPaginated) como cualquier otra
 // consulta futura sobre "solo abonos" deben usar exactamente el mismo set.
-const CREDIT_NOTE_TYPES = ['R1', 'R2', 'R3', 'R4', 'R5'];
 
 class SalesPostInvoiceService {
   async findPaginated({ limit, offset, searchTerm, filter }) {
-    const parsedLimit = parseInt(limit, 10) || 100;
-    const parsedOffset = parseInt(offset, 10) || 0;
+    const { limit: parsedLimit, offset: parsedOffset } = parsePagination(limit, offset);
 
     const options = {
       limit: parsedLimit,

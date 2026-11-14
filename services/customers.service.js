@@ -1,6 +1,8 @@
 const crypto = require('crypto');
 const { Op, fn, col } = require('sequelize');
 const boom = require('@hapi/boom');
+const { parsePagination } = require('../libs/pagination');
+const { INVOICED_TYPES, CREDIT_NOTE_TYPES } = require('../libs/invoiceTypes');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { models } = require('../libs/sequelize');
@@ -22,8 +24,6 @@ const CUSTOMER_LOGIN_OTP_PURPOSE = 'CUSTOMER_LOGIN_2FA';
 const CUSTOMER_PASSWORD_RESET_PURPOSE = 'CUSTOMER_PASSWORD_RESET';
 
 // Tipos de factura que suman al saldo; las rectificativas (R1-R5) restan.
-const INVOICED_TYPES = ['F1', 'F2'];
-const RECTIFICATION_TYPES = ['R1', 'R2', 'R3', 'R4', 'R5'];
 
 // SQLSTATE de Postgres para "la tabla no existe". Mientras el módulo de
 // facturación no esté activo (su migración sigue en .bak durante el
@@ -77,7 +77,7 @@ class CustomerService {
       // Tipos de factura fuera de F1/F2/R1-R5 (si los hubiera en el futuro)
       // no se contabilizan hasta decidir explícitamente cómo tratarlos.
       const isInvoiced = INVOICED_TYPES.includes(row.typeInvoice);
-      const isRectification = RECTIFICATION_TYPES.includes(row.typeInvoice);
+      const isRectification = CREDIT_NOTE_TYPES.includes(row.typeInvoice);
       if (!isInvoiced && !isRectification) return;
 
       const total = parseFloat(row.total) || 0;
@@ -128,10 +128,8 @@ class CustomerService {
     }
 
     const { limit, offset } = query;
-    if (limit && offset) {
-      options.limit = parseInt(limit, 10);
-      options.offset = parseInt(offset, 10);
-    }
+    // Opcional: sin limit se devuelve todo (listas cortas de configuración)
+    if (limit) Object.assign(options, parsePagination(limit, offset));
 
     const customers = await models.Customer.findAll(options);
     return this.#attachBalances(customers);
@@ -141,8 +139,7 @@ class CustomerService {
    * Búsqueda avanzada con paginación y filtrado por término.
    */
   async findPaginated({ limit, offset, searchTerm }) {
-    const parsedLimit = parseInt(limit, 10) || 100;
-    const parsedOffset = parseInt(offset, 10) || 0;
+    const { limit: parsedLimit, offset: parsedOffset } = parsePagination(limit, offset);
 
     const options = {
       limit: parsedLimit,

@@ -1,5 +1,6 @@
 const { Op, where, cast, col } = require('sequelize');
 const boom = require('@hapi/boom');
+const { parsePagination, pageResult } = require('../libs/pagination');
 const { models } = require('../libs/sequelize');
 const { isExpenseMonthClosed } = require('../libs/monthClose.helper');
 
@@ -35,8 +36,7 @@ class OperatingExpensesService {
   }
 
   async findPaginated({ limit, offset, startDate, endDate, category, searchTerm, user }) {
-    const parsedLimit = parseInt(limit, 10) || 100;
-    const parsedOffset = parseInt(offset, 10) || 0;
+    const { limit: parsedLimit, offset: parsedOffset } = parsePagination(limit, offset);
 
     const options = {
       limit: parsedLimit,
@@ -66,11 +66,7 @@ class OperatingExpensesService {
 
     try {
       const { count, rows } = await models.OperatingExpenses.findAndCountAll(options);
-      return {
-        records: rows,
-        hasMore: (parsedOffset + rows.length) < count,
-        total: count,
-      };
+      return pageResult(rows, count, parsedOffset);
     } catch (error) {
       throw boom.badImplementation('Error al consultar gastos paginados');
     }

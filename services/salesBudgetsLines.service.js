@@ -1,20 +1,19 @@
 // services/salesBudgetsLines.service.js
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
+const { parsePagination, pageResult } = require('../libs/pagination');
+const { INVOICED_TYPES, CREDIT_NOTE_TYPES } = require('../libs/invoiceTypes');
 const sequelize = require('../libs/sequelize');
 const { salesBudgetLine, salesBudget } = sequelize.models;
 
 // Mismo criterio que saldoFacturado en vendors/customers: F1/F2 suman,
 // las rectificativas (R1-R5) restan.
-const INVOICED_TYPES = ['F1', 'F2'];
-const RECTIFICATION_TYPES = ['R1', 'R2', 'R3', 'R4', 'R5'];
 
 class salesBudgetLineService {
   constructor() { }
 
   async findPaginated({ limit, offset, searchTerm }) {
-    const parsedLimit = parseInt(limit, 10) || 100;
-    const parsedOffset = parseInt(offset, 10) || 0;
+    const { limit: parsedLimit, offset: parsedOffset } = parsePagination(limit, offset);
 
     const options = {
       limit: parsedLimit,
@@ -33,11 +32,7 @@ class salesBudgetLineService {
 
     try {
       const { count, rows } = await salesBudgetLine.findAndCountAll(options);
-      return {
-        records: rows,
-        hasMore: (parsedOffset + rows.length) < count,
-        total: count,
-      };
+      return pageResult(rows, count, parsedOffset);
     } catch (error) {
       throw boom.badImplementation('Error al consultar líneas', error);
     }
@@ -144,7 +139,7 @@ class salesBudgetLineService {
       if (!invoicedByLine[lineNo]) invoicedByLine[lineNo] = 0;
 
       if (INVOICED_TYPES.includes(type)) invoicedByLine[lineNo] += qty;
-      else if (RECTIFICATION_TYPES.includes(type)) invoicedByLine[lineNo] -= qty;
+      else if (CREDIT_NOTE_TYPES.includes(type)) invoicedByLine[lineNo] -= qty;
     });
 
     return lines.map(line => {

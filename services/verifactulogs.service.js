@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
+const { parsePagination } = require('../libs/pagination');
 const sequelize = require('../libs/sequelize');
 const generateVerifactuHash = require('../libs/hasInvoice');
 const { toFechaAEAT, toFechaHoraHusoAEAT } = require('../libs/verifactuDates');
@@ -70,8 +71,7 @@ class VerifactuService {
   async findPaginated(query) {
     const { limit, offset, searchTerm, isTest } = query;
 
-    const parsedLimit = parseInt(limit, 10) || 50;
-    const parsedOffset = parseInt(offset, 10) || 0;
+    const { limit: parsedLimit, offset: parsedOffset } = parsePagination(limit, offset, 50);
 
     const options = {
       limit: parsedLimit,
