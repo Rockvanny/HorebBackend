@@ -4,6 +4,7 @@ const { parsePagination } = require('../libs/pagination');
 const sequelize = require('../libs/sequelize');
 const generateVerifactuHash = require('../libs/hasInvoice');
 const { toFechaAEAT, toFechaHoraHusoAEAT } = require('../libs/verifactuDates');
+const { buildVerifactuDesglose, VerifactuDesgloseError } = require('../libs/verifactuDesglose');
 const { getMachineFingerprint } = require('../libs/fingerprint');
 
 const { VerifactuLog, salesPostInvoice, salesPostInvoiceLine, DocumentTax, Company } = sequelize.models;
@@ -141,8 +142,20 @@ class VerifactuService {
       const fechaExpedicionFactura = toFechaAEAT(invoice.postingDate);
       const fechaHoraHusoGenRegistro = toFechaHoraHusoAEAT();
       const tipoFactura = invoice.typeInvoice || 'F1';
-      const cuotaTotal = parseFloat(invoice.amountVAT || 0).toFixed(2);
-      const importeTotal = parseFloat(invoice.amountWithVAT || 0).toFixed(2);
+      // Desglose y totales según la clase fiscal de cada impuesto (ver
+      // libs/verifactuDesglose.js). Antes de la huella: CuotaTotal e
+      // ImporteTotal forman parte de ella. Antes salían de amountVAT /
+      // amountWithVAT, que llevan el IRPF restado.
+      const taxLines = invoice.taxes && invoice.taxes.length > 0
+        ? invoice.taxes
+        : [{ taxType: 'IVA', taxPercentage: 21, taxableAmount: invoice.amountWithoutVAT || 0, taxAmount: invoice.amountVAT || 0 }];
+      let desglose, cuotaTotal, importeTotal;
+      try {
+        ({ desglose, cuotaTotal, importeTotal } = buildVerifactuDesglose(taxLines));
+      } catch (error) {
+        if (error instanceof VerifactuDesgloseError) throw boom.badRequest(error.message);
+        throw error;
+      }
       const prevFingerprint = lastLog ? lastLog.fingerprint : null;
 
       // Huella: algoritmo oficial exacto (ver libs/hasInvoice.js), verificado
@@ -186,10 +199,6 @@ class VerifactuService {
         || `Factura ${invoice.code}`
       ).trim().slice(0, 500);
 
-      const taxLines = invoice.taxes && invoice.taxes.length > 0
-        ? invoice.taxes
-        : [{ taxPercentage: 21, taxableAmount: invoice.amountWithoutVAT || 0, taxAmount: invoice.amountVAT || 0 }];
-
       // Rectificativas (R1-R5, ver RegistroFacturacionAltaType): TipoRectificativa
       // y FacturasRectificadas solo se rellenan cuando la factura referencia una
       // factura origen (invoice.parentCode) ya registrada -si el usuario marcó
@@ -226,17 +235,7 @@ class VerifactuService {
         ...(tipoRectificativa ? { tipoRectificativa } : {}),
         ...(facturasRectificadas ? { facturasRectificadas } : {}),
         descripcionOperacion,
-        // Impuesto "01" (IVA) y CalificacionOperacion "S1" (sujeta y no
-        // exenta, sin inversión del sujeto pasivo): el caso general de una
-        // venta nacional con IVA repercutido -no cubre exportaciones,
-        // operaciones exentas ni inversión del sujeto pasivo-.
-        desglose: taxLines.map((tax) => ({
-          impuesto: '01',
-          calificacionOperacion: 'S1',
-          tipoImpositivo: parseFloat(tax.taxPercentage || 0).toFixed(2),
-          baseImponibleOimporteNoSujeto: parseFloat(tax.taxableAmount ?? tax.taxBase ?? 0).toFixed(2),
-          cuotaRepercutida: parseFloat(tax.taxAmount || 0).toFixed(2),
-        })),
+        desglose,
         cuotaTotal,
         importeTotal,
         encadenamiento,

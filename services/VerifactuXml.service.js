@@ -69,12 +69,19 @@ class VerifactuXmlService {
             } : {}),
             'sf:DescripcionOperacion': payload.descripcionOperacion,
             'sf:Desglose': {
+              // Orden de DetalleType (XSD): Impuesto, ClaveRegimen,
+              // CalificacionOperacion u OperacionExenta, TipoImpositivo, Base,
+              // Cuota. Las exentas no llevan tipo ni cuota; los registros
+              // antiguos no traen claveRegimen (ver libs/verifactuDesglose.js).
               'sf:DetalleDesglose': payload.desglose.map((d) => ({
                 'sf:Impuesto': d.impuesto,
-                'sf:CalificacionOperacion': d.calificacionOperacion,
-                'sf:TipoImpositivo': d.tipoImpositivo,
+                ...(d.claveRegimen ? { 'sf:ClaveRegimen': d.claveRegimen } : {}),
+                ...(d.operacionExenta
+                  ? { 'sf:OperacionExenta': d.operacionExenta }
+                  : { 'sf:CalificacionOperacion': d.calificacionOperacion }),
+                ...(d.tipoImpositivo !== undefined ? { 'sf:TipoImpositivo': d.tipoImpositivo } : {}),
                 'sf:BaseImponibleOimporteNoSujeto': d.baseImponibleOimporteNoSujeto,
-                'sf:CuotaRepercutida': d.cuotaRepercutida,
+                ...(d.cuotaRepercutida !== undefined ? { 'sf:CuotaRepercutida': d.cuotaRepercutida } : {}),
               }))
             },
             'sf:CuotaTotal': payload.cuotaTotal,
