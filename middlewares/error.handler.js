@@ -1,4 +1,4 @@
-const { ValidationError } = require('sequelize');
+const { ValidationError, ForeignKeyConstraintError } = require('sequelize');
 const logger = require('../libs/logger');
 
 // Un registro por petición fallida. Sin cuerpo ni query string: pueden
@@ -46,6 +46,17 @@ function ormErrorHandler(err, req, res, next) {
         field: e.path,
         message: e.message
       }))
+    });
+  }
+  // Clave foránea: un valor que ya no existe (p.ej. una categoría de gasto
+  // eliminada mientras la ficha estaba abierta) o un borrado de algo en uso.
+  // Antes llegaba como 500 genérico.
+  if (err instanceof ForeignKeyConstraintError) {
+    return res.status(409).json({
+      success: false,
+      statusCode: 409,
+      error: 'Conflict',
+      message: 'Alguno de los datos elegidos ya no existe o está en uso por otros registros. Recarga la ficha e inténtalo de nuevo.'
     });
   }
   next(err);

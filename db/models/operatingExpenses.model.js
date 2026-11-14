@@ -1,4 +1,5 @@
 const { Model, DataTypes, Sequelize } = require('sequelize');
+const { categoryAttribute } = require('./expenseCategory.model');
 
 const OPERATING_EXPENSES_TABLE = 'operating_expenses';
 
@@ -16,30 +17,9 @@ const OperatingExpensesSchema = {
     type: DataTypes.DATEONLY
   },
 
-  // Mismo enum que Vendor.category (ver db/models/vendor.model.js): un
-  // gasto interno normalmente viene de un proveedor ya dado de alta, y su
-  // categoría se autocompleta desde el proveedor (ver
-  // fields-operatingexpenses-handler.js#searchVendor en el frontend), así
-  // que ambos sets tienen que coincidir exactamente o el autofill no casa
-  // con ninguna opción del desplegable.
-  category: {
-    field: 'category',
-    type: DataTypes.ENUM(
-      'Personal y Nóminas',
-      'Suministros Públicos',
-      'Vehículos y Movilidad',
-      'Alquileres e Inmuebles',
-      'Herramientas de Empresa',
-      'Gastos de Oficina y Administración',
-      'Suministros de Obra',
-      'Logística de Materiales',
-      'Material de Construcción',
-      'Equipamiento / Maquinaria',
-      'Servicios Externos de Obra'
-    ),
-    allowNull: false,
-    defaultValue: 'Gastos de Oficina y Administración'
-  },
+  // Nombre de una categoría de gasto (tabla expense_categories, editable
+  // en Configuración; ver db/models/expenseCategory.model.js).
+  category: categoryAttribute(),
 
   // A quién apunta entityCode: un proveedor (vendors.code) o un empleado
   // (employees.employee_no, nóminas). Los gastos de empleados solo los ven

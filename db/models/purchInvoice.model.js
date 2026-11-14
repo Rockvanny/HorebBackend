@@ -1,4 +1,5 @@
 const { Model, DataTypes, Sequelize } = require('sequelize');
+const { categoryAttribute } = require('./expenseCategory.model');
 const { generateNextCode } = require('../../libs/sequence.handler');
 
 const PURCHINVOICE_TABLE = 'purch_invoices';
@@ -145,28 +146,9 @@ const purchInvoiceSchema = {
     defaultValue: 'Abierto'
   },
 
-  // Mismo enum que Vendor.category (ver db/models/vendor.model.js): la
-  // categoría del gasto se elige por factura, no se copia del proveedor,
-  // pero debe cubrir tanto compras de obra como gasto interno recurrente
-  // facturado a través de un proveedor (luz, alquiler...).
-  category: {
-    field: 'category',
-    type: DataTypes.ENUM(
-      'Suministros de Obra',
-      'Logística de Materiales',
-      'Material de Construcción',
-      'Equipamiento / Maquinaria',
-      'Servicios Externos de Obra',
-      'Suministros Públicos',
-      'Alquileres e Inmuebles',
-      'Vehículos y Movilidad',
-      'Herramientas de Empresa',
-      'Personal y Nóminas',
-      'Gastos de Oficina y Administración'
-    ),
-    allowNull: false,
-    defaultValue: 'Suministros de Obra'
-  },
+  // Nombre de una categoría de gasto (tabla expense_categories, editable
+  // en Configuración; ver db/models/expenseCategory.model.js).
+  category: categoryAttribute(),
 
   paymentMethod: {
     field: 'payment_method',

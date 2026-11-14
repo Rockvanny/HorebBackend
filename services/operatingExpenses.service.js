@@ -1,4 +1,4 @@
-const { Op, where, cast, col } = require('sequelize');
+const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
 const { parsePagination, pageResult } = require('../libs/pagination');
 const { models } = require('../libs/sequelize');
@@ -57,9 +57,7 @@ class OperatingExpensesService {
       const searchPattern = term.includes('%') ? term : `%${term}%`;
       options.where[Op.or] = [
         { concept: { [Op.iLike]: searchPattern } },
-        // category es un ENUM de Postgres: ILIKE solo funciona sobre texto
-        // (sin el cast, cualquier búsqueda daba error 500)
-        where(cast(col('category'), 'text'), { [Op.iLike]: searchPattern }),
+        { category: { [Op.iLike]: searchPattern } },
         { name: { [Op.iLike]: searchPattern } }
       ];
     }

@@ -1,4 +1,5 @@
 const { Model, DataTypes, Sequelize } = require('sequelize');
+const { categoryAttribute } = require('./expenseCategory.model');
 const { generateNextCode } = require('../../libs/sequence.handler');
 
 const PURCHPOSTINVOICE_TABLE = 'purch_post_invoices';
@@ -87,28 +88,9 @@ const purchPostInvoiceSchema = {
     allowNull: false,
     defaultValue: 'Transferencia'
   },
-  // Mismo enum que Vendor.category (ver db/models/vendor.model.js): esta
-  // categoría es la que agrupa el gráfico de gastos por categoría
-  // (services/stats.service.js#_getDoughnutFiltered), así que tiene que
-  // cubrir también el gasto interno facturado a través de un proveedor.
-  category: {
-    field: 'category',
-    type: DataTypes.ENUM(
-      'Suministros de Obra',
-      'Logística de Materiales',
-      'Material de Construcción',
-      'Equipamiento / Maquinaria',
-      'Servicios Externos de Obra',
-      'Suministros Públicos',
-      'Alquileres e Inmuebles',
-      'Vehículos y Movilidad',
-      'Herramientas de Empresa',
-      'Personal y Nóminas',
-      'Gastos de Oficina y Administración'
-    ),
-    allowNull: true,
-    defaultValue: 'Suministros de Obra'
-  },
+  // Nombre de una categoría de gasto (tabla expense_categories, editable
+  // en Configuración; ver db/models/expenseCategory.model.js).
+  category: categoryAttribute({ allowNull: true }),
   amountWithoutVAT: {
     field: 'amount_without_vat',
     type: DataTypes.DECIMAL(12, 4),

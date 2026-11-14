@@ -9,22 +9,9 @@ const address = Joi.string();
 const postCode = Joi.string();
 const city = Joi.string();
 const province = Joi.string().allow('', null);
-// Mismo set que operatingExpenses.schema.js#category: un proveedor se usa
-// tanto en compras de obra como en gasto interno recurrente (luz, alquiler,
-// nóminas...), ver db/models/vendor.model.js.
-const category = Joi.string().valid(
-  'Suministros de Obra',
-  'Logística de Materiales',
-  'Material de Construcción',
-  'Equipamiento / Maquinaria',
-  'Servicios Externos de Obra',
-  'Suministros Públicos',
-  'Alquileres e Inmuebles',
-  'Vehículos y Movilidad',
-  'Herramientas de Empresa',
-  'Personal y Nóminas',
-  'Gastos de Oficina y Administración'
-);
+// Nombre de una categoría de gasto (tabla editable expense_categories):
+// que exista lo garantiza la clave foránea. Ver expenseCategory.schema.js.
+const { categoryName: category } = require('./expenseCategory.schema');
 const paymentMethod = Joi.string().valid(
   'Transferencia',
   'Efectivo',

@@ -1,4 +1,5 @@
 const { Model, DataTypes, Sequelize } = require('sequelize');
+const { categoryAttribute } = require('./expenseCategory.model');
 const { generateNextCode } = require('../../libs/sequence.handler');
 
 const VENDOR_TABLE = 'vendors';
@@ -68,29 +69,9 @@ const VendorSchema = {
     allowNull: true,
   },
 
-  // Compartido byte a byte con OperatingExpensesSchema.category (mismo enum
-  // en Postgres, ver migración 20260914195102-align_vendor_category_enum):
-  // un proveedor se usa tanto para compras de obra como para gasto interno
-  // recurrente (luz, alquiler, nóminas...), así que necesita las categorías
-  // de ambos mundos para poder clasificarse correctamente en cualquiera.
-  category: {
-    field: 'category',
-    type: DataTypes.ENUM(
-      'Suministros de Obra',
-      'Logística de Materiales',
-      'Material de Construcción',
-      'Equipamiento / Maquinaria',
-      'Servicios Externos de Obra',
-      'Suministros Públicos',
-      'Alquileres e Inmuebles',
-      'Vehículos y Movilidad',
-      'Herramientas de Empresa',
-      'Personal y Nóminas',
-      'Gastos de Oficina y Administración'
-    ),
-    allowNull: false,
-    defaultValue: 'Suministros de Obra'
-  },
+  // Nombre de una categoría de gasto (tabla expense_categories, editable
+  // en Configuración; ver db/models/expenseCategory.model.js).
+  category: categoryAttribute(),
 
   paymentMethod: {
     field: 'payment_method',
