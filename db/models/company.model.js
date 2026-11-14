@@ -1,5 +1,6 @@
 const { types } = require('joi');
 const { Model, DataTypes, Sequelize } = require('sequelize');
+const { colombiaPartyAttributes, colombiaPersonAttributes } = require('./colombiaFields');
 
 const COMPANY_TABLE = 'company';
 
@@ -84,6 +85,9 @@ const CompanySchema = {
     field: 'footer_text',
     type: DataTypes.STRING,
   },
+
+  // Campos de Colombia (ver db/models/colombiaFields.js)
+  ...colombiaPartyAttributes(),
 
   createdAt: {
     field: 'created_at',

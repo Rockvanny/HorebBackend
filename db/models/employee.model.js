@@ -1,4 +1,5 @@
 const { Model, DataTypes, Sequelize } = require('sequelize');
+const { colombiaPartyAttributes, colombiaPersonAttributes } = require('./colombiaFields');
 const bcrypt = require('bcryptjs');
 const { generateNextCode } = require('../../libs/sequence.handler');
 
@@ -96,6 +97,9 @@ const EmployeeSchema = {
     type: DataTypes.STRING,
     defaultValue: 'operario',
   },
+
+  // Campos de Colombia (ver db/models/colombiaFields.js)
+  ...colombiaPersonAttributes(),
 
   createdAt: {
     field: 'created_at',

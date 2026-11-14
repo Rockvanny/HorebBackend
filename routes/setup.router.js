@@ -35,11 +35,11 @@ router.post('/first-admin',
   validatorHandler(createFirstAdminSchema, 'body'),
   async (req, res, next) => {
     try {
-      const { country, verifactu, ...adminData } = req.body;
+      const { country, verifactu, currency, ...adminData } = req.body;
       const admin = await service.createFirstAdmin(adminData);
       // Tras crear el admin (si ya había usuarios, createFirstAdmin falla
       // antes y no se toca nada): Veri*factu e impuestos según el país
-      const region = await applyRegionDefaults({ country, verifactu });
+      const region = await applyRegionDefaults({ country, verifactu, currency });
       res.status(201).json({ success: true, data: { ...admin, region } });
     } catch (error) {
       next(error);

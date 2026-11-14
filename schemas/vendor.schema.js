@@ -1,4 +1,5 @@
 const Joi = require('joi');
+const { colombiaPartyFields, checkNit, unlessColombian } = require('./colombia.schema');
 
 const code = Joi.string();
 const name = Joi.string().min(3).max(50);
@@ -31,16 +32,18 @@ const createVendorSchema = Joi.object({
   selectedSerie: Joi.string().required(), // Ahora permitido y obligatorio para nuevos
   code: code.optional(),
   name: name.required(),
-  nif: nif.required(),
+  nif: unlessColombian(nif.required()),
   email: email.required(),
   phone: phone.required(),
   address: address.required(),
-  postCode: postCode.required(),
+  postCode: unlessColombian(postCode.required()),
   city: city.required(),
   province: province.optional(),
   category: category.required(),
   paymentMethod: paymentMethod.default('Transferencia'),
-});
+  // Campos de Colombia (ver colombia.schema.js)
+  ...colombiaPartyFields,
+}).custom(checkNit, 'NIT');
 
 const updateVendorSchema = Joi.object({
   name: name.required(),
@@ -48,12 +51,14 @@ const updateVendorSchema = Joi.object({
   email: email.required(),
   phone: phone.required(),
   address: address.required(),
-  postCode: postCode.required(),
+  postCode: unlessColombian(postCode.required()),
   city: city.required(),
   province: province.optional(),
   category: category.optional(),
   paymentMethod: paymentMethod.optional(),
-});
+  // Campos de Colombia (ver colombia.schema.js)
+  ...colombiaPartyFields,
+}).custom(checkNit, 'NIT');
 
 const queryVendorSchema = Joi.object({
   limit,

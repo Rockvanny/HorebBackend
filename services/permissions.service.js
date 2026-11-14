@@ -1,5 +1,6 @@
 const { MODULE_HIERARCHY, ROLE_ACTIONS, ROLE_PAGES } = require('../config/access-manager');
 const ModuleConfigService = require('./moduleConfig.service');
+const { getInstallationSettings } = require('../libs/installationSettings');
 const logger = require('../libs/logger');
 
 const moduleConfigService = new ModuleConfigService();
@@ -31,7 +32,11 @@ const buildUserPermissionsConfig = async (userData) => {
     // Características activables de la instalación (module_config): el
     // Frontend oculta lo que dependa de ellas (ver Frontend
     // utils/system/features.js). Se rellena más abajo.
-    features: {}
+    features: {},
+    // País, moneda y formato regional de la instalación (fijos desde la
+    // primera instalación, ver libs/installationSettings.js): el Frontend
+    // muestra los campos de cada país y da formato a los importes.
+    settings: { country: 'ES', currency: 'EUR', locale: 'es-ES' }
   };
 
   // 3. Iteración sobre la jerarquía
@@ -48,6 +53,11 @@ const buildUserPermissionsConfig = async (userData) => {
   }
 
   permissionsConfig.features.verifactu = verifactuEnabled;
+  try {
+    permissionsConfig.settings = await getInstallationSettings();
+  } catch (error) {
+    logger.error(`permissions.service: no se pudieron leer los ajustes de la instalación, se asume España: ${error.message}`);
+  }
 
   Object.keys(MODULE_HIERARCHY).forEach(moduleKey => {
     const moduleDef = MODULE_HIERARCHY[moduleKey];

@@ -1,4 +1,5 @@
 const Joi = require('joi');
+const { colombiaPartyFields, checkNit } = require('./colombia.schema');
 
 // --- Definición de tipos basados en tu CompanySchema ---
 const id = Joi.number().integer();
@@ -46,8 +47,10 @@ const createCompanySchema = Joi.object({
     swift: swift.optional(),
     signature_base64: imageBase64.optional(),
     WebSite: WebSite.optional(),
-    footerText: footerText.optional()
-});
+    footerText: footerText.optional(),
+    // Campos de Colombia (ver colombia.schema.js)
+    ...colombiaPartyFields
+}).custom(checkNit, 'NIT');
 
 const updateCompanySchema = Joi.object({
     // En actualización no pasamos el ID en el body, se suele pasar por URL
@@ -65,8 +68,10 @@ const updateCompanySchema = Joi.object({
     swift: swift.optional(),
     signature_base64: imageBase64.optional(),
     WebSite: WebSite.optional(),
-    footerText: footerText.optional()
-});
+    footerText: footerText.optional(),
+    // Campos de Colombia (ver colombia.schema.js)
+    ...colombiaPartyFields
+}).custom(checkNit, 'NIT');
 
 const queryCompanySchema = Joi.object({
   limit,

@@ -1,4 +1,5 @@
 const Joi = require('joi');
+const { colombiaPersonFields } = require('./colombia.schema');
 const { ROLES } = require('../config/access-manager');
 
 // Mismos 6 roles que Users (fuente única de verdad: access-manager.js), pero
@@ -28,6 +29,8 @@ const personalData = {
   jobTitle: optionalText(100),
   hireDate: Joi.date().iso().allow('', null),
   terminationDate: Joi.date().iso().allow('', null), // >= alta: employees.service.js
+  // Campos de Colombia (ver colombia.schema.js)
+  ...colombiaPersonFields,
 };
 
 // --- Login en 2 pasos (igual que Users/Customers) ---

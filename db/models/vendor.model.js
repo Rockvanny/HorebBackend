@@ -1,4 +1,5 @@
 const { Model, DataTypes, Sequelize } = require('sequelize');
+const { colombiaPartyAttributes, colombiaPersonAttributes } = require('./colombiaFields');
 const { categoryAttribute } = require('./expenseCategory.model');
 const { generateNextCode } = require('../../libs/sequence.handler');
 
@@ -89,6 +90,9 @@ const VendorSchema = {
     field: 'user_name',
     type: DataTypes.STRING,
   },
+
+  // Campos de Colombia (ver db/models/colombiaFields.js)
+  ...colombiaPartyAttributes(),
 
   createdAt: {
     field: 'created_at',

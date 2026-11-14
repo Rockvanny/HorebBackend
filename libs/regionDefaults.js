@@ -11,6 +11,7 @@
  */
 const { models } = require('./sequelize');
 const sequelize = require('./sequelize');
+const { saveInstallationSettings } = require('./installationSettings');
 
 const COUNTRIES = ['ES', 'CO', 'OTHER'];
 
@@ -35,10 +36,10 @@ const TAX_PRESETS = {
 const LINE_TABLES = ['sales_budget_lines', 'sales_invoice_lines', 'sales_post_invoice_lines', 'purch_invoice_lines', 'purch_post_invoice_lines', 'products'];
 
 /**
- * @param {{ country?: string, verifactu?: boolean }} options
- * @returns {Promise<{ country: string, verifactu: boolean, taxesReplaced: boolean }>}
+ * @param {{ country?: string, verifactu?: boolean, currency?: string }} options
+ * @returns {Promise<{ country: string, verifactu: boolean, taxesReplaced: boolean, settings: object }>}
  */
-const applyRegionDefaults = async ({ country = 'ES', verifactu } = {}) => {
+const applyRegionDefaults = async ({ country = 'ES', verifactu, currency } = {}) => {
   const region = COUNTRIES.includes(country) ? country : 'ES';
   const verifactuEnabled = verifactu ?? region === 'ES';
 
@@ -69,7 +70,9 @@ const applyRegionDefaults = async ({ country = 'ES', verifactu } = {}) => {
         taxesReplaced = true;
       }
     }
-    return { country: region, verifactu: verifactuEnabled, taxesReplaced };
+    // País y moneda de la instalación: fijos a partir de aquí
+    const settings = await saveInstallationSettings({ country: region, currency }, transaction);
+    return { country: region, verifactu: verifactuEnabled, taxesReplaced, settings };
   });
 };
 

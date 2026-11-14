@@ -8,6 +8,8 @@ const createFirstAdminSchema = Joi.object({
   // defecto solo en España; el país decide el catálogo de impuestos inicial
   country: Joi.string().valid('ES', 'CO', 'OTHER').default('ES'),
   verifactu: Joi.boolean(),
+  // Moneda de la instalación (fija); si no se elige, la del país
+  currency: Joi.string().valid('EUR', 'COP', 'USD', 'MXN', 'PEN', 'CLP', 'ARS'),
 });
 
 module.exports = { createFirstAdminSchema };
