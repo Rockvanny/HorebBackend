@@ -27,7 +27,11 @@ const buildUserPermissionsConfig = async (userData) => {
   const permissionsConfig = {
     role: userRole,
     actions: globalActions,
-    modules: {}
+    modules: {},
+    // Características activables de la instalación (module_config): el
+    // Frontend oculta lo que dependa de ellas (ver Frontend
+    // utils/system/features.js). Se rellena más abajo.
+    features: {}
   };
 
   // 3. Iteración sobre la jerarquía
@@ -42,6 +46,8 @@ const buildUserPermissionsConfig = async (userData) => {
   } catch (error) {
     logger.error(`permissions.service: no se pudo comprobar el módulo VERIFACTU, se asume activo: ${error.message}`);
   }
+
+  permissionsConfig.features.verifactu = verifactuEnabled;
 
   Object.keys(MODULE_HIERARCHY).forEach(moduleKey => {
     const moduleDef = MODULE_HIERARCHY[moduleKey];

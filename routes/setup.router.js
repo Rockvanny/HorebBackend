@@ -4,6 +4,7 @@ const LicenseService = require('../services/license.service');
 const validatorHandler = require('../middlewares/validator.handler');
 const { createFirstAdminSchema } = require('../schemas/setup.schema');
 const { models } = require('../libs/sequelize');
+const { applyRegionDefaults } = require('../libs/regionDefaults');
 
 const router = express.Router();
 const service = new UserService();
@@ -34,8 +35,12 @@ router.post('/first-admin',
   validatorHandler(createFirstAdminSchema, 'body'),
   async (req, res, next) => {
     try {
-      const admin = await service.createFirstAdmin(req.body);
-      res.status(201).json({ success: true, data: admin });
+      const { country, verifactu, ...adminData } = req.body;
+      const admin = await service.createFirstAdmin(adminData);
+      // Tras crear el admin (si ya había usuarios, createFirstAdmin falla
+      // antes y no se toca nada): Veri*factu e impuestos según el país
+      const region = await applyRegionDefaults({ country, verifactu });
+      res.status(201).json({ success: true, data: { ...admin, region } });
     } catch (error) {
       next(error);
     }
