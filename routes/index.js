@@ -39,6 +39,7 @@ const tasksRouter = require('./tasks.router');
 const buildingsRouter = require('./buildings.router');
 const customerBuildingsRouter = require('./customerBuildings.router');
 const expenseCategoriesRouter = require('./expenseCategories.router');
+const taxRatesRouter = require('./taxRates.router');
 
 // Rutas internas que no apuntan a tablas
 const statsRouter = require('./stats.router');
@@ -57,6 +58,7 @@ function routerApi(app) {
   router.use('/users', usersRouter);
   router.use('/employees', employeesRouter);
   router.use('/expense-categories', expenseCategoriesRouter);
+  router.use('/tax-rates', taxRatesRouter);
   router.use('/company', companyRouter);
   router.use('/products', productsRouter);
   router.use('/customers', customersRouter);

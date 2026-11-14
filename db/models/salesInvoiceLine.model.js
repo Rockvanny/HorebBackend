@@ -1,4 +1,6 @@
 const { Model, DataTypes, Sequelize } = require('sequelize');
+const { calculateDocumentTotals } = require('../../libs/taxCalculation');
+const { lineTaxAttributes } = require('./taxRate.model');
 
 const SALESINVOICELINE_TABLE = 'sales_invoice_lines';
 
@@ -101,12 +103,9 @@ const salesInvoiceLineSchema = {
 
   },
 
-  taxType: {
-    field: 'tax_type',
-    type: DataTypes.ENUM('IVA', 'IRPF', 'RE', 'EXENTO'),
-    allowNull: false,
-    defaultValue: 'IVA'
-  },
+  // Impuesto (código, su % va en vat) y retención opcional: ver
+  // db/models/taxRate.model.js#lineTaxAttributes
+  ...lineTaxAttributes(),
 
   vat: {
     field: 'vat',
@@ -160,19 +159,11 @@ class salesInvoiceLine extends Model {
     const { salesInvoice, DocumentTax } = this.sequelize.models;
     const lines = await this.findAll({ where: { codeDocument }, transaction });
 
-    const totals = lines.reduce((acc, line) => {
-      const base = Number(line.amountLine) || 0;
-      const vatPercent = Number(line.vat) || 0;
-
-      // Lógica simple: Si es IRPF, resta; si no, suma.
-      const isNegative = line.taxType === 'IRPF';
-      const taxAmount = base * (vatPercent / 100);
-
-      acc.baseTotal += base;
-      acc.taxTotal += isNegative ? -taxAmount : taxAmount;
-
-      return acc;
-    }, { baseTotal: 0, taxTotal: 0 });
+    // Mismo cálculo que al guardar el documento entero (libs/taxCalculation.js:
+    // impuesto + retención por línea). Antes cada modelo tenía su versión y
+    // tomaba amountLine (que ya lleva el impuesto) como si fuera la base.
+    const { headerTotals } = calculateDocumentTotals(lines.map(l => l.get({ plain: true })), null, null);
+    const totals = { baseTotal: headerTotals.amountWithoutVAT, taxTotal: headerTotals.amountVAT, vatTotal: headerTotals.amountVAT };
 
     await salesInvoice.update({
       amountWithoutVAT: totals.baseTotal.toFixed(4),

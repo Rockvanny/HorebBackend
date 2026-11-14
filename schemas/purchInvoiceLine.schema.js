@@ -1,4 +1,5 @@
 const Joi = require('joi');
+const { taxCode, withholdingType, withholdingPercentage } = require('./taxRate.schema');
 
 // --- DEFINICIÓN DE TIPOS BASE ---
 const codeDocument = Joi.string();
@@ -9,7 +10,8 @@ const quantity = Joi.number().precision(4); // Quitamos min(0) por si hay devolu
 const unitMeasure = Joi.string().allow('', null).default('UNIDAD');
 const unitPrice = Joi.number().precision(4);
 // Nuevo: Soporte para tipo de impuesto (IVA, IRPF, etc)
-const taxType = Joi.string().valid('IVA', 'IRPF', 'RE', 'EXENTO').default('IVA');
+// Código de impuesto del catálogo editable (ver taxRate.schema.js)
+const taxType = taxCode.default('IVA');
 const vat = Joi.number().min(0).max(100).precision(4).default(21);
 const amountLine = Joi.number().precision(4);
 const userName = Joi.string().allow('', null); // Sincronizado con el modelo
@@ -78,6 +80,8 @@ const createPurchInvoiceLineSchema = Joi.object({
   unitPrice: requiredUnlessComment(unitPrice),
   taxType: taxType.optional(), // Añadido
   vat: vat.optional(),
+  withholdingType,
+  withholdingPercentage,
   amountLine: amountLine.required(),
   userName: userName.optional(), // Corregido camelCase
 });
@@ -99,6 +103,8 @@ const updatePurchInvoiceLineSchema = Joi.object({
   unitPrice: unitPrice.optional(),
   taxType: taxType.optional(), // Añadido
   vat: vat.optional(),
+  withholdingType,
+  withholdingPercentage,
   amountLine: amountLine.optional(),
   userName: userName.optional(), // Corregido camelCase
 });

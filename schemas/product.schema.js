@@ -1,4 +1,5 @@
 const Joi = require('joi');
+const { taxCode, withholdingType, withholdingPercentage } = require('./taxRate.schema');
 
 const code = Joi.string();
 const name = Joi.string().min(3).max(200);
@@ -7,10 +8,9 @@ const unitMeasure = Joi.string()
   .default('UNIDAD');
 const qtyByUnitMeasure = Joi.number().precision(2);
 const price = Joi.number().precision(2);
-const taxType = Joi.string()
-  .valid('IVA', 'IRPF', 'RE', 'EXENTO')
-  .default('IVA');
-const vat = Joi.number().integer();
+// Código de impuesto del catálogo editable (ver taxRate.schema.js)
+const taxType = taxCode.default('IVA');
+const vat = Joi.number().min(0).max(100).precision(2);
 const username = Joi.string();
 const selectedSerie = Joi.string(); // <--- CRÍTICO para el Hook
 
@@ -28,6 +28,8 @@ const createProductSchema = Joi.object({
   price: price.required(),
   taxType: taxType.optional(),
   vat: vat.required(),
+  withholdingType,
+  withholdingPercentage,
   selectedSerie: selectedSerie.required(), // <--- Requerido para generar el code
   username, // Opcional, lo solemos inyectar en el service
 });
@@ -39,6 +41,8 @@ const updateProductSchema = Joi.object({
   price: price,
   taxType: taxType.optional(),
   vat: vat,
+  withholdingType,
+  withholdingPercentage,
   username,
 }).min(1); // Al menos un campo debe ser enviado para actualizar
 

@@ -1,4 +1,5 @@
 const Joi = require('joi');
+const { taxCode, withholdingType, withholdingPercentage } = require('./taxRate.schema');
 
 const id = Joi.number().integer();
 const codeDocument = Joi.string();
@@ -9,7 +10,8 @@ const quantity = Joi.number().precision(4);
 const quantityUnitMeasure = Joi.number().precision(4).default(1);
 const unitPrice = Joi.number().precision(4);
 
-const taxType = Joi.string().valid('IVA', 'IRPF', 'RE', 'EXENTO').default('IVA');
+// Código de impuesto del catálogo editable (ver taxRate.schema.js)
+const taxType = taxCode.default('IVA');
 
 const unitMeasure = Joi.string()
   .valid('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK', 'ML')
@@ -38,6 +40,8 @@ const createSalesPostInvoiceLineSchema = Joi.object({
   unitPrice: unitPrice.required(),
   taxType: taxType.required(), // Ahora es requerido para el histórico oficial
   vat: vat.required(),
+  withholdingType,
+  withholdingPercentage,
   amountLine: amountLine.required(),
   username: username.optional(),
 });

@@ -166,6 +166,9 @@ class PurchPostInvoiceService {
             height: parseFloat(line.height) || 0,
             unit_price: parseFloat(line.unitPrice) || 0,
             tax_type: line.taxType || 'IVA',
+            // Retención opcional (ya normalizada por calculateDocumentTotals)
+            withholding_type: line.withholdingType || null,
+            withholding_percentage: line.withholdingPercentage ?? null,
             vat: porcentajeIVA,
             amount_line: importeConIVA,
             user_name: data.username || data.userName || null, // Soporta ambas variantes de propiedad de auditoría

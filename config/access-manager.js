@@ -27,7 +27,7 @@ const MODULE_HIERARCHY = {
   },
   SETUP: {
     field: 'allowSettings',
-    objects: ['company', 'series', 'users', 'employees', 'expenseCategories', 'conexion', 'moduleConfig', 'verifactuConfig']
+    objects: ['company', 'series', 'users', 'employees', 'expenseCategories', 'taxRates', 'conexion', 'moduleConfig', 'verifactuConfig']
   },
   REPORTS: {
     field: 'allowReports',
@@ -70,8 +70,9 @@ const ROLE_PAGES = {
   [ROLES.FINANCIERO]: {
     // 'employees' (Empleados) decidido con el usuario 2026-09-20: solo
     // admin y financiero, igual que el resto de Configuración que ya tenía.
-    // 'expenseCategories' (Categorías de gasto) 2026-11-14: mismo criterio.
-    SETUP: ['company', 'series', 'employees', 'expenseCategories'],
+    // 'expenseCategories' (Categorías de gasto) y 'taxRates' (Impuestos)
+    // 2026-11-14: mismo criterio.
+    SETUP: ['company', 'series', 'employees', 'expenseCategories', 'taxRates'],
     GESTION: GESTION_PAGES_WITHOUT_BUILDINGS
   },
   [ROLES.VENDEDOR]: {

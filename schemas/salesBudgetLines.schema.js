@@ -1,4 +1,5 @@
 const Joi = require('joi');
+const { taxCode, withholdingType, withholdingPercentage } = require('./taxRate.schema');
 
 const codeDocument = Joi.string();
 const lineNo = Joi.number().integer().min(1);
@@ -20,9 +21,8 @@ const type = Joi.string().valid('PRODUCTO', 'COMENTARIO').default('PRODUCTO');
 const requiredUnlessComment = (schema) =>
   schema.when('type', { is: 'COMENTARIO', then: Joi.optional().allow(null), otherwise: Joi.required() });
 
-const taxType = Joi.string()
-  .valid('IVA', 'IRPF', 'RE', 'EXENTO')
-  .default('IVA');
+// Código de impuesto del catálogo editable (ver taxRate.schema.js)
+const taxType = taxCode.default('IVA');
 
 const unitMeasure = Joi.string()
   .valid('UNIDAD', 'HORA', 'DIA', 'SERVICIO', 'METRO', 'METRO2', 'KILOGRAMO', 'LITRO', 'PACK', 'ML')
@@ -80,6 +80,8 @@ const createSalesBudgetLineSchema = Joi.object({
   unitPrice: requiredUnlessComment(unitPrice),
   taxType: taxType.optional(), // <-- Agregado
   vat: vat.optional(),
+  withholdingType,
+  withholdingPercentage,
   amountLine: amountLine.required(),
   username: username.optional(),
 });
@@ -98,6 +100,8 @@ const updateSalesBudgetLineSchema = Joi.object({
   unitPrice: unitPrice.optional(),
   taxType: taxType.optional(), // <-- Agregado
   vat: vat.optional(),
+  withholdingType,
+  withholdingPercentage,
   amountLine: amountLine.optional(),
   username: username.optional(),
 });

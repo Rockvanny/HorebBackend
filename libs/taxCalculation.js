@@ -1,5 +1,26 @@
+const { taxClassOf } = require('./taxClasses');
+
 /**
- * Procesa un array de líneas y devuelve los totales y el desglose de impuestos
+ * Retención opcional de la línea (IRPF, ReteFuente...: withholdingType +
+ * withholdingPercentage). Sin código o sin porcentaje, no hay retención.
+ */
+const lineWithholding = (line) => {
+  const type = (line.withholdingType || '').trim();
+  const percentage = parseFloat(line.withholdingPercentage) || 0;
+  return type && percentage > 0 ? { type, percentage } : null;
+};
+
+/**
+ * Procesa un array de líneas y devuelve los totales y el desglose de impuestos.
+ *
+ * Cada línea lleva un impuesto (taxType + vat: IVA, exento, recargo...) que
+ * se suma, y una retención opcional (withholdingType +
+ * withholdingPercentage) que se resta sobre la misma base:
+ *   amountLine = base + impuesto - retención
+ * El desglose (document_taxes) tiene una fila por código y porcentaje; las
+ * de retención llevan taxClass 'RETENCION' (al resto se la pone
+ * DocumentTax.fillTaxClasses desde el catálogo). Líneas antiguas con IRPF
+ * como impuesto de la línea siguen restando, como antes.
  * @param {Array} lines - Líneas del documento (deben traer ancho, alto, etc.)
  * @param {String} movementId - UUID del documento padre
  * @param {String} docType - Tipo de documento (salesinvoice, salespostinvoice, etc.)
@@ -8,6 +29,23 @@ const calculateDocumentTotals = (lines, movementId, docType) => {
   let totalNeto = 0;
   let totalImpuestos = 0;
   const taxGroups = {};
+
+  const addToGroup = (taxType, percentage, taxClass, base, amount) => {
+    const groupKey = `${taxType}_${percentage}`;
+    if (!taxGroups[groupKey]) {
+      taxGroups[groupKey] = {
+        movementId: movementId,
+        codeDocument: docType,
+        taxType,
+        taxPercentage: percentage,
+        ...(taxClass ? { taxClass } : {}),
+        taxableAmount: 0,
+        taxAmount: 0
+      };
+    }
+    taxGroups[groupKey].taxableAmount += base;
+    taxGroups[groupKey].taxAmount += amount;
+  };
 
   const processedLines = lines.map((line, index) => {
     // Línea COMENTARIO: solo texto libre en 'description', no suma a
@@ -28,6 +66,8 @@ const calculateDocumentTotals = (lines, movementId, docType) => {
         height: 0,
         vat: 0,
         taxType: line.taxType || 'IVA',
+        withholdingType: null,
+        withholdingPercentage: null,
         amountLine: 0
       };
     }
@@ -75,7 +115,7 @@ const calculateDocumentTotals = (lines, movementId, docType) => {
     }
 
     // Cálculo de la cuota: El IRPF resta, el IVA suma
-    const isRetencion = type === 'IRPF';
+    const isRetencion = taxClassOf(type) === 'RETENCION';
     const lineTaxAmount = lineNeto * (vatPerc / 100);
 
     totalNeto += lineNeto;
@@ -90,27 +130,24 @@ const calculateDocumentTotals = (lines, movementId, docType) => {
     }
 
     // Agrupación para el desglose de impuestos
-    const groupKey = `${type}_${vatPerc}`;
+    addToGroup(type, vatPerc, isRetencion ? 'RETENCION' : null, lineNeto, lineTaxAmount);
 
-    if (!taxGroups[groupKey]) {
-      taxGroups[groupKey] = {
-        movementId: movementId,
-        codeDocument: docType,
-        taxType: type,
-        taxPercentage: vatPerc,
-        taxableAmount: 0,
-        taxAmount: 0
-      };
+    // Retención opcional sobre la misma base
+    const withholding = lineWithholding(line);
+    if (withholding) {
+      const withholdingAmount = lineNeto * (withholding.percentage / 100);
+      totalImpuestos -= withholdingAmount;
+      lineFinalAmount -= withholdingAmount;
+      addToGroup(withholding.type, withholding.percentage, 'RETENCION', lineNeto, withholdingAmount);
     }
-
-    taxGroups[groupKey].taxableAmount += lineNeto;
-    taxGroups[groupKey].taxAmount += lineTaxAmount;
 
     return {
       ...line,
       lineNo: line.lineNo || (index + 1),
       amountLine: lineFinalAmount,
       taxType: type,
+      withholdingType: withholding?.type || null,
+      withholdingPercentage: withholding?.percentage ?? null,
       // quantityUnitMeasure es NOT NULL en BD (factor 1 por defecto): el
       // front manda null cuando la unidad no es METRO (ver
       // transactionLinesHandler.js#getLinesData), así que se normaliza aquí

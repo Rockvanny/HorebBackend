@@ -29,6 +29,7 @@ const { Task, TaskSchema } = require('./task.model');
 const { Building, BuildingSchema } = require('./building.model');
 const { CustomerBuilding, CustomerBuildingSchema } = require('./customerBuilding.model');
 const { ExpenseCategory, ExpenseCategorySchema } = require('./expenseCategory.model');
+const { TaxRate, TaxRateSchema } = require('./taxRate.model');
 
 function setupModels(sequelize) {
   // 1. Inicialización de modelos
@@ -63,6 +64,7 @@ function setupModels(sequelize) {
   Building.init(BuildingSchema, Building.config(sequelize));
   CustomerBuilding.init(CustomerBuildingSchema, CustomerBuilding.config(sequelize));
   ExpenseCategory.init(ExpenseCategorySchema, ExpenseCategory.config(sequelize));
+  TaxRate.init(TaxRateSchema, TaxRate.config(sequelize));
 
   // 2. Definición de asociaciones
   Company.associate(sequelize.models);
@@ -91,6 +93,7 @@ function setupModels(sequelize) {
   Building.associate(sequelize.models);
   CustomerBuilding.associate(sequelize.models);
   ExpenseCategory.associate(sequelize.models);
+  TaxRate.associate(sequelize.models);
 }
 
 module.exports = setupModels;

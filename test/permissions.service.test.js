@@ -80,12 +80,12 @@ describe('buildUserPermissionsConfig', () => {
   });
 
   // 'employees' se añadió a financiero el 2026-09-20 (ver access-manager.js#ROLE_PAGES)
-  test('financiero solo ve company/series/employees/expenseCategories en SETUP (ROLE_PAGES), no el listado completo', async () => {
+  test('financiero solo ve company/series/employees/expenseCategories/taxRates en SETUP (ROLE_PAGES), no el listado completo', async () => {
     const user = makeUserData('financiero');
 
     const config = await buildUserPermissionsConfig(user);
 
-    expect(config.modules.SETUP.objects.sort()).toEqual(['company', 'series', 'employees', 'expenseCategories'].sort());
+    expect(config.modules.SETUP.objects.sort()).toEqual(['company', 'series', 'employees', 'expenseCategories', 'taxRates'].sort());
     // Fuera de SETUP no hay restricción de página
     expect(config.modules.GESTION.objects).toEqual(
       expect.arrayContaining(['customers', 'vendors', 'products', 'operatingExpenses'])

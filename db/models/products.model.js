@@ -1,4 +1,5 @@
 const { Model, DataTypes, Sequelize } = require('sequelize');
+const { lineTaxAttributes } = require('./taxRate.model');
 const { generateNextCode } = require('../../libs/sequence.handler');
 
 const PRODUCT_TABLE = 'products';
@@ -41,16 +42,13 @@ const ProductSchema = {
     allowNull: false,
   },
 
-  taxType: {
-    field: 'tax_type',
-    allowNull: false,
-    type: DataTypes.ENUM('IVA', 'IRPF', 'RE', 'EXENTO'),
-    defaultValue: 'IVA'
-  },
+  // Impuesto (código, su % va en vat) y retención opcional: ver
+  // db/models/taxRate.model.js#lineTaxAttributes
+  ...lineTaxAttributes(),
 
   vat: {
     field: 'vat',
-    type: DataTypes.INTEGER,
+    type: DataTypes.DECIMAL(5, 2),
     allowNull: false,
   },
 

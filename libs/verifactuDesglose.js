@@ -9,8 +9,8 @@
  * ya restado. Ahora, según la clase fiscal del impuesto:
  *  - IVA (lo que se suma): Impuesto 01, ClaveRegimen 01 (régimen general),
  *    CalificacionOperacion S1, tipo, base y cuota.
- *  - EXENTO: Impuesto 01, ClaveRegimen 01, OperacionExenta (E1 por defecto:
- *    art. 20 LIVA), solo base.
+ *  - EXENTO: Impuesto 01, ClaveRegimen 01, OperacionExenta (la causa de la
+ *    fila, E1 si no la tiene: art. 20 LIVA), solo base.
  *  - RETENCION (IRPF): no se declara en el desglose ni en los totales; la
  *    retención no forma parte del registro de facturación.
  *  - RECARGO de equivalencia: se declara junto al IVA de la misma base
@@ -19,18 +19,13 @@
  *
  * CuotaTotal = suma de cuotas declaradas; ImporteTotal = suma de bases +
  * cuotas declaradas.
+ *
+ * La clase y la causa salen de la propia fila (document_taxes.tax_class /
+ * exemption_cause, copiadas del catálogo de impuestos al calcular); las
+ * filas antiguas sin clase se clasifican por su código (libs/taxClasses.js).
  */
 
-// Clase fiscal según el código del impuesto de la línea. Cuando los
-// impuestos sean un catálogo editable, la clase vendrá del catálogo.
-const TAX_CLASS_BY_CODE = {
-  IVA: 'IVA',
-  IRPF: 'RETENCION',
-  EXENTO: 'EXENTO',
-  RE: 'RECARGO'
-};
-
-const taxClassOf = (taxType) => TAX_CLASS_BY_CODE[String(taxType || 'IVA').toUpperCase()] || 'IVA';
+const { taxClassOf } = require('./taxClasses');
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100;
 const fixed2 = (n) => round2(n).toFixed(2);
@@ -40,16 +35,15 @@ class VerifactuDesgloseError extends Error { }
 /**
  * @param {Array<{taxType?: string, taxPercentage: number|string, taxableAmount?: number|string,
  *   taxBase?: number|string, taxAmount: number|string}>} taxLines
- * @param {{ exemptionCause?: string }} [options]
  * @returns {{ desglose: object[], cuotaTotal: string, importeTotal: string }}
  */
-const buildVerifactuDesglose = (taxLines, { exemptionCause = 'E1' } = {}) => {
+const buildVerifactuDesglose = (taxLines) => {
   const desglose = [];
   let cuotas = 0;
   let bases = 0;
 
   for (const tax of taxLines || []) {
-    const taxClass = taxClassOf(tax.taxType);
+    const taxClass = tax.taxClass || taxClassOf(tax.taxType);
     const base = round2(tax.taxableAmount ?? tax.taxBase ?? 0);
     const cuota = round2(tax.taxAmount);
 
@@ -66,7 +60,7 @@ const buildVerifactuDesglose = (taxLines, { exemptionCause = 'E1' } = {}) => {
       desglose.push({
         impuesto: '01',
         claveRegimen: '01',
-        operacionExenta: exemptionCause,
+        operacionExenta: tax.exemptionCause || 'E1',
         baseImponibleOimporteNoSujeto: fixed2(base)
       });
       bases += base;

@@ -1,5 +1,6 @@
 // schemas/purchPostInvoiceLine.schema.js
 const Joi = require('joi');
+const { taxCode, withholdingType, withholdingPercentage } = require('./taxRate.schema');
 
 // ===============================================
 // 1. DEFINICIÓN DE ATRIBUTOS INDIVIDUALES
@@ -17,7 +18,8 @@ const unitMeasure = Joi.string().valid(
 );
 const quantityUnitMeasure = Joi.number().precision(4);
 const unitPrice = Joi.number().precision(4);
-const taxType = Joi.string().valid('IVA', 'IRPF', 'RE', 'EXENTO');
+// Código de impuesto del catálogo editable (ver taxRate.schema.js)
+const taxType = taxCode;
 const vat = Joi.number().precision(4);
 const amountLine = Joi.number().precision(4);
 const userName = Joi.string();
@@ -49,6 +51,8 @@ const createPurchPostInvoiceLineSchema = Joi.object({
   unitPrice: unitPrice.default(0),
   taxType: taxType.default('IVA'),
   vat: vat.default(21),
+  withholdingType,
+  withholdingPercentage,
   amountLine: amountLine.default(0),
   userName: userName.optional(),
 });

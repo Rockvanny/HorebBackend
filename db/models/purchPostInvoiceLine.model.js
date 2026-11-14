@@ -1,4 +1,6 @@
 // models/purchPostInvoiceLine.model.js
+const { calculateDocumentTotals } = require('../../libs/taxCalculation');
+const { lineTaxAttributes } = require('./taxRate.model');
 const { Model, DataTypes, Sequelize } = require('sequelize');
 
 const PURCHPOSTINVOICELINE_TABLE = 'purch_post_invoice_lines';
@@ -76,12 +78,9 @@ const purchPostInvoiceLineSchema = {
     defaultValue: 0
   },
 
-  taxType: {
-    field: 'tax_type',
-    allowNull: false,
-    type: DataTypes.ENUM('IVA', 'IRPF', 'RE', 'EXENTO'),
-    defaultValue: 'IVA'
-  },
+  // Impuesto (código, su % va en vat) y retención opcional: ver
+  // db/models/taxRate.model.js#lineTaxAttributes
+  ...lineTaxAttributes(),
 
   vat: {
     field: 'vat',
@@ -129,13 +128,11 @@ class purchPostInvoiceLine extends Model {
     const { purchPostInvoice } = this.sequelize.models;
     const lines = await this.findAll({ where: { codeDocument }, transaction });
 
-    const totals = lines.reduce((acc, line) => {
-      const base = Number(line.amountLine) || 0;
-      const vatAmount = base * (Number(line.vat) / 100);
-      acc.baseTotal += base;
-      acc.vatTotal += vatAmount;
-      return acc;
-    }, { baseTotal: 0, vatTotal: 0 });
+    // Mismo cálculo que al guardar el documento entero (libs/taxCalculation.js:
+    // impuesto + retención por línea). Antes cada modelo tenía su versión y
+    // tomaba amountLine (que ya lleva el impuesto) como si fuera la base.
+    const { headerTotals } = calculateDocumentTotals(lines.map(l => l.get({ plain: true })), null, null);
+    const totals = { baseTotal: headerTotals.amountWithoutVAT, taxTotal: headerTotals.amountVAT, vatTotal: headerTotals.amountVAT };
 
     await purchPostInvoice.update({
       amountWithoutVAT: totals.baseTotal.toFixed(4),
