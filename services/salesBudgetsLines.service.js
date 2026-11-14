@@ -125,6 +125,12 @@ class salesBudgetLineService {
       }]
     });
 
+    // Comentarios (sin cantidad): pendientes mientras no se hayan copiado a
+    // ninguna factura (borrador o registrada) de este presupuesto
+    const copiedLineNos = new Set([...invoicedLines, ...draftLines]
+      .filter(row => INVOICED_TYPES.includes(row.parentDocument?.typeInvoice))
+      .map(row => row.budgetLineNo));
+
     const invoicedByLine = {};
     const inDraftsByLine = {};
     draftLines.forEach(row => {
@@ -144,6 +150,10 @@ class salesBudgetLineService {
 
     return lines.map(line => {
       const plain = line.get({ plain: true });
+      if (plain.type === 'COMENTARIO') {
+        const copied = copiedLineNos.has(plain.lineNo);
+        return { ...plain, invoicedQty: 0, inDraftsQty: 0, pendingQty: 0, isFullyInvoiced: copied };
+      }
       const inDraftsQty = inDraftsByLine[plain.lineNo] || 0;
       // invoicedQty: registradas + borradores (lo que ya no se puede ofrecer)
       const invoicedQty = (invoicedByLine[plain.lineNo] || 0) + inDraftsQty;
