@@ -1,6 +1,6 @@
 // schemas/purchPostInvoiceLine.schema.js
 const Joi = require('joi');
-const { taxCode, withholdingType, withholdingPercentage } = require('./taxRate.schema');
+const { taxCode, withholdingType, withholdingPercentage, discount } = require('./taxRate.schema');
 
 // ===============================================
 // 1. DEFINICIÓN DE ATRIBUTOS INDIVIDUALES
@@ -53,6 +53,7 @@ const createPurchPostInvoiceLineSchema = Joi.object({
   vat: vat.default(21),
   withholdingType,
   withholdingPercentage,
+  discount,
   amountLine: amountLine.default(0),
   userName: userName.optional(),
 });

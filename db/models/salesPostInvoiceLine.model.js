@@ -1,5 +1,5 @@
 const { Model, DataTypes, Sequelize } = require('sequelize');
-const { lineTaxAttributes } = require('./taxRate.model');
+const { lineTaxAttributes, lineDiscountAttribute } = require('./taxRate.model');
 
 const SALESPOSTINVOICELINE_TABLE = 'sales_post_invoice_lines';
 
@@ -104,6 +104,8 @@ const salesPostInvoiceLineSchema = {
   // Impuesto (código, su % va en vat) y retención opcional: ver
   // db/models/taxRate.model.js#lineTaxAttributes
   ...lineTaxAttributes(),
+  // Descuento % de la línea (ver taxRate.model.js#lineDiscountAttribute)
+  ...lineDiscountAttribute(),
 
   vat: {
     field: 'vat',

@@ -1,5 +1,5 @@
 const Joi = require('joi');
-const { taxCode, withholdingType, withholdingPercentage } = require('./taxRate.schema');
+const { taxCode, withholdingType, withholdingPercentage, discount } = require('./taxRate.schema');
 
 // --- DEFINICIÓN DE TIPOS BASE ---
 const codeDocument = Joi.string();
@@ -82,6 +82,7 @@ const createPurchInvoiceLineSchema = Joi.object({
   vat: vat.optional(),
   withholdingType,
   withholdingPercentage,
+  discount,
   amountLine: amountLine.required(),
   userName: userName.optional(), // Corregido camelCase
 });
@@ -105,6 +106,7 @@ const updatePurchInvoiceLineSchema = Joi.object({
   vat: vat.optional(),
   withholdingType,
   withholdingPercentage,
+  discount,
   amountLine: amountLine.optional(),
   userName: userName.optional(), // Corregido camelCase
 });

@@ -13,6 +13,9 @@ const lineWithholding = (line) => {
 /**
  * Procesa un array de líneas y devuelve los totales y el desglose de impuestos.
  *
+ * Base de la línea = cantidad × precio (según la unidad de medida) menos el
+ * descuento de la línea (discount, %).
+ *
  * Cada línea lleva un impuesto (taxType + vat: IVA, exento, recargo...) que
  * se suma, y una retención opcional (withholdingType +
  * withholdingPercentage) que se resta sobre la misma base:
@@ -65,6 +68,7 @@ const calculateDocumentTotals = (lines, movementId, docType) => {
         width: 0,
         height: 0,
         vat: 0,
+        discount: 0,
         taxType: line.taxType || 'IVA',
         withholdingType: null,
         withholdingPercentage: null,
@@ -114,6 +118,10 @@ const calculateDocumentTotals = (lines, movementId, docType) => {
         break;
     }
 
+    // Descuento de la línea (%), sobre cantidad × precio
+    const discount = Math.min(100, Math.max(0, parseFloat(line.discount) || 0));
+    lineNeto = lineNeto * (1 - discount / 100);
+
     // Cálculo de la cuota: El IRPF resta, el IVA suma
     const isRetencion = taxClassOf(type) === 'RETENCION';
     const lineTaxAmount = lineNeto * (vatPerc / 100);
@@ -145,6 +153,7 @@ const calculateDocumentTotals = (lines, movementId, docType) => {
       ...line,
       lineNo: line.lineNo || (index + 1),
       amountLine: lineFinalAmount,
+      discount,
       taxType: type,
       withholdingType: withholding?.type || null,
       withholdingPercentage: withholding?.percentage ?? null,

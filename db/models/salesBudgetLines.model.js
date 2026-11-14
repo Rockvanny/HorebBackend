@@ -1,6 +1,6 @@
 // models/salesBudgetLines.model.js
 const { calculateDocumentTotals } = require('../../libs/taxCalculation');
-const { lineTaxAttributes } = require('./taxRate.model');
+const { lineTaxAttributes, lineDiscountAttribute } = require('./taxRate.model');
 const { Model, DataTypes, Sequelize } = require('sequelize');
 
 const SALESBUDGETLINE_TABLE = 'sales_budget_lines';
@@ -84,6 +84,8 @@ const salesBudgetLineSchema = {
   // Impuesto (código, su % va en vat) y retención opcional: ver
   // db/models/taxRate.model.js#lineTaxAttributes
   ...lineTaxAttributes(),
+  // Descuento % de la línea (ver taxRate.model.js#lineDiscountAttribute)
+  ...lineDiscountAttribute(),
 
   vat: {
     field: 'vat',

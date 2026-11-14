@@ -13,6 +13,9 @@ const taxCode = Joi.string().trim().min(1).max(20).pattern(/^[^<>]*$/)
 const withholdingType = taxCode.allow(null, '');
 const withholdingPercentage = Joi.number().min(0).max(100).precision(2).allow(null);
 
+// Descuento de la línea, % sobre cantidad × precio
+const discount = Joi.number().min(0).max(100).precision(2);
+
 const id = Joi.number().integer().positive();
 
 const rateFields = {
@@ -43,6 +46,7 @@ module.exports = {
   taxCode,
   withholdingType,
   withholdingPercentage,
+  discount,
   createTaxRateSchema,
   updateTaxRateSchema,
   getTaxRateSchema

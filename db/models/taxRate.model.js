@@ -99,6 +99,19 @@ const lineTaxAttributes = () => ({
   }
 });
 
+/**
+ * Descuento de la línea (% sobre cantidad × precio): solo líneas de
+ * documentos, no productos. Ver libs/taxCalculation.js.
+ */
+const lineDiscountAttribute = () => ({
+  discount: {
+    field: 'discount',
+    allowNull: false,
+    type: DataTypes.DECIMAL(5, 2),
+    defaultValue: 0
+  }
+});
+
 class TaxRate extends Model {
   static associate() { }
 
@@ -113,4 +126,4 @@ class TaxRate extends Model {
   }
 }
 
-module.exports = { TaxRate, TaxRateSchema, TAX_RATE_TABLE, lineTaxAttributes };
+module.exports = { TaxRate, TaxRateSchema, TAX_RATE_TABLE, lineTaxAttributes, lineDiscountAttribute };

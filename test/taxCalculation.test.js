@@ -14,6 +14,23 @@ describe('calculateDocumentTotals: impuesto + retención por línea', () => {
     expect(r.taxesToInsert.find(t => t.taxType === 'IVA').taxClass).toBeUndefined();
   });
 
+  test('Descuento: la base ya lleva el descuento; impuesto y retención sobre ella', () => {
+    const r = calc([{ quantity: 2, unitPrice: 500, discount: 10, taxType: 'IVA', vat: 21, withholdingType: 'IRPF', withholdingPercentage: 15 }]);
+    expect(r.processedLines[0].discount).toBe(10);
+    expect(r.headerTotals.amountWithoutVAT).toBeCloseTo(900);
+    expect(r.processedLines[0].amountLine).toBeCloseTo(954); // 900 + 189 - 135
+    expect(r.taxesToInsert.find(t => t.taxType === 'IVA').taxableAmount).toBeCloseTo(900);
+  });
+
+  test('Descuento fuera de rango se limita a 0-100', () => {
+    const r = calc([
+      { quantity: 1, unitPrice: 100, discount: 150, taxType: 'IVA', vat: 21 },
+      { quantity: 1, unitPrice: 100, discount: -5, taxType: 'IVA', vat: 21 }
+    ]);
+    expect(r.processedLines.map(l => l.discount)).toEqual([100, 0]);
+    expect(r.headerTotals.amountWithoutVAT).toBeCloseTo(100);
+  });
+
   test('Sin porcentaje o sin código no hay retención', () => {
     const r = calc([
       { quantity: 1, unitPrice: 100, taxType: 'IVA', vat: 21, withholdingType: 'IRPF', withholdingPercentage: 0 },

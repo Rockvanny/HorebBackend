@@ -1,5 +1,5 @@
 const Joi = require('joi');
-const { taxCode, withholdingType, withholdingPercentage } = require('./taxRate.schema');
+const { taxCode, withholdingType, withholdingPercentage, discount } = require('./taxRate.schema');
 
 const codeDocument = Joi.string();
 const lineNo = Joi.number().integer().min(1);
@@ -82,6 +82,7 @@ const createSalesBudgetLineSchema = Joi.object({
   vat: vat.optional(),
   withholdingType,
   withholdingPercentage,
+  discount,
   amountLine: amountLine.required(),
   username: username.optional(),
 });
@@ -102,6 +103,7 @@ const updateSalesBudgetLineSchema = Joi.object({
   vat: vat.optional(),
   withholdingType,
   withholdingPercentage,
+  discount,
   amountLine: amountLine.optional(),
   username: username.optional(),
 });

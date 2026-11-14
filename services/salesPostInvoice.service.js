@@ -201,6 +201,7 @@ class SalesPostInvoiceService {
             width: parseFloat(line.width) || 0,
             height: parseFloat(line.height) || 0,
             unit_price: parseFloat(line.unitPrice) || 0,
+            discount: parseFloat(line.discount) || 0,
             tax_type: line.taxType || 'IVA',
             // Retención opcional (ya normalizada por calculateDocumentTotals)
             withholding_type: line.withholdingType || null,
