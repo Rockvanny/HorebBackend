@@ -77,12 +77,12 @@ Ningún rol tiene hoy overrides por módulo en `ROLE_ACTIONS.modules` — el `de
 | `company.router.js` | 🔴 **Sin autenticación siquiera** (ni `passport.authenticate`) — CRUD completo accesible sin token. Crítico, pendiente. |
 | `conexion.router.js` | 🔴 **Sin autenticación siquiera** — igual que arriba. |
 | `enums.router.js` | 🔴 **Sin autenticación siquiera** — impacto menor (solo lectura de metadatos). |
-| Todo el resto (`users`, `vendors`, `products`, `salesBudgets*`, `salesInvoices*`, `salesPostInvoice*`, `purchInvoice*`, `purchPostInvoice*`, `verifactuLogs`, `operatingExpenses`, `documentTax`, `config`) | 🟡 JWT activo, `checkAction` comentado — cualquier usuario autenticado puede hacer cualquier cosa. |
+| Todo el resto (`users`, `vendors`, `products`, `salesBudgets*`, `salesInvoices*`, `salesPostInvoice*`, `purchInvoice*`, `purchPostInvoice*`, `verifactuLogs`, `operatingExpenses`, `config`) | 🟡 JWT activo, `checkAction` comentado — cualquier usuario autenticado puede hacer cualquier cosa. |
 
 ## 9. Gaps conocidos que faltan por resolver antes de activar el resto
 
 - **`VERIFACTU` vs `verifactuLogs`**: `verifactulogs.router.js` usa `checkAction('VIEW_VERIFACTU')`, pero el objeto real en `MODULE_HIERARCHY.SALES.objects` es `'verifactuLogs'`. No es un problema de mayúsculas (ya resuelto), es un nombre distinto — hay que alinear uno de los dos lados antes de descomentar ese router.
-- **`SALES` como objeto genérico**: `documentTax.router.js` usa `checkAction('VIEW_SALES')`, pero `'SALES'` es la clave del módulo, no un objeto dentro de él — nunca va a resolver a ningún módulo. El propio comentario original del código ya admitía que era un placeholder.
+- ~~**`SALES` como objeto genérico**: `documentTax.router.js` usa `checkAction('VIEW_SALES')`, pero `'SALES'` es la clave del módulo, no un objeto dentro de él — nunca va a resolver a ningún módulo. El propio comentario original del código ya admitía que era un placeholder.~~ **Resuelto 2026-11-15**: el router se eliminó (no lo usaba ni el Frontend ni la app).
 - **Rol `'master'` huérfano**: existe una constante `ROLES` en `services/user.service.js` que lo incluye, pero no se usa para validar nada. `access-manager.js` no tiene `'master'` en `ROLES` ni en `ROLE_ACTIONS` — si algún usuario real tuviera ese rol, quedaría sin ningún permiso al activar `checkAction`.
 - **`role` es texto libre en el schema Joi** (`Joi.string().min(5)`) — no hay lista cerrada de roles válidos en la validación de entrada, desconectada de los roles reales de `access-manager.js`.
 - **`license.modules`** (de la licencia comercial) no se cruza todavía con `MODULE_HIERARCHY` — la licencia hoy solo gatea "¿puede esta instalación usar la API?", no qué módulos concretos puede usar esa instalación.
