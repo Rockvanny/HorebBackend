@@ -181,17 +181,78 @@ class OperatingExpensesService {
     return { id };
   }
 
+  /** Cerrado: validado o de un mes ya terminado. */
+  isLocked(expense) {
+    return !!expense.isValidated || isExpenseMonthClosed(expense.date);
+  }
+
   /**
    * Un gasto deja de poder tocarse si ya fue validado manualmente, o si su
-   * mes calendario ya finalizó (cierre automático por fecha).
+   * mes calendario ya finalizó (cierre automático por fecha). Los ajustes
+   * de corrección tampoco: son el registro de la corrección (ver correct).
    */
   assertEditable(expense) {
+    if (expense.correctsId) {
+      throw boom.conflict('Es un ajuste de corrección: no se puede modificar ni eliminar.');
+    }
     if (expense.isValidated) {
       throw boom.conflict('No se puede modificar: el gasto ya ha sido validado.');
     }
     if (isExpenseMonthClosed(expense.date)) {
       throw boom.conflict('No se puede modificar: el mes de este gasto ya ha finalizado.');
     }
+  }
+
+  /**
+   * Corrige un gasto CERRADO sin tocarlo: crea en el mes abierto (fecha de
+   * hoy) un gasto de ajuste con sus importes en negativo, enlazado al
+   * original (correctsId) y con el motivo. El mes cerrado (estadísticas y
+   * Excel ya entregado a la gestoría) no cambia; el ajuste sale en el mes
+   * actual. Después el usuario registra, si hace falta, el gasto correcto
+   * como uno nuevo. Un gasto solo se corrige una vez; un ajuste no se
+   * corrige. Las nóminas de empleados, solo un administrador.
+   */
+  async correct(id, reason, userExecutor, user) {
+    const original = await this.findOne(id, user);
+    if (original.correctsId) throw boom.conflict('Un ajuste de corrección no se puede corregir.');
+    if (!this.isLocked(original)) {
+      throw boom.conflict('El gasto aún está abierto: modifícalo directamente.');
+    }
+    this.assertCanUseEmployee(original, user);
+    const existing = await models.OperatingExpenses.findOne({ where: { correctsId: original.id } });
+    if (existing) throw boom.conflict(`Este gasto ya se corrigió (ajuste #${existing.id}).`);
+
+    const today = new Date().toISOString().slice(0, 10);
+    const originalDate = new Date(original.date).toLocaleDateString('es-ES');
+    const concept = `Ajuste del gasto #${original.id} (${originalDate}): ${reason}`.slice(0, 255);
+    return this.create({
+      date: today,
+      category: original.category,
+      entityType: original.entityType,
+      entityCode: original.entityCode,
+      name: original.name,
+      nif: original.nif,
+      concept,
+      baseAmount: -parseFloat(original.baseAmount || 0),
+      tax: parseFloat(original.tax || 0),
+      irpf: parseFloat(original.irpf || 0),
+      paymentMethod: original.paymentMethod,
+      correctsId: original.id,
+      correctionReason: reason
+    }, userExecutor, user);
+  }
+
+  /**
+   * Relación de corrección para la ficha: si el gasto fue corregido (su
+   * ajuste) o si él mismo es un ajuste (el gasto que corrige).
+   */
+  async getCorrectionInfo(expense) {
+    const pick = (e) => e && { id: e.id, date: e.date, concept: e.concept, totalAmount: e.totalAmount, userName: e.userName, reason: e.correctionReason, createdAt: e.createdAt };
+    const [adjustment, original] = await Promise.all([
+      models.OperatingExpenses.findOne({ where: { correctsId: expense.id } }),
+      expense.correctsId ? models.OperatingExpenses.findByPk(expense.correctsId) : null
+    ]);
+    return { correctedBy: pick(adjustment), corrects: pick(original) };
   }
 
   async validatePreviousMonth(userExecutor) {

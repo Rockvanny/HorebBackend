@@ -57,6 +57,19 @@ const OperatingExpensesSchema = {
     type: DataTypes.STRING,
     allowNull: false,
   },
+
+  // Gasto de AJUSTE: id del gasto cerrado que corrige y motivo (ver
+  // operatingExpenses.service.js#correct). null en los gastos normales.
+  correctsId: {
+    field: 'corrects_id',
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
+  correctionReason: {
+    field: 'correction_reason',
+    type: DataTypes.STRING(300),
+    allowNull: true,
+  },
   name: {
     field: 'name',
     type: DataTypes.STRING,

@@ -44,6 +44,12 @@ const getOperatingExpenseSchema = Joi.object({
   id: id.required(),
 });
 
+// Corregir un gasto cerrado: el motivo queda en el gasto de ajuste
+const correctOperatingExpenseSchema = Joi.object({
+  reason: Joi.string().trim().min(5).max(300).required()
+    .messages({ 'string.min': 'Explica el motivo de la corrección (mínimo 5 caracteres).', 'any.required': 'Indica el motivo de la corrección.' }),
+});
+
 const createOperatingExpenseSchema = Joi.object({
   date: date.required(),
   category: category.required(),
@@ -80,6 +86,7 @@ const updateOperatingExpenseSchema = Joi.object({
 
 module.exports = {
   getOperatingExpenseSchema,
+  correctOperatingExpenseSchema,
   createOperatingExpenseSchema,
   updateOperatingExpenseSchema,
   queryOperatingExpenseSchema

@@ -8,6 +8,7 @@ const {
   createOperatingExpenseSchema,
   getOperatingExpenseSchema,
   updateOperatingExpenseSchema,
+  correctOperatingExpenseSchema,
   queryOperatingExpenseSchema // Asegúrate de tener este schema creado
 } = require('../schemas/operatingExpenses.schema');
 
@@ -84,7 +85,11 @@ router.get('/:id',
       const { id } = req.params;
       const expense = await service.findOne(id, req.user);
       const data = expense.toJSON();
-      data.locked = expense.isValidated || isExpenseMonthClosed(expense.date);
+      // Un ajuste de corrección tampoco se edita (ver service#assertEditable)
+      data.locked = !!expense.correctsId || expense.isValidated || isExpenseMonthClosed(expense.date);
+      // Corrección: su ajuste (si se corrigió) o el gasto que corrige (si
+      // es un ajuste). Ver service#correct.
+      Object.assign(data, await service.getCorrectionInfo(expense));
       res.json(data);
     } catch (error) {
       next(error);
@@ -163,6 +168,27 @@ router.delete('/:id',
       const userId = req.user.code;
       await service.delete(id, userId, req.user);
       res.status(200).json({ id });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * CORREGIR UN GASTO CERRADO (validado o de un mes terminado): crea un
+ * ajuste en negativo en el mes abierto, sin tocar el original. Ver
+ * service#correct. Administradores y financiero; las nóminas de empleados,
+ * solo administradores (lo comprueba el servicio).
+ */
+router.post('/:id/correct',
+  passport.authenticate('jwt', { session: false }),
+  checkRole('admin', 'financiero'),
+  validatorHandler(getOperatingExpenseSchema, 'params'),
+  validatorHandler(correctOperatingExpenseSchema, 'body'),
+  async (req, res, next) => {
+    try {
+      const adjustment = await service.correct(req.params.id, req.body.reason, req.user.code, req.user);
+      res.status(201).json(adjustment);
     } catch (error) {
       next(error);
     }
