@@ -26,7 +26,8 @@ Requiere sesión: `Authorization: Bearer <token>`. Llamadlo una vez justo despu�
     "PURCHASES": { "objects": ["purchInvoices", "purchOverDueInvoices", "purchPostInvoices"] },
     "SETUP":     { "objects": ["company", "series", "users", "conexion"] },
     "REPORTS":   { "objects": ["stats"] }
-  }
+  },
+  "features": { "verifactu": true }
 }
 ```
 
@@ -37,6 +38,7 @@ Requiere sesión: `Authorization: Bearer <token>`. Llamadlo una vez justo despu�
 - **`modules`**: un objeto por cada módulo que el usuario tiene activo. **Si una clave de módulo no aparece aquí, ese usuario no tiene ese módulo activo en absoluto — ocultad esa sección del menú por completo**, no la mostréis deshabilitada.
   - `objects`: lista de páginas/recursos visibles dentro de ese módulo para este usuario+rol. Si un objeto no está en la lista, no mostréis su entrada de menú ni permitáis navegar a esa pantalla (aunque el módulo esté activo).
   - `actions` (opcional, solo aparece si el rol tiene un override específico para ese módulo): si está presente, sustituye al array `actions` global **solo dentro de ese módulo**. Hoy ningún rol tiene overrides por módulo — siempre que aparezca `modules`, usad el `actions` global.
+- **`features`** (desde 2026-11-14): características activables de la instalación (tabla `module_config`). Hoy solo `verifactu`: con `false`, el backend ya quita `verifactuConfig` y `verifactuLogs` de `modules`, y el frontend oculta todo lo demás que hable de Veri*factu (aviso al registrar, QR al imprimir, ayuda, asistente, causa de exención en Impuestos; ver Frontend `utils/system/features.js`). Se elige en el asistente de primera instalación (`POST /setup/first-admin`, campos `country` y `verifactu`) y se cambia en Configuración › Módulos; el cambio llega al volver a iniciar sesión.
 
 ### Ejemplo: vendedor sin acceso a `SETUP` ni `REPORTS`
 
@@ -58,12 +60,14 @@ Un usuario `financiero` con `allowSettings: true` recibe `SETUP` en `modules`, p
 
 ## Módulos y objetos disponibles hoy
 
+Fuente de verdad: `MODULE_HIERARCHY` en [config/access-manager.js](../config/access-manager.js) (tabla actualizada 2026-11-14).
+
 | Módulo | Objetos |
 |---|---|
-| `GESTION` | `customers`, `vendors`, `products`, `operatingExpenses` |
-| `SALES` | `salesBudgets`, `salesInvoices`, `salesOverdueInvoices`, `salesPostInvoices`, `verifactuLogs` |
-| `PURCHASES` | `purchInvoices`, `purchOverDueInvoices`, `purchPostInvoices` |
-| `SETUP` | `company`, `series`, `users`, `conexion` |
+| `GESTION` | `customers`, `vendors`, `products`, `operatingExpenses`, `buildings` (solo admin) |
+| `SALES` | `salesBudgets`, `salesInvoices`, `salesOverdueInvoices`, `salesInvoiceCreditNotes`, `salesPostInvoices`, `salesCreditNotes`, `verifactuLogs` (solo con `features.verifactu`) |
+| `PURCHASES` | `purchInvoices`, `purchOverDueInvoices`, `purchInvoiceCreditNotes`, `purchPostInvoices`, `purchCreditNotes` |
+| `SETUP` | `company`, `series`, `users`, `employees`, `expenseCategories`, `taxRates`, `conexion`, `moduleConfig`, `verifactuConfig` (solo con `features.verifactu`). `financiero` solo ve `company`, `series`, `employees`, `expenseCategories` y `taxRates` |
 | `REPORTS` | `stats` — el dashboard de gráficos de la pantalla de inicio. Nuevo: antes cualquiera con sesión lo veía, ahora requiere que el módulo esté activo para ese usuario. |
 
 ## Cuando el backend sí aplica el permiso: forma del error
