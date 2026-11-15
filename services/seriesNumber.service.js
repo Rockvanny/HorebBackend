@@ -7,6 +7,36 @@ const { SERIES_TYPES } = require('../db/models/SeriesNumber.model');
 const { incrementAlphanumeric } = require('../libs/sequence.handler');
 const logger = require('../libs/logger');
 
+// Resolución DIAN (Colombia, ver SeriesNumber.model.js)
+const DIAN_FIELDS = ['coDianResolution', 'coDianResolutionDate', 'coDianPrefix', 'coDianRangeFrom', 'coDianRangeTo', 'coDianTechnicalKey'];
+
+const splitDianFields = (data) => {
+  const dian = {};
+  const other = {};
+  Object.entries(data).forEach(([key, value]) => {
+    if (DIAN_FIELDS.includes(key)) dian[key] = value === '' ? null : value;
+    else other[key] = value;
+  });
+  return { dian, other };
+};
+
+const isSet = (v) => v !== undefined && v !== null && v !== '';
+
+/**
+ * ¿Hay resolución? Si se rellena algo, número de resolución y rango son
+ * obligatorios y el rango debe ser coherente. true = serie con resolución.
+ */
+const checkDianResolution = (dian) => {
+  if (!DIAN_FIELDS.some(key => isSet(dian[key]))) return false;
+  if (!isSet(dian.coDianResolution) || !isSet(dian.coDianRangeFrom) || !isSet(dian.coDianRangeTo)) {
+    throw boom.badRequest('La resolución DIAN necesita número de resolución y rango (desde y hasta).');
+  }
+  if (Number(dian.coDianRangeTo) < Number(dian.coDianRangeFrom)) {
+    throw boom.badRequest('El rango DIAN debe terminar en un número mayor o igual que el inicial.');
+  }
+  return true;
+};
+
 class seriesNumberService {
   constructor() { }
 
@@ -153,10 +183,20 @@ class seriesNumberService {
    */
   async create(data, userExecutor) {
     const typeId = this.#getTypeId(data.type);
-    const { newPostingSerie, ...serieData } = data;
+    const { newPostingSerie, ...rest } = data;
+    const { dian, other: serieData } = splitDianFields(rest);
+    const hasDian = checkDianResolution(dian);
+    if (hasDian && typeId !== SERIES_TYPES.salesinvoice.id) {
+      throw boom.badRequest('La resolución DIAN solo se usa en series de documentos de venta.');
+    }
 
     if (!newPostingSerie) {
-      return await models.seriesNumber.create({ ...serieData, type: typeId }, { userExecutor });
+      // Una provisional (vinculada a una definitiva) no numera facturas
+      // registradas: la resolución va en su definitiva
+      if (hasDian && serieData.postingSerie) {
+        throw boom.badRequest('La resolución DIAN va en la numeración definitiva, no en la provisional.');
+      }
+      return await models.seriesNumber.create({ ...serieData, ...dian, type: typeId }, { userExecutor });
     }
 
     const voucherTypes = [SERIES_TYPES.salesinvoice.id, SERIES_TYPES.purchinvoice.id];
@@ -179,7 +219,9 @@ class seriesNumberService {
         fromDate: serieData.fromDate,
         toDate: serieData.toDate,
         postingSerie: null,
-        username: serieData.username
+        username: serieData.username,
+        // La resolución DIAN numera las facturas registradas: va en la definitiva
+        ...dian
       }, { transaction, userExecutor });
 
       return await models.seriesNumber.create(
@@ -198,11 +240,23 @@ class seriesNumberService {
 
   async update(typeStr, code, changes, userExecutor) {
     const serie = await this.findOne(typeStr, code);
+    const { dian } = splitDianFields(changes);
+    if (Object.keys(dian).length) {
+      const merged = Object.fromEntries(DIAN_FIELDS.map(key => [key, key in dian ? dian[key] : serie[key]]));
+      if (checkDianResolution(merged) && (serie.type !== SERIES_TYPES.salesinvoice.id || serie.postingSerie)) {
+        throw boom.badRequest('La resolución DIAN solo va en la numeración definitiva de documentos de venta.');
+      }
+      Object.assign(changes, dian);
+    }
 
     if (serie.lastValue) {
-      const blockedFields = ['fromDate', 'toDate', 'type', 'code', 'postingSerie'];
+      // La resolución DIAN tampoco: una resolución nueva es una serie nueva
+      const blockedFields = ['fromDate', 'toDate', 'type', 'code', 'postingSerie', ...DIAN_FIELDS];
+      // Mismo valor aunque llegue en otro formato (fecha con hora, número
+      // como texto, '' frente a null): no es un cambio
+      const norm = (v) => (v === null || v === undefined ? '' : (v instanceof Date ? v.toISOString() : String(v)).slice(0, 10));
       const attemptingToChange = Object.keys(changes).filter(key =>
-        blockedFields.includes(key) && changes[key] !== serie[key]
+        blockedFields.includes(key) && norm(changes[key]) !== norm(serie[key])
       );
 
       if (attemptingToChange.length > 0) {

@@ -30,6 +30,19 @@ const fromDate = Joi.date().iso();
 const toDate = Joi.date().iso().greater(Joi.ref('fromDate'));
 const username = Joi.string();
 
+// Resolución de numeración DIAN (Colombia): opcional. Con ella el rango es
+// obligatorio y coherente (ver libs/sequence.handler.js#nextDianValue).
+const dianFields = {
+  coDianResolution: Joi.string().max(30).allow(null, ''),
+  coDianResolutionDate: Joi.date().iso().allow(null),
+  coDianPrefix: Joi.string().max(4).pattern(/^[A-Za-z0-9]*$/).uppercase().allow(null, '')
+    .messages({ 'string.pattern.base': 'El prefijo DIAN solo admite letras y números.' }),
+  coDianRangeFrom: Joi.number().integer().min(0).allow(null),
+  coDianRangeTo: Joi.number().integer().min(Joi.ref('coDianRangeFrom')).allow(null)
+    .messages({ 'number.min': 'El rango DIAN debe terminar en un número mayor o igual que el inicial.' }),
+  coDianTechnicalKey: Joi.string().max(100).allow(null, '')
+};
+
 // Parámetros de paginación y filtro
 const limit = Joi.number().integer().min(1);
 const offset = Joi.number().integer().min(0);
@@ -48,7 +61,8 @@ const createSeriesNumberSchema = Joi.object({
   description: description.required(),
   fromDate: fromDate.required(),
   toDate: toDate.required(),
-  username: username.optional()
+  username: username.optional(),
+  ...dianFields
 });
 
 const updateSeriesNumberSchema = Joi.object({
@@ -57,7 +71,8 @@ const updateSeriesNumberSchema = Joi.object({
   description: description.optional(),
   fromDate: fromDate.optional(),
   toDate: toDate.optional(),
-  username: username.optional()
+  username: username.optional(),
+  ...dianFields
 });
 
 const querySeriesNumberSchema = Joi.object({

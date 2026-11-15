@@ -1,6 +1,7 @@
 const { Op } = require('sequelize');
 const boom = require('@hapi/boom');
-const { SERIES_TYPES } = require('../db/models/SeriesNumber.model');
+const { SERIES_TYPES, dianLastNumber } = require('../db/models/SeriesNumber.model');
+const { isCreditNote } = require('./invoiceTypes');
 
 function incrementAlphanumeric(value) {
     if (!value) return "";
@@ -14,6 +15,25 @@ function incrementAlphanumeric(value) {
     const nextNumberStr = nextNumber.toString().padStart(numberStr.length, '0');
 
     return prefix + nextNumberStr;
+}
+
+/**
+ * Siguiente número de una serie con resolución DIAN (Colombia): prefijo +
+ * número consecutivo, sin ceros a la izquierda, dentro del rango
+ * autorizado. La vigencia ya la comprueba la búsqueda de la serie (fechas).
+ */
+function nextDianValue(serie, instance) {
+    // Las notas crédito tienen su propia numeración: no gastan números de
+    // la resolución de facturas
+    if (isCreditNote(instance.typeInvoice)) {
+        throw boom.badRequest(`La serie ${serie.code} es de una resolución DIAN de facturas: las notas crédito necesitan una serie sin resolución.`);
+    }
+    const last = dianLastNumber(serie.lastValue);
+    const next = last === null ? Number(serie.coDianRangeFrom) : last + 1;
+    if (next > Number(serie.coDianRangeTo)) {
+        throw boom.badRequest(`La resolución DIAN de la serie ${serie.code} ha agotado su rango (hasta ${serie.coDianRangeTo}): solicita una nueva resolución y crea una serie con ella.`);
+    }
+    return `${serie.coDianPrefix || ''}${next}`;
 }
 
 const MODEL_SERIES_MAP = {
@@ -76,7 +96,9 @@ async function generateNextCode(instance, options, targetField = 'code') {
         }
 
         // 3. Generación del nuevo código
-        const nextValue = incrementAlphanumeric(serie.lastValue || serie.code);
+        const nextValue = serie.coDianRangeTo !== null && serie.coDianRangeTo !== undefined
+            ? nextDianValue(serie, instance)
+            : incrementAlphanumeric(serie.lastValue || serie.code);
 
         instance[targetField] = nextValue;
 
