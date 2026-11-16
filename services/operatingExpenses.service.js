@@ -6,12 +6,16 @@ const { isExpenseMonthClosed } = require('../libs/monthClose.helper');
 
 /**
  * Gastos de empleados (entityType 'employee', nóminas): muestran el sueldo
- * de una persona, así que solo los ven y gestionan los administradores
- * (decidido con el usuario 2026-11-14). Para el resto es como si no
+ * de una persona, así que solo los ven y gestionan administradores y
+ * financiero (decidido con el usuario 2026-11-14; financiero añadido el
+ * 2026-11-16: es quien registra las nóminas). Para el resto es como si no
  * existieran, salvo en el Excel, donde van sumados por mes para que los
- * totales cuadren (ver findForReport).
+ * totales cuadren (ver findForReport). Misma regla en
+ * routes/employees.router.js#payrollAccess y en el Frontend
+ * (fields-operatingexpenses-handler.js#PAYROLL_ROLES).
  */
-const isAdmin = (user) => (user?.role || '').toLowerCase() === 'admin';
+const PAYROLL_ROLES = ['admin', 'financiero'];
+const canSeePayroll = (user) => PAYROLL_ROLES.includes((user?.role || '').toLowerCase());
 const EMPLOYEE = 'employee';
 
 class OperatingExpensesService {
@@ -19,12 +23,12 @@ class OperatingExpensesService {
 
   /** 404 (no 403) para no revelar que existe un gasto de empleado. */
   assertCanSee(expense, user) {
-    if (expense.entityType === EMPLOYEE && !isAdmin(user)) throw boom.notFound('Gasto no encontrado');
+    if (expense.entityType === EMPLOYEE && !canSeePayroll(user)) throw boom.notFound('Gasto no encontrado');
   }
 
   assertCanUseEmployee(data, user) {
-    if (data.entityType === EMPLOYEE && !isAdmin(user)) {
-      throw boom.forbidden('Solo un administrador puede registrar gastos de empleados (nóminas).');
+    if (data.entityType === EMPLOYEE && !canSeePayroll(user)) {
+      throw boom.forbidden('Solo administradores y financiero pueden registrar gastos de empleados (nóminas).');
     }
   }
 
@@ -45,7 +49,7 @@ class OperatingExpensesService {
       where: {},
     };
 
-    if (!isAdmin(user)) options.where.entityType = { [Op.ne]: EMPLOYEE };
+    if (!canSeePayroll(user)) options.where.entityType = { [Op.ne]: EMPLOYEE };
     if (startDate && endDate) {
       options.where.date = { [Op.between]: [startDate, endDate] };
     }
@@ -208,7 +212,7 @@ class OperatingExpensesService {
    * Excel ya entregado a la gestoría) no cambia; el ajuste sale en el mes
    * actual. Después el usuario registra, si hace falta, el gasto correcto
    * como uno nuevo. Un gasto solo se corrige una vez; un ajuste no se
-   * corrige. Las nóminas de empleados, solo un administrador.
+   * corrige. Las nóminas de empleados, solo administradores y financiero.
    */
   async correct(id, reason, userExecutor, user) {
     const original = await this.findOne(id, user);
@@ -333,9 +337,9 @@ class OperatingExpensesService {
         };
       };
 
-      if (isAdmin(user)) return expenses.map(toRow);
+      if (canSeePayroll(user)) return expenses.map(toRow);
 
-      // Sin ser admin: las nóminas de empleados se suman en una línea por
+      // Sin acceso a nóminas: las nóminas de empleados se suman en una línea por
       // mes ("Nóminas"), sin nombres ni importes individuales.
       const rows = [];
       const payrollByMonth = new Map();
@@ -347,7 +351,7 @@ class OperatingExpensesService {
           const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0);
           const row = {
             fecha: lastDay.toLocaleDateString('es-ES'), numeroFactura: 'N/A',
-            proveedor: 'Nóminas (detalle solo para administradores)', cif: '',
+            proveedor: 'Nóminas (detalle solo para administración y financiero)', cif: '',
             concepto: `Nóminas ${d.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}`,
             importe: 0, ivaPorcentaje: 0, irpfPorcentaje: 0, importeIva: 0, importeIrpf: 0, total: 0,
             categoria: 'Personal y Nóminas', _date: lastDay

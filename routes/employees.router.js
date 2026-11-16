@@ -117,11 +117,12 @@ router.post('/',
 
 /**
  * Búsqueda de empleados para las nóminas de gastos operativos (escritorio).
- * Solo administradores: un gasto ligado a un empleado muestra su sueldo
- * (decidido con el usuario 2026-11-14, ver operatingExpenses.router.js).
+ * Solo administradores y financiero: un gasto ligado a un empleado muestra
+ * su sueldo (decidido con el usuario 2026-11-14; financiero el 2026-11-16,
+ * ver services/operatingExpenses.service.js#PAYROLL_ROLES).
  * Van antes de '/:id'.
  */
-const payrollAccess = [passport.authenticate('jwt', { session: false }), checkRole('admin')];
+const payrollAccess = [passport.authenticate('jwt', { session: false }), checkRole('admin', 'financiero')];
 
 router.get('/lookup',
   ...payrollAccess,
