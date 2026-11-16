@@ -11,8 +11,15 @@ Una versión mayor de PostgreSQL no abre los datos de otra: hay que copiarlos y 
 Igual que cualquier otra actualización del backend:
 
 1. Pide a todos que cierren la aplicación.
-2. Descomprime el backend nuevo en la carpeta `backend`, conservando el `.env` de ese equipo.
-3. En esa carpeta:
+2. En la carpeta `backend`, **con la versión que hay ahora**, para todo:
+
+   ```
+   docker compose down
+   ```
+
+   Sin `-v`: los datos se quedan en sus volúmenes. Así PostgreSQL 13 queda parado del todo antes de copiarlo.
+3. Descomprime el backend nuevo en la carpeta `backend`, conservando el `.env` de ese equipo.
+4. En esa carpeta:
 
    ```
    docker compose up -d --build
@@ -51,6 +58,10 @@ La copia de la versión 13 queda en `BACKUP_DIR\pre-upgrade\<fecha>_<base>_pg13.
 docker logs pg-upgrade-export
 docker logs pg-upgrade-import
 ```
+
+**Lee el log antes de borrar nada**: `docker compose down` borra los contenedores y, con ellos, sus logs.
+
+Si se saltó el paso 2, también funciona: la copia espera a que Docker termine de parar la 13 (hasta un minuto) y, si se paró de golpe, lee los datos desde una copia sin tocar el original. Antes, en ese caso, fallaba con «los datos de PostgreSQL 13 están en uso pero el servidor no responde» (pasó en una instalación el 16 de noviembre de 2026).
 
 Corregido el problema, basta con volver a ejecutar `docker compose up -d`: reutiliza la copia ya hecha (`pending.dump`).
 

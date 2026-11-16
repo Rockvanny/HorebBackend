@@ -79,8 +79,10 @@ Commit:  $commit ($branch)
 Cambio:  $subject
 Fecha:   $date
 
-Instalar: extraer en la carpeta backend (conservando su .env) y ejecutar
-    docker compose up -d --build
+Instalar, con la aplicación cerrada en todos los equipos:
+  1. En la carpeta backend, con la versión actual:  docker compose down
+  2. Extraer aquí (conservando el .env) y ejecutar:  docker compose up -d --build
+  3. Comprobar:  docker logs pg-upgrade-import   y   docker logs server
 Ver docs\actualizar-postgres.md y docs\copias-de-seguridad.md.
 "@ | Set-Content -Path (Join-Path $work 'VERSION.txt') -Encoding UTF8
 
