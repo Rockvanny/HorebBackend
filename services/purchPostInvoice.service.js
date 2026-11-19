@@ -79,14 +79,26 @@ class PurchPostInvoiceService {
    * Anulación interna de una factura (o abono) de compra registrada. Las
    * compras no van a Veri*factu: si una se registró por error (p. ej. un
    * gasto operativo metido como compra) no se inventa un abono del
-   * proveedor, se anula. Solo administradores (ver router). No se borra:
-   * queda con fecha, usuario y motivo, y deja de contar en estadísticas,
-   * saldos del proveedor, el Excel y el selector de factura origen.
+   * proveedor, se anula. Administradores y financiero (ver router). No se
+   * borra: queda con fecha, usuario y motivo, y deja de contar en
+   * estadísticas, saldos del proveedor, el Excel y el selector de factura
+   * origen.
+   * Solo compras con categoría de gasto operativo (expense_categories con
+   * «Gasto general de la empresa»: luz, alquiler, nóminas...), que es el
+   * caso para el que existe (decidido con el usuario 2026-11-19). El resto
+   * de compras se corrigen con un abono del proveedor.
    */
   async void(code, reason, userCode) {
     const invoice = await purchPostInvoice.findOne({ where: { code } });
     if (!invoice) throw boom.notFound('Factura no encontrada');
     if (invoice.voidedAt) throw boom.conflict('La factura ya está anulada.');
+
+    const category = invoice.category
+      ? await sequelize.models.ExpenseCategory.findOne({ where: { name: invoice.category }, attributes: ['isGeneralExpense'] })
+      : null;
+    if (!category?.isGeneralExpense) {
+      throw boom.forbidden(`Solo se pueden anular compras con una categoría de gasto operativo. «${invoice.category || 'Sin categoría'}» no lo es: si la factura tiene un error, corrígela con un abono del proveedor.`);
+    }
 
     await invoice.update({ voidedAt: new Date(), voidedBy: userCode, voidReason: reason });
     return invoice;

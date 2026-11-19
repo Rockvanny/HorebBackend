@@ -114,11 +114,13 @@ router.get('/:code',
 
 /**
  * Anular una factura o abono de compra registrado (ver service#void).
- * Solo administradores; el motivo es obligatorio.
+ * Administradores y financiero (es quien pasa a gastos operativos las
+ * compras mal registradas); solo compras con categoría de gasto operativo
+ * (lo comprueba el servicio). El motivo es obligatorio.
  */
 router.post('/:code/void',
   passport.authenticate('jwt', { session: false }),
-  checkRole('admin'),
+  checkRole('admin', 'financiero'),
   validatorHandler(voidPurchPostInvoiceSchema, 'body'),
   async (req, res, next) => {
     try {
