@@ -355,6 +355,8 @@ class salesBudgetService {
     try {
       // Borramos líneas explícitamente si no tienes CASCADE en la DB
       await salesBudgetLine.destroy({ where: { codeDocument: record.code }, transaction });
+      // Y su desglose de impuestos (antes quedaba huérfano en document_taxes)
+      await DocumentTax.destroy({ where: { movementId: record.movementId, codeDocument: 'budget' }, transaction });
 
       await record.destroy({ transaction });
 

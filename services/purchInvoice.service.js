@@ -242,6 +242,30 @@ class purchInvoiceService {
    * intento a la vez (doble clic, dos usuarios) espera y después ya no lo
    * encuentra.
    */
+  /**
+   * Elimina un BORRADOR (factura o abono de compra) con sus líneas y su desglose de
+   * impuestos, en una transacción. Las registradas no se eliminan: viven en
+   * otra tabla y se corrigen con un abono. La ruta DELETE se perdió en
+   * 2026 y el botón Eliminar daba «Error en la petición» (404).
+   * Acepta el id o el código (el listado manda el id).
+   */
+  async delete(idOrCode) {
+    const isNumeric = !isNaN(idOrCode) && !isNaN(parseFloat(idOrCode));
+    return sequelize.transaction(async (transaction) => {
+      const draft = await purchInvoice.findOne({
+        where: isNumeric ? { id: idOrCode } : { code: idOrCode },
+        transaction,
+        lock: transaction.LOCK.UPDATE
+      });
+      if (!draft) throw boom.notFound('El borrador ya no existe: puede que se haya registrado o eliminado.');
+
+      await purchInvoiceLine.destroy({ where: { codeDocument: draft.code }, transaction });
+      await DocumentTax.destroy({ where: { movementId: draft.movementId, codeDocument: 'purchinvoice' }, transaction });
+      await draft.destroy({ transaction });
+      return { id: draft.id, code: draft.code, deleted: true };
+    });
+  }
+
   async archiveInvoice(idOrCode, userId) {
     const isNumeric = !isNaN(idOrCode) && !isNaN(parseFloat(idOrCode));
 

@@ -157,4 +157,18 @@ router.patch('/:code',
     }
 );
 
+// Eliminar un borrador de venta (factura o abono). Las registradas no se
+// eliminan. Acepta id o código (ver service.delete).
+router.delete('/:code',
+    passport.authenticate('jwt', { session: false }),
+    checkAction('DELETE_SALESINVOICES'),
+    validatorHandler(getSalesInvoiceSchema, 'params'),
+    async (req, res, next) => {
+        try {
+            const result = await service.delete(req.params.code);
+            res.status(200).json({ success: true, data: result });
+        } catch (error) { next(error); }
+    }
+);
+
 module.exports = router;
